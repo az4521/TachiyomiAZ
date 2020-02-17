@@ -33,25 +33,9 @@ internal class DownloadNotifier(private val context: Context) {
     private var isDownloading = false
 
     /**
-     * The size of queue on start download.
-     */
-    var initialQueueSize = 0
-        set(value) {
-            if (value != 0) {
-                isSingleChapter = (value == 1)
-            }
-            field = value
-        }
-
-    /**
      * Updated when error is thrown
      */
     var errorThrown = false
-
-    /**
-     * Updated when only single page is downloaded
-     */
-    var isSingleChapter = false
 
     /**
      * Updated when paused
@@ -145,39 +129,6 @@ internal class DownloadNotifier(private val context: Context) {
 
         // Reset initial values
         isDownloading = false
-        initialQueueSize = 0
-    }
-
-    /**
-     * Called when chapter is downloaded.
-     *
-     * @param download download object containing download information.
-     */
-    fun onDownloadCompleted(download: Download, queue: DownloadQueue) {
-        // Check if last download
-        if (!queue.isEmpty()) {
-            return
-        }
-        // Create notification.
-        with(notification) {
-            val title = download.manga.title.chop(15)
-            val quotedTitle = Pattern.quote(title)
-            val chapter = download.chapter.name.replaceFirst("$quotedTitle[\\s]*[-]*[\\s]*".toRegex(RegexOption.IGNORE_CASE), "")
-            setContentTitle("$title - $chapter".chop(30))
-            setContentText(context.getString(R.string.update_check_notification_download_complete))
-            setSmallIcon(android.R.drawable.stat_sys_download_done)
-            setAutoCancel(true)
-            clearActions()
-            setContentIntent(NotificationReceiver.openChapterPendingBroadcast(context, download.manga, download.chapter))
-            setProgress(0, 0, false)
-        }
-
-        // Show notification.
-        notification.show()
-
-        // Reset initial values
-        isDownloading = false
-        initialQueueSize = 0
     }
 
     /**
