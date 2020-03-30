@@ -19,11 +19,7 @@ import eu.kanade.tachiyomi.util.connectivityManager
 import eu.kanade.tachiyomi.util.plusAssign
 import eu.kanade.tachiyomi.util.powerManager
 import eu.kanade.tachiyomi.util.toast
-import eu.kanade.tachiyomi.util.lang.plusAssign
-import eu.kanade.tachiyomi.util.system.connectivityManager
-import eu.kanade.tachiyomi.util.system.notification
-import eu.kanade.tachiyomi.util.system.powerManager
-import eu.kanade.tachiyomi.util.system.toast
+import eu.kanade.tachiyomi.util.notification
 import rx.android.schedulers.AndroidSchedulers
 import rx.schedulers.Schedulers
 import rx.subscriptions.CompositeSubscription

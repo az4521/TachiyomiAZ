@@ -24,6 +24,7 @@ object Notifications {
      */
     const val CHANNEL_LIBRARY = "library_channel"
     const val ID_LIBRARY_PROGRESS = -101
+    const val ID_LIBRARY_RESULT = -102
 
     /**
      * Notification channel and ids used by the downloader.
@@ -56,7 +57,7 @@ object Notifications {
                 NotificationChannel(CHANNEL_COMMON, context.getString(R.string.channel_common),
                         NotificationManager.IMPORTANCE_LOW),
                 NotificationChannel(CHANNEL_LIBRARY, context.getString(R.string.channel_library),
-                        NotificationManager.IMPORTANCE_LOW)
+                        NotificationManager.IMPORTANCE_LOW),
                 NotificationChannel(CHANNEL_DOWNLOADER, context.getString(R.string.channel_downloader),
                         NotificationManager.IMPORTANCE_LOW),
                 NotificationChannel(CHANNEL_RESTORE, context.getString(R.string.channel_backup_restore),

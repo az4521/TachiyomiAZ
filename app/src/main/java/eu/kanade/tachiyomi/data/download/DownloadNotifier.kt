@@ -11,9 +11,7 @@ import eu.kanade.tachiyomi.data.notification.NotificationReceiver
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.util.chop
 import eu.kanade.tachiyomi.util.notificationManager
-import eu.kanade.tachiyomi.util.lang.chop
-import eu.kanade.tachiyomi.util.system.notificationBuilder
-import eu.kanade.tachiyomi.util.system.notificationManager
+import eu.kanade.tachiyomi.util.notificationBuilder
 import java.util.regex.Pattern
 
 /**

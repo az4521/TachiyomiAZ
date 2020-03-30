@@ -1,8 +1,11 @@
 package eu.kanade.tachiyomi.data.library
 
+import android.app.Notification
+import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.graphics.BitmapFactory
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
@@ -34,12 +37,9 @@ import eu.kanade.tachiyomi.util.notificationManager
 import eu.kanade.tachiyomi.util.syncChaptersWithSource
 import exh.LIBRARY_UPDATE_EXCLUDED_SOURCES
 import eu.kanade.tachiyomi.ui.main.MainActivity
-import eu.kanade.tachiyomi.util.chapter.syncChaptersWithSource
-import eu.kanade.tachiyomi.util.lang.chop
-import eu.kanade.tachiyomi.util.system.isServiceRunning
-import eu.kanade.tachiyomi.util.system.notification
-import eu.kanade.tachiyomi.util.system.notificationBuilder
-import eu.kanade.tachiyomi.util.system.notificationManager
+import eu.kanade.tachiyomi.util.chop
+import eu.kanade.tachiyomi.util.notification
+import eu.kanade.tachiyomi.util.notificationBuilder
 import rx.Observable
 import rx.Subscription
 import rx.schedulers.Schedulers
@@ -76,13 +76,18 @@ class LibraryUpdateService(
     private var subscription: Subscription? = null
 
     /**
+     * Bitmap of the app for notifications.
+     */
+    private val notificationBitmap by lazy {
+        BitmapFactory.decodeResource(resources, R.mipmap.ic_launcher)
+    }
+
+    /**
      * Pending intent of action that cancels the library update
      */
     private val cancelIntent by lazy {
         NotificationReceiver.cancelLibraryUpdatePendingBroadcast(this)
     }
-
-    private val updateNotifier by lazy { LibraryUpdateNotifier(this) }
 
     /**
      * Cached progress notification to avoid creating a lot.
@@ -326,7 +331,7 @@ class LibraryUpdateService(
                 // Notify result of the overall update.
                 .doOnCompleted {
                     if (newUpdates.isNotEmpty()) {
-                        updateNotifier.showResultNotification(newUpdates)
+                        showResultNotification(newUpdates)
                         if (downloadNew && hasDownloads) {
                             DownloadService.start(this)
                         }
@@ -523,6 +528,17 @@ class LibraryUpdateService(
             }
         }
     }
+
+    /**
+     * Returns an intent to open the main activity.
+     */
+    private fun getNotificationIntent(): PendingIntent {
+        val intent = Intent(this, MainActivity::class.java)
+        intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        intent.action = MainActivity.SHORTCUT_RECENTLY_UPDATED
+        return PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT)
+    }
+
 
     /**
      * Cancels the progress notification.
