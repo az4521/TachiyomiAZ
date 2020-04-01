@@ -5,7 +5,7 @@ import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
 import eu.kanade.tachiyomi.R
-import eu.kanade.tachiyomi.util.notificationManager
+import eu.kanade.tachiyomi.util.system.notificationManager
 
 /**
  * Class to manage the basic information of all the notifications used in the app.
@@ -46,6 +46,12 @@ object Notifications {
     const val ID_RESTORE_ERROR = -403
 
     /**
+     * Notification channel and ids used by the library updater.
+     */
+    const val CHANNEL_UPDATES_TO_EXTS = "updates_ext_channel"
+    const val ID_UPDATES_TO_EXTS = -401
+
+    /**
      * Creates the notification channels introduced in Android Oreo.
      *
      * @param context The application context.
@@ -65,7 +71,10 @@ object Notifications {
                     setShowBadge(false)
                 },
                 NotificationChannel(CHANNEL_NEW_CHAPTERS, context.getString(R.string.channel_new_chapters),
-                        NotificationManager.IMPORTANCE_DEFAULT)
+                        NotificationManager.IMPORTANCE_DEFAULT),
+                NotificationChannel(CHANNEL_UPDATES_TO_EXTS, context.getString(R.string.channel_ext_updates),
+                        NotificationManager.IMPORTANCE_DEFAULT
+        )
         )
         context.notificationManager.createNotificationChannels(channels)
     }

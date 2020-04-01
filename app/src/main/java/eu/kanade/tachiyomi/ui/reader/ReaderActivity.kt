@@ -41,7 +41,12 @@ import eu.kanade.tachiyomi.ui.reader.model.ViewerChapters
 import eu.kanade.tachiyomi.ui.reader.viewer.BaseViewer
 import eu.kanade.tachiyomi.ui.reader.viewer.pager.*
 import eu.kanade.tachiyomi.ui.reader.viewer.webtoon.WebtoonViewer
-import eu.kanade.tachiyomi.util.*
+import eu.kanade.tachiyomi.util.lang.plusAssign
+import eu.kanade.tachiyomi.util.storage.getUriCompat
+import eu.kanade.tachiyomi.util.system.GLUtil
+import eu.kanade.tachiyomi.util.system.toast
+import eu.kanade.tachiyomi.util.view.gone
+import eu.kanade.tachiyomi.util.view.visible
 import eu.kanade.tachiyomi.widget.SimpleAnimationListener
 import eu.kanade.tachiyomi.widget.SimpleSeekBarListener
 import kotlinx.android.synthetic.main.reader_activity.*
@@ -56,6 +61,7 @@ import uy.kohesive.injekt.injectLazy
 import java.io.File
 import java.util.concurrent.TimeUnit
 import kotlin.math.roundToLong
+import kotlin.math.abs
 
 /**
  * Activity containing the reader of Tachiyomi. This activity is mostly a container of the
@@ -121,15 +127,14 @@ class ReaderActivity : BaseRxActivity<ReaderPresenter>() {
         const val VERTICAL = 3
         const val WEBTOON = 4
 
-        fun newIntent(context: Context, manga: Manga, chapter: Chapter):
-            Intent {
-            val intent = Intent(context, ReaderActivity::class.java)
-            intent.putExtra("manga", manga.id)
-            intent.putExtra("chapter", chapter.id)
-            // chapters just added from library updates don't have an id yet
-            intent.putExtra("chapterUrl", chapter.url)
-            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            return intent
+        fun newIntent(context: Context, manga: Manga, chapter: Chapter): Intent {
+            return Intent(context, ReaderActivity::class.java).apply {
+                putExtra("manga", manga.id)
+                putExtra("chapter", chapter.id)
+                // chapters just added from library updates don't have an id yet
+                putExtra("chapterUrl", chapter.url)
+                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            }
         }
     }
 
@@ -258,9 +263,8 @@ class ReaderActivity : BaseRxActivity<ReaderPresenter>() {
         when (item.itemId) {
             R.id.action_settings -> ReaderSettingsSheet(this).show()
             R.id.action_custom_filter -> ReaderColorFilterSheet(this).show()
-            else -> return super.onOptionsItemSelected(item)
         }
-        return true
+        return super.onOptionsItemSelected(item)
     }
 
     /**
@@ -923,18 +927,22 @@ class ReaderActivity : BaseRxActivity<ReaderPresenter>() {
          */
         private fun setCustomBrightnessValue(value: Int) {
             // Calculate and set reader brightness.
-            val readerBrightness = if (value > 0) {
-                value / 100f
-            } else if (value < 0) {
-                0.01f
-            } else WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+            val readerBrightness = when {
+                value > 0 -> {
+                    value / 100f
+                }
+                value < 0 -> {
+                    0.01f
+                }
+                else -> WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+            }
 
             window.attributes = window.attributes.apply { screenBrightness = readerBrightness }
 
             // Set black overlay visibility.
             if (value < 0) {
                 brightness_overlay.visibility = View.VISIBLE
-                val alpha = (Math.abs(value) * 2.56).toInt()
+                val alpha = (abs(value) * 2.56).toInt()
                 brightness_overlay.setBackgroundColor(Color.argb(alpha, 0, 0, 0))
             } else {
                 brightness_overlay.visibility = View.GONE

@@ -21,8 +21,8 @@ import eu.kanade.tachiyomi.ui.reader.loader.DownloadPageLoader
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import eu.kanade.tachiyomi.ui.reader.model.ViewerChapters
-import eu.kanade.tachiyomi.util.DiskUtil
-import eu.kanade.tachiyomi.util.ImageUtil
+import eu.kanade.tachiyomi.util.storage.DiskUtil
+import eu.kanade.tachiyomi.util.system.ImageUtil
 import rx.Completable
 import rx.Observable
 import rx.Subscription
@@ -90,7 +90,7 @@ class ReaderPresenter(
 
         val chaptersForReader =
                 if (preferences.skipRead()) {
-                    var list = dbChapters.filter { it -> !it.read }.toMutableList()
+                    val list = dbChapters.filter { !it.read }.toMutableList()
                     val find = list.find { it.id == chapterId }
                     if (find == null) {
                         list.add(selectedChapter)
@@ -191,11 +191,13 @@ class ReaderPresenter(
      */
     fun init(mangaId: Long, chapterUrl: String) {
         if (!needsInit()) return
+
         val context = Injekt.get<Application>()
         val db = DatabaseHelper(context)
         val chapterId = db.getChapter(chapterUrl, mangaId).executeAsBlocking()?.id
-        if (chapterId != null)
+        if (chapterId != null) {
             init(mangaId, chapterId)
+        }
     }
 
     /**
