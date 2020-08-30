@@ -206,6 +206,7 @@
         <item name="colorAccent">@color/dark_red</item>
         <item name="android:navigationBarColor">@color/red</item>
         <item name="android:textColor">@color/red</item>
+        <item name="android:textColorSecondary">@color/dark_red</item>
         <item name="android:textColorHint">@color/dark_red</item>
         <item name="navigation_view_theme">@style/Theme.Widget.NavigationView.Red</item>
         <item name="md_color_title">@color/red</item>
