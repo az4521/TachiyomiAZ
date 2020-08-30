@@ -199,12 +199,12 @@
         <item name="navigation_view_theme">@style/Theme.Widget.NavigationView.Amoled</item>
     </style>
 
-    <styles>
+    <style name="Theme.Tachiyomi.Red" parent="Theme.Tachiyomi.Amoled">
         <item name="colorPrimary">@color/red</item>
         <item name="colorPrimaryVariant">@color/red</item>
         <item name="android:navigationBarColor">@color/red</item>
         <item name="android:textColor">@color/red</item>
-    </styles>
+    </style>
 
     <!--==============-->
     <!-- Reader Theme -->
