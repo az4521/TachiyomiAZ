@@ -34,6 +34,7 @@
     <color name="selectorColorDark">@color/md_blue_A200_50</color>
     
     <color name="red">#FF0000</color>
+    <color name="dark_red">#880000</color>
 
     <!-- Reader Theme -->
     <color name="readerColorDarkPrimary">@color/colorDarkPrimary</color>
