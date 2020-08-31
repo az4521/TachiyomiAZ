@@ -205,6 +205,7 @@
         <item name="colorPrimaryVariant">@color/red</item>
         <item name="colorSecondary">@color/dark_red</item>
         <item name="colorAccent">@color/dark_red</item>
+        <item name="colorOnPrimary">@color/red</color>
         <item name="android:navigationBarColor">@color/red</item>
         <item name="android:textColor">@color/red</item>
         <item name="android:textColorPrimary">@color/red</item>
