@@ -204,7 +204,7 @@
         <item name="colorPrimary">@color/md_black_1000</item>
         <item name="colorPrimaryVariant">@color/red</item>
         <item name="colorSecondary">@color/dark_red</item>
-        <item name="colorSurface">@color/red</item>
+        <item name="colorOnSurface">@color/red</item>
         <item name="colorAccent">@color/dark_red</item>
         <item name="colorOnPrimary">@color/red</item>
         <item name="android:navigationBarColor">@color/red</item>
