@@ -144,7 +144,7 @@ class MainActivity : BaseActivity<MainActivityBinding>() {
         drawerArrow = DrawerArrowDrawable(this)
         drawerArrow?.color = if ((preferences.themeMode().get() == PreferenceValues.ThemeMode.light || (preferences.themeMode().get() == PreferenceValues.ThemeMode.system && resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK != Configuration.UI_MODE_NIGHT_YES)) && preferences.themeLight().get() == PreferenceValues.LightThemeVariant.default) Color.BLACK else Color.WHITE
 
-        if (drawerArrow.color == Color.WHITE && preferences.themeDark.get() == PreferenceValues.DarkThemeVariant.red) {
+        if (drawerArrow.color == Color.WHITE && preferences.themeDark().get() == PreferenceValues.DarkThemeVariant.red) {
             drawerArrow?.color = Color.RED
         }
 
