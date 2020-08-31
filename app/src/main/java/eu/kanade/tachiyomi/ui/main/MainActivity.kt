@@ -142,11 +142,13 @@ class MainActivity : BaseActivity<MainActivityBinding>() {
         setSupportActionBar(binding.toolbar)
 
         drawerArrow = DrawerArrowDrawable(this)
-        drawerArrow?.color = if ((preferences.themeMode().get() == PreferenceValues.ThemeMode.light || (preferences.themeMode().get() == PreferenceValues.ThemeMode.system && resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK != Configuration.UI_MODE_NIGHT_YES)) && preferences.themeLight().get() == PreferenceValues.LightThemeVariant.default) Color.BLACK else Color.WHITE
+        var navIconColor = if ((preferences.themeMode().get() == PreferenceValues.ThemeMode.light || (preferences.themeMode().get() == PreferenceValues.ThemeMode.system && resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK != Configuration.UI_MODE_NIGHT_YES)) && preferences.themeLight().get() == PreferenceValues.LightThemeVariant.default) Color.BLACK else Color.WHITE
 
-        if (drawerArrow.color == Color.WHITE && preferences.themeDark().get() == PreferenceValues.DarkThemeVariant.red) {
-            drawerArrow?.color = Color.RED
+        if (navIconColor == Color.WHITE && preferences.themeDark().get() == PreferenceValues.DarkThemeVariant.red) {
+            navIconColor = Color.RED
         }
+
+        drawerArrow?.color = navIconColor
 
         binding.toolbar.navigationIcon = drawerArrow
 
