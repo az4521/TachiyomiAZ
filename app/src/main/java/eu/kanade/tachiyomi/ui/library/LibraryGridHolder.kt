@@ -13,18 +13,12 @@ import eu.kanade.tachiyomi.data.glide.toMangaThumbnail
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.util.isLocal
 import eu.kanade.tachiyomi.util.view.visibleIf
-import kotlinx.android.synthetic.main.source_compact_grid_item.card
-import kotlinx.android.synthetic.main.source_compact_grid_item.download_text
-import kotlinx.android.synthetic.main.source_compact_grid_item.local_text
-import kotlinx.android.synthetic.main.source_compact_grid_item.play_layout
-import kotlinx.android.synthetic.main.source_compact_grid_item.thumbnail
-import kotlinx.android.synthetic.main.source_compact_grid_item.title
-import kotlinx.android.synthetic.main.source_compact_grid_item.unread_text
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import reactivecircus.flowbinding.android.view.clicks
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import eu.kanade.tachiyomi.databinding.SourceCompactGridItemBinding
 
 /**
  * Class used to hold the displayed data of a manga in the library, like the cover or the title.
@@ -44,9 +38,11 @@ open class LibraryGridHolder(
 
     var manga: Manga? = null
 
+    private val binding = SourceCompactGridItemBinding.bind(view)
+
     // SY -->
     init {
-        play_layout.clicks()
+        binding.play_layout.clicks()
             .onEach {
                 playButtonClicked()
             }
@@ -65,42 +61,43 @@ open class LibraryGridHolder(
         manga = item.manga
         // SY <--
         // Update the title of the manga.
-        title.text = item.manga.title
+        binding.title.text = item.manga.title
 
+<<<<<<< HEAD:app/src/main/java/eu/kanade/tachiyomi/ui/library/LibraryGridHolder.kt
         // Update the unread count and its visibility.
-        with(unread_text) {
-            visibleIf { item.unreadCount > 0 }
+        with(binding.unread_text) {
+            isVisible = item.unreadCount > 0
             text = item.unreadCount.toString()
         }
         // Update the download count and its visibility.
-        with(download_text) {
-            visibleIf { item.downloadCount > 0 }
+        with(binding.download_text) {
+            isVisible = item.downloadCount > 0
             text = item.downloadCount.toString()
         }
         // set local visibility if its local manga
-        local_text.visibleIf { item.manga.isLocal() }
+        binding.local_text.isVisible = item.manga.isLocal()
 
-        card.radius = TypedValue.applyDimension(
+        binding.card.radius = TypedValue.applyDimension(
             TypedValue.COMPLEX_UNIT_DIP,
             preferences.eh_library_corner_radius().get().toFloat(),
             view.context.resources.displayMetrics
         )
 
         // SY -->
-        play_layout.isVisible = (item.manga.unread > 0 && item.startReadingButton)
+        binding.play_layout.isVisible = (item.manga.unread > 0 && item.startReadingButton)
         // SY <--
 
         // Setting this via XML doesn't work
         // For rounded corners
-        card.clipToOutline = true
+        binding.card.clipToOutline = true
 
         // Update the cover.
-        GlideApp.with(view.context).clear(thumbnail)
+        GlideApp.with(view.context).clear(binding.thumbnail)
         GlideApp.with(view.context)
             .load(item.manga.toMangaThumbnail())
             .diskCacheStrategy(DiskCacheStrategy.RESOURCE)
             .centerCrop()
-            .into(thumbnail)
+            .into(binding.thumbnail)
     }
 
     // SY -->

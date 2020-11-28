@@ -4,12 +4,13 @@ import android.annotation.SuppressLint
 import android.view.View
 import androidx.core.view.isVisible
 import eu.davidea.flexibleadapter.FlexibleAdapter
-import eu.kanade.tachiyomi.ui.base.holder.BaseFlexibleViewHolder
-import kotlinx.android.synthetic.main.extension_card_header.action_button
-import kotlinx.android.synthetic.main.extension_card_header.title
+import eu.davidea.viewholders.FlexibleViewHolder
+import eu.kanade.tachiyomi.databinding.SourceMainControllerCardHeaderBinding
 
 class ExtensionGroupHolder(view: View, adapter: FlexibleAdapter<*>) :
-    BaseFlexibleViewHolder(view, adapter) {
+    FlexibleViewHolder(view, adapter) {
+
+    private val binding = SourceMainControllerCardHeaderBinding.bind(view)
 
     @SuppressLint("SetTextI18n")
     fun bind(item: ExtensionGroupItem) {
@@ -18,10 +19,10 @@ class ExtensionGroupHolder(view: View, adapter: FlexibleAdapter<*>) :
             text += " (${item.size})"
         }
 
-        title.text = text
+        binding.title.text = text
 
-        action_button.isVisible = item.actionLabel != null && item.actionOnClick != null
-        action_button.text = item.actionLabel
-        action_button.setOnClickListener(if (item.actionLabel != null) item.actionOnClick else null)
+        binding.action_button.isVisible = item.actionLabel != null && item.actionOnClick != null
+        binding.action_button.text = item.actionLabel
+        binding.action_button.setOnClickListener(if (item.actionLabel != null) item.actionOnClick else null)
     }
 }
