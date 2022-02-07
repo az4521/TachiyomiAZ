@@ -12,18 +12,26 @@
     android:background="?attr/selectableItemBackground"
     android:orientation="horizontal">
 
-    <com.google.android.material.imageview.ShapeableImageView
-        android:id="@+id/cover"
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/cover_container"
         android:layout_width="0dp"
         android:layout_height="match_parent"
-        android:contentDescription="@string/description_cover"
-        android:scaleType="centerCrop"
+        android:background="?attr/selectableItemBackgroundBorderless"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintDimensionRatio="h,3:2"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:shapeAppearance="@style/ShapeAppearanceOverlay.Cover"
-        tools:src="@mipmap/ic_launcher" />
+        app:layout_constraintTop_toTopOf="parent">
+
+        <com.google.android.material.imageview.ShapeableImageView
+            android:id="@+id/cover"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:contentDescription="@string/description_cover"
+            android:scaleType="centerCrop"
+            app:shapeAppearance="@style/ShapeAppearanceOverlay.Cover"
+            tools:src="@mipmap/ic_launcher" />
+
+    </com.google.android.material.card.MaterialCardView>
 
     <LinearLayout
         android:layout_width="0dp"
@@ -33,7 +41,7 @@
         android:orientation="vertical"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toStartOf="@+id/remove"
-        app:layout_constraintStart_toEndOf="@+id/cover"
+        app:layout_constraintStart_toEndOf="@+id/cover_container"
         app:layout_constraintTop_toTopOf="parent">
 
         <TextView
@@ -64,22 +72,9 @@
         android:contentDescription="@string/action_resume"
         android:padding="8dp"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toStartOf="@+id/resume"
-        app:layout_constraintTop_toTopOf="parent"
-        app:srcCompat="@drawable/ic_delete_24dp"
-        app:tint="?android:attr/textColorPrimary" />
-
-    <ImageButton
-        android:id="@+id/resume"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:background="?attr/selectableItemBackgroundBorderless"
-        android:contentDescription="@string/action_resume"
-        android:padding="8dp"
-        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:srcCompat="@drawable/ic_play_arrow_24dp"
+        app:srcCompat="@drawable/ic_delete_24dp"
         app:tint="?android:attr/textColorPrimary" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
