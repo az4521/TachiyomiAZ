@@ -32,41 +32,100 @@
             android:layout_height="wrap_content"
             android:visibility="gone" />
 
-        <FrameLayout
-            android:id="@+id/downloaded_only"
-            android:layout_width="match_parent"
+        <LinearLayout
+            android:id="@+id/labels"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:background="?attr/colorTertiary"
-            android:visibility="gone"
+            android:layout_marginStart="12dp"
+            android:layout_marginTop="8dp"
+            android:layout_gravity="start"
+            android:orientation="horizontal"
+            android:visibility="visible"
             tools:visibility="visible">
 
-            <TextView
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/downloaded_only"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:padding="4dp"
-                android:text="@string/label_downloaded_only"
-                android:textColor="?attr/colorOnTertiary" />
+                android:layout_height="32dp"
+                android:layout_marginEnd="8dp"
+                android:visibility="gone"
+                app:strokeWidth="1.5dp"
+                app:strokeColor="#19FFFFFF"
+                app:cardCornerRadius="100dp"
+                app:cardElevation="0dp"
+                tools:visibility="visible">
 
-        </FrameLayout>
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:layout_marginStart="10dp"
+                    android:layout_marginEnd="10dp">
 
-        <FrameLayout
-            android:id="@+id/incognito_mode"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="?attr/colorPrimary"
-            android:visibility="gone"
-            tools:visibility="visible">
+                    <ImageView
+                        android:id="@+id/downloaded_only_icon"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_marginEnd="4dp"
+                        android:layout_gravity="start|center"
+                        android:padding="4dp"
+                        android:background="@drawable/ic_cloud_off_24dp"
+                        android:backgroundTint="?attr/colorTertiary"
+                        android:contentDescription="TODO" />
 
-            <TextView
+                    <TextView
+                        android:id="@+id/downloaded_only_text"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="4dp"
+                        android:layout_gravity="start|center"
+                        android:text="@string/label_downloaded_only"
+                        android:textColor="?attr/colorOnSurface" />
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/incognito_mode"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:padding="4dp"
-                android:text="@string/pref_incognito_mode"
-                android:textColor="?attr/colorOnPrimary" />
+                android:layout_height="32dp"
+                android:visibility="gone"
+                app:strokeWidth="1.5dp"
+                app:strokeColor="#19FFFFFF"
+                app:cardCornerRadius="100dp"
+                app:cardElevation="0dp"
+                tools:visibility="visible">
 
-        </FrameLayout>
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:layout_marginStart="10dp"
+                    android:layout_marginEnd="10dp">
+
+                    <ImageView
+                        android:id="@+id/incognito_mode_icon"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_marginEnd="4dp"
+                        android:layout_gravity="start|center"
+                        android:padding="4dp"
+                        android:background="@drawable/ic_glasses_24dp"
+                        android:backgroundTint="?attr/colorPrimary" />
+
+                    <TextView
+                        android:id="@+id/incognito_mode_text"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="4dp"
+                        android:layout_gravity="start|center"
+                        android:text="@string/pref_incognito_mode"
+                        android:textColor="?attr/colorOnSurface" />
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+        </LinearLayout>
 
     </com.google.android.material.appbar.TachiyomiAppBarLayout>
 
