@@ -90,4 +90,8 @@ object PreferenceKeys {
     // SY -->
     const val eh_logLevel = "eh_log_level"
     // SY <--
+
+    // Tako -->
+    const val banners = "pref_hide_banners"
+    // Tako <--
 }

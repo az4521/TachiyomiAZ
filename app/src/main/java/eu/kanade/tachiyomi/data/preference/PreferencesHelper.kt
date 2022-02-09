@@ -516,4 +516,8 @@ class PreferencesHelper(val context: Context) {
     fun pageLayout() = flowPrefs.getInt("page_layout", PagerConfig.PageLayout.AUTOMATIC)
 
     fun invertDoublePages() = flowPrefs.getBoolean("invert_double_pages", false)
+
+    // Tako -->
+    fun banners() = flowPrefs.getBoolean(Keys.banners, false)
+    // Tako <--
 }

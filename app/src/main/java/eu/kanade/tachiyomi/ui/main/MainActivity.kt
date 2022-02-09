@@ -17,10 +17,7 @@ import androidx.core.animation.doOnEnd
 import androidx.core.graphics.ColorUtils
 import androidx.core.splashscreen.SplashScreen
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.isVisible
+import androidx.core.view.*
 import androidx.interpolator.view.animation.FastOutSlowInInterpolator
 import androidx.interpolator.view.animation.LinearOutSlowInInterpolator
 import androidx.lifecycle.lifecycleScope
@@ -285,6 +282,12 @@ class MainActivity : BaseViewBindingActivity<MainActivityBinding>() {
             BlacklistedSources.HIDDEN_SOURCES += EXH_SOURCE_ID
         }
         // SY -->
+
+        // Tako <--
+        preferences.banners()
+            .asImmediateFlow { binding.banners?.isGone = it }
+            .launchIn(lifecycleScope)
+        // Tako -->
 
         merge(preferences.showUpdatesNavBadge().asFlow(), preferences.unreadUpdatesCount().asFlow())
             .onEach { setUnreadUpdatesBadge() }

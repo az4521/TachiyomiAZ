@@ -61,6 +61,13 @@ class SettingsGeneralController : SettingsController() {
             titleRes = R.string.pref_category_fork
 
             switchPreference {
+                key = Keys.banners
+                titleRes = R.string.pref_hide_banners
+                summaryRes = R.string.pref_hide_banners_summary
+                defaultValue = false
+            }
+
+            switchPreference {
                 bindTo(preferences.expandFilters())
                 titleRes = R.string.toggle_expand_search_filters
             }
