@@ -6,7 +6,7 @@
     android:layout_height="wrap_content"
     android:background="@drawable/library_item_selector">
 
-    <FrameLayout
+    <com.google.android.material.card.MaterialCardView
         android:id="@+id/card"
         android:layout_width="wrap_content"
         android:layout_height="220dp"
@@ -16,7 +16,8 @@
         app:layout_constraintHeight_min="100dp"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintWidth_min="100dp">
+        app:layout_constraintWidth_min="100dp"
+        app:cardElevation="0dp">
 
         <ImageView
             android:id="@+id/thumbnail"
@@ -40,14 +41,15 @@
             android:indeterminate="true"
             app:indicatorSize="56dp" />
 
-        <LinearLayout
+        <com.google.android.material.card.MaterialCardView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="4dp"
             android:layout_marginTop="4dp"
             android:background="@drawable/rounded_rectangle"
             app:layout_constraintLeft_toLeftOf="parent"
-            app:layout_constraintTop_toTopOf="parent">
+            app:layout_constraintTop_toTopOf="parent"
+            app:cardCornerRadius="@dimen/card_radius">
 
             <TextView
                 android:id="@+id/manga_chapters"
@@ -64,7 +66,8 @@
                 android:visibility="gone"
                 tools:text="101"
                 tools:visibility="visible" />
-        </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/title"
@@ -92,7 +95,7 @@
             android:indeterminate="true"
             android:visibility="gone" />
 
-    </FrameLayout>
+    </com.google.android.material.card.MaterialCardView>
 
     <LinearLayout
         android:id="@+id/card_scroll_content"

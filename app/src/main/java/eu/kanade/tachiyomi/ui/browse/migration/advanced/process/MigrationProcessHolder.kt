@@ -2,7 +2,6 @@ package eu.kanade.tachiyomi.ui.browse.migration.advanced.process
 
 import android.view.View
 import android.widget.PopupMenu
-import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
 import coil.clear
 import coil.loadAny
@@ -40,7 +39,7 @@ class MigrationProcessHolder(
         // We need to post a Runnable to show the popup to make sure that the PopupMenu is
         // correctly positioned. The reason being that the view may change position before the
         // PopupMenu is shown.
-        binding.migrationMenu.setOnClickListener { it.post { showPopupMenu(it) } }
+        binding.migrationMangaCardTo.root.setOnLongClickListener { it.post { showPopupMenu(it) } }
         binding.skipManga.setOnClickListener { it.post { adapter.removeManga(bindingAdapterPosition) } }
     }
 
@@ -50,15 +49,10 @@ class MigrationProcessHolder(
             val manga = item.manga.manga()
             val source = item.manga.mangaSource()
 
-            binding.migrationMenu.setVectorCompat(
-                R.drawable.ic_more_24dp,
-                R.attr.colorOnPrimary
-            )
             binding.skipManga.setVectorCompat(
                 R.drawable.ic_close_24dp,
-                R.attr.colorOnPrimary
+                R.attr.colorAccent
             )
-            binding.migrationMenu.isInvisible = true
             binding.skipManga.isVisible = true
             binding.migrationMangaCardTo.resetManga()
             if (manga != null) {
@@ -118,8 +112,6 @@ class MigrationProcessHolder(
                             .getString(R.string.no_alternatives_found)
                     }
                 }
-                binding.migrationMenu.isVisible = true
-                binding.skipManga.isVisible = false
                 adapter.sourceFinished()
             }
         }
