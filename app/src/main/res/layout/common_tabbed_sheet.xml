@@ -76,7 +76,8 @@
             app:layout_constraintTop_toTopOf="parent"
             app:tabTextColor="@color/tab_text_color"
             app:tabGravity="fill"
-            app:tabMode="fixed" />
+            app:tabMode="fixed"
+            app:tabRippleColor="@android:color/transparent" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
