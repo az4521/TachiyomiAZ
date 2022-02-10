@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <color name="splash">@color/accent_blue</color>
+    <color name="splash">@color/md_black_1000</color>
 
     <color name="error">#BA1B1B</color>
     <color name="errorContainer">#FFDAD4</color>
