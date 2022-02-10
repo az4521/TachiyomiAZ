@@ -715,4 +715,8 @@
     </plurals>
     <string name="humanize_fallback">moments ago</string>
 
+
+    <!-- Misc -->
+    <string name="filter">Filter</string>
+
 </resources>
