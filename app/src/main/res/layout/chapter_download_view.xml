@@ -5,7 +5,7 @@
     android:layout_width="42dp"
     android:layout_height="42dp"
     android:background="?attr/selectableItemBackgroundBorderless"
-    android:padding="8dp">
+    android:padding="7dp">
 
     <ImageView
         android:id="@+id/download_status_icon"
@@ -18,18 +18,19 @@
         android:id="@+id/download_progress"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:layout_gravity="center"
         android:padding="2dp"
         android:progress="100"
         app:indicatorInset="0dp"
-        app:indicatorSize="22dp" />
+        app:indicatorSize="24dp" />
 
     <ImageView
         android:id="@+id/download_icon"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:padding="4dp"
+        android:padding="9dp"
         android:scaleType="fitXY"
-        app:srcCompat="@drawable/ic_arrow_downward_24dp"
+        app:srcCompat="@drawable/ic_download_arrow_black_18dp"
         app:tint="?android:attr/textColorHint"
         tools:ignore="ContentDescription" />
 
