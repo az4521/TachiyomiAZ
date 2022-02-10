@@ -4,7 +4,7 @@
     <dimen name="bottom_sheet_width">0dp</dimen>
 
     <dimen name="card_radius">4dp</dimen>
-    <dimen name="card_selector_radius">6dp</dimen>
+    <dimen name="card_selector_radius">6.5dp</dimen>
     <dimen name="dialog_radius">8dp</dimen>
 
     <dimen name="fab_list_padding">88dp</dimen>
