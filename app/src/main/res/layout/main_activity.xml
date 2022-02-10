@@ -30,7 +30,9 @@
             android:id="@+id/tabs"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:visibility="gone" />
+            android:background="@drawable/transparent_tabs_background"
+            android:visibility="gone"
+            app:tabRippleColor="@android:color/transparent" />
 
         <LinearLayout
             android:id="@+id/banners"

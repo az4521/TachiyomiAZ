@@ -6,6 +6,8 @@
             <solid android:color="@android:color/transparent"/>
         </shape>
     </item>
+
+    <!--
     <item
         android:gravity="bottom">
         <shape>
@@ -13,4 +15,5 @@
             <solid android:color="?attr/colorSurfaceVariant" />
         </shape>
     </item>
+    -->
 </layer-list>
