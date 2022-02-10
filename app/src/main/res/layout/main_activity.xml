@@ -50,7 +50,7 @@
                 android:layout_marginEnd="8dp"
                 android:visibility="gone"
                 app:strokeWidth="1.5dp"
-                app:strokeColor="#19FFFFFF"
+                app:strokeColor="?android:attr/divider"
                 app:cardCornerRadius="100dp"
                 app:cardElevation="0dp"
                 tools:visibility="visible">
@@ -91,7 +91,7 @@
                 android:layout_height="32dp"
                 android:visibility="gone"
                 app:strokeWidth="1.5dp"
-                app:strokeColor="#19FFFFFF"
+                app:strokeColor="?android:attr/divider"
                 app:cardCornerRadius="100dp"
                 app:cardElevation="0dp"
                 tools:visibility="visible">
