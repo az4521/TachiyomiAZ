@@ -1,5 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <changelog bulletedList="true">
+    <changelogversion versionName="3.0.2" changeDate="Feb 12,2022">
+        <changelogtext>[b]Based on TachiyomiSY preview r347[/b]</changelogtext>
+        <changelogtext>Reverted back to a button in migration bottom sheet</changelogtext>
+        <changelogtext>Increased bottom sheet dialog radius</changelogtext>
+        <changelogtext>Added header to tracker sheet</changelogtext>
+        <changelogtext>Update Discord link in About</changelogtext>
+        <changelogtext>Polished theme items</changelogtext>
+    </changelogversion>
+
+    <changelogversion versionName="3.0.1" changeDate="Feb 11,2022">
+        <changelogtext>[b]Based on TachiyomiSY preview r347[/b]</changelogtext>
+        <changelogtext>[b]New[/b] PLEASE MAKE A BACKUP OF YOUR LIBRARY BEFORE UPDATING. YOU HAVE BEEN WARNED.</changelogtext>
+        <changelogtext>Update checker hotfix</changelogtext>
+        <changelogtext>In-app changelogs added</changelogtext>
+    </changelogversion>
+
     <changelogversion versionName="3.0.0" changeDate="Feb 11,2022">
         <changelogtext>[b]Based on TachiyomiSY preview r347[/b]</changelogtext>
         <changelogtext>[b]New[/b] PLEASE MAKE A BACKUP OF YOUR LIBRARY BEFORE UPDATING. YOU HAVE BEEN WARNED.</changelogtext>
