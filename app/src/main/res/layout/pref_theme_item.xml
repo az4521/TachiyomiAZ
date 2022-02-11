@@ -2,7 +2,7 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
-    android:layout_width="118dp"
+    android:layout_width="114dp"
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:padding="4dp">
@@ -15,21 +15,20 @@
         android:clickable="true"
         android:focusable="true"
         android:importantForAccessibility="no"
-        app:cardCornerRadius="20dp"
+        app:cardCornerRadius="17dp"
         app:strokeColor="?attr/colorAccent"
         app:strokeWidth="4dp"
         app:cardElevation="0dp">
 
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
-            android:layout_height="167dp"
-            android:background="?android:attr/colorBackground"
-            android:padding="6dp">
+            android:layout_height="170dp"
+            android:background="?android:attr/colorBackground">
 
             <View
                 android:id="@+id/top_nav"
                 android:layout_width="0dp"
-                android:layout_height="32dp"
+                android:layout_height="40dp"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent" />
@@ -37,25 +36,25 @@
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/top_nav_text"
                 android:layout_width="54dp"
-                android:layout_height="18dp"
-                android:layout_marginStart="6dp"
+                android:layout_height="17dp"
+                android:layout_marginTop="5dp"
+                android:layout_marginStart="12dp"
                 app:layout_constraintBottom_toBottomOf="@+id/top_nav"
                 app:layout_constraintStart_toStartOf="@+id/top_nav"
                 app:layout_constraintTop_toTopOf="@+id/top_nav"
                 app:cardBackgroundColor="?attr/colorOnSurface"
-                app:cardCornerRadius="6dp"/>
+                app:cardCornerRadius="4dp"/>
 
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/cover_container"
                 android:layout_width="0dp"
                 android:layout_height="0dp"
-                android:layout_marginStart="6dp"
-                android:layout_marginTop="6dp"
+                android:layout_marginTop="4dp"
                 android:src="@drawable/rounded_rectangle"
                 app:layout_constraintTop_toBottomOf="@+id/top_nav"
-                app:layout_constraintDimensionRatio="2:2.8"
-                app:layout_constraintEnd_toEndOf="@+id/center_guideline"
-                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintDimensionRatio="2:2.7"
+                app:layout_constraintStart_toStartOf="@id/top_nav_text"
+                app:layout_constraintEnd_toStartOf="@id/center_guideline"
                 app:cardBackgroundColor="?android:attr/divider"
                 app:cardElevation="0dp" />
 
@@ -91,37 +90,40 @@
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/bottom_nav"
                 android:layout_width="0dp"
-                android:layout_height="32dp"
-                android:layout_marginBottom="1dp"
+                android:layout_height="40dp"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:cardCornerRadius="14dp"/>
+                app:cardCornerRadius="0dp">
 
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/bottom_nav_selected_item"
-                android:layout_width="18dp"
-                android:layout_height="18dp"
-                android:layout_marginStart="6dp"
-                app:layout_constraintBottom_toBottomOf="@+id/bottom_nav"
-                app:layout_constraintStart_toStartOf="@+id/bottom_nav"
-                app:layout_constraintTop_toTopOf="@+id/bottom_nav"
-                app:cardBackgroundColor="?attr/colorPrimary"
-                app:cardCornerRadius="100dp"/>
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="2dp"
+                    android:layout_gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="12dp">
 
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/bottom_nav_unselected_item"
-                android:layout_width="0dp"
-                android:layout_height="18dp"
-                android:src="@drawable/oval"
-                android:layout_marginHorizontal="8dp"
-                android:alpha="0.6"
-                app:layout_constraintBottom_toBottomOf="@+id/bottom_nav"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toEndOf="@+id/bottom_nav_selected_item"
-                app:layout_constraintTop_toTopOf="@+id/bottom_nav"
-                app:cardBackgroundColor="?attr/colorOnSurface"
-                app:cardCornerRadius="6dp"/>
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/bottom_nav_selected_item"
+                        android:layout_width="17dp"
+                        android:layout_height="17dp"
+                        android:layout_marginEnd="8dp"
+                        app:cardBackgroundColor="?attr/colorPrimary"
+                        app:cardCornerRadius="100dp"/>
+
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/bottom_nav_unselected_item"
+                        android:layout_width="match_parent"
+                        android:layout_height="17dp"
+                        android:src="@drawable/oval"
+                        android:alpha="0.6"
+                        app:cardBackgroundColor="?attr/colorOnSurface"
+                        app:cardCornerRadius="4dp"/>
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
 
             <androidx.constraintlayout.widget.Guideline
                 android:id="@+id/center_guideline"
