@@ -19,13 +19,13 @@ import eu.kanade.tachiyomi.util.system.toast
 import eu.kanade.tachiyomi.widget.sheet.BaseBottomSheetDialog
 import uy.kohesive.injekt.injectLazy
 
-class MigrationBottomSheetDialog(activity: Activity, private val listener: StartMigrationListener) : BaseBottomSheetDialog(activity) {
+class MigrationBottomSheetDialog(private val activity: Activity, private val listener: StartMigrationListener) : BaseBottomSheetDialog(activity) {
     private val preferences: PreferencesHelper by injectLazy()
 
     lateinit var binding: MigrationBottomSheetBinding
 
     override fun createView(inflater: LayoutInflater): View {
-        binding = MigrationBottomSheetBinding.inflate(inflater)
+        binding = MigrationBottomSheetBinding.inflate(activity.layoutInflater)
         return binding.root
     }
 
@@ -37,7 +37,7 @@ class MigrationBottomSheetDialog(activity: Activity, private val listener: Start
 
         initPreferences()
 
-        binding.fab.setOnClickListener {
+        binding.migrateBtn.setOnClickListener {
             preferences.skipPreMigration().set(binding.skipStep.isChecked)
             preferences.hideNotFoundMigration().set(binding.HideNotFoundManga.isChecked)
             listener.startMigration(
