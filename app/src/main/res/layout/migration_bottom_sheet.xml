@@ -238,19 +238,16 @@
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
-    <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
-        android:id="@+id/fab"
-        android:layout_width="wrap_content"
+    <Button
+        android:id="@+id/migrate_btn"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:layout_marginEnd="18dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginStart="16dp"
         android:layout_marginBottom="12dp"
-        android:minWidth="0dp"
         android:text="@string/action_migrate"
-        app:icon="@drawable/ic_arrow_forward_24dp"
-        app:layout_anchor="@id/constraintLayout"
-        app:layout_anchorGravity="bottom|end"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintBottom_toBottomOf="@id/constraintLayout2" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
