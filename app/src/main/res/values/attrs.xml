@@ -23,5 +23,6 @@
     <attr name="colorBackgroundSplash" format="reference|integer"/>
     <attr name="icon_color" format="reference|integer"/>
     <attr name="md_color_compact_title" format="reference|integer"/>
+    <attr name="backgroundImage" format="reference|integer"/>
 
 </resources>

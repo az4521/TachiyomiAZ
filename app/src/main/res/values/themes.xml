@@ -16,6 +16,7 @@
 
         <!-- Theme colors -->
         <item name="colorPrimary">@color/md_white_1000</item>
+        <item name="backgroundImage">@android:color/transparent</item>
         <item name="colorOnPrimary">@color/md_black_1000</item>
         <item name="colorPrimaryVariant">@color/md_white_1000</item>
         <item name="colorSecondary">@color/colorAccentLight</item>
@@ -78,6 +79,7 @@
     <!-- Main Theme-->
     <!--===========-->
     <style name="Theme.Tachiyomi.Light" parent="Theme.Base">
+        <item name="backgroundImage">@android:color/transparent</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
         <item name="android:statusBarColor">@color/md_black_1000_54</item>
         <item name="android:navigationBarColor">@color/md_black_1000_54</item>
@@ -93,6 +95,7 @@
 
         <item name="colorPrimary">@color/colorPrimary</item>
         <item name="colorOnPrimary">@color/textColorPrimaryDark</item>
+        <item name="colorPrimaryVariant">@color/colorPrimaryDark</item>
         <item name="colorPrimaryVariant">@color/colorPrimaryDark</item>
 
         <item name="actionBarTheme">@style/Theme.Toolbar.Light</item>
@@ -126,6 +129,7 @@
     <!--=============-->
     <style name="Theme.Base.Dark" parent="Theme.MaterialComponents.NoActionBar">
         <!-- Theme colors -->
+        <item name="backgroundImage">@android:color/transparent</item>
         <item name="colorPrimary">@color/colorDarkPrimary</item>
         <item name="colorOnPrimary">@color/textColorPrimaryDark</item>
         <item name="colorPrimaryVariant">@color/colorDarkPrimary</item>
@@ -205,6 +209,7 @@
     </style>
 
     <style name="Theme.Tachiyomi.Amoled" parent="Theme.Base.Dark">
+        <item name="backgroundImage">@android:color/transparent</item>
         <item name="colorPrimary">@color/colorAmoledPrimary</item>
         <item name="colorPrimaryVariant">@color/colorAmoledPrimary</item>
         <item name="colorSurface">@color/colorAmoledPrimary</item>
@@ -220,6 +225,7 @@
     </style>
 
     <style name="Theme.Tachiyomi.Red" parent="Theme.Tachiyomi.Amoled">
+        <item name="backgroundImage">@android:color/transparent</item>
         <item name="actionBarTheme">@style/Theme.Toolbar.Red</item>
         <item name="colorPrimary">@color/md_black_1000</item>
         <item name="colorPrimaryVariant">@color/red</item>
@@ -235,6 +241,10 @@
         <item name="navigation_view_theme">@style/Theme.Widget.NavigationView.Red</item>
         <item name="md_color_title">@color/red</item>
         <item name="md_color_compact_title">@color/red</item>
+    </style>
+
+    <style name="Theme.Tachiyomi.Fumo" parent="Theme.Tachiyomi.Red">
+        <item name="backgroundImage">@drawable/background</item>
     </style>
 
     <!--==============-->

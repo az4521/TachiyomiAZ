@@ -48,6 +48,7 @@ abstract class BaseActivity<VB : ViewBinding> : AppCompatActivity() {
             Values.DarkThemeVariant.blue -> R.style.Theme_Tachiyomi_DarkBlue
             Values.DarkThemeVariant.amoled -> R.style.Theme_Tachiyomi_Amoled
             Values.DarkThemeVariant.red -> R.style.Theme_Tachiyomi_Red
+            Values.DarkThemeVariant.fumo -> R.style.Theme_Tachiyomi_Fumo
             else -> R.style.Theme_Tachiyomi_Dark
         }
     }

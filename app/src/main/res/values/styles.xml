@@ -51,6 +51,7 @@
     <!--==============-->
     <!--NavigationView-->
     <!--==============-->
+
     <style name="Theme.Widget.NavigationView" />
 
     <style name="Theme.Widget.NavigationView.Light" >
@@ -73,7 +74,6 @@
         <item name="colorPrimary">?colorAccent</item>
         <item name="colorOnSurface">@color/md_grey_100</item>
         <item name="android:backgroundTint">?colorSurface</item>
-        <item name="android:background">?colorSurface</item>
     </style>
 
     <style name="Theme.Widget.NavigationView.Red" parent="Theme.Widget.NavigationView.Amoled">
@@ -82,6 +82,8 @@
     <style name="Theme.Widget.NavigationView.FOOF" parent="Theme.Widget.NavigationView.Light">
         <item name="colorOnSurface">@color/FOOF</item>
     </style>
+
+
     <!--===============-->
     <!--Text Appearance-->
     <!--===============-->
