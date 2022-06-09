@@ -23,6 +23,9 @@
         <item name="tint">?attr/colorOnPrimary</item>
     </style>
 
+    <style name="Theme.Toolbar.Fumo" parent="@style/ThemeOverlay.MaterialComponents.Dark.ActionBar">
+        <item name="android:background">@color/fumo_primary</item>
+    </style>
 
     <!--===========-->
     <!--AlertDialog-->
@@ -46,6 +49,12 @@
 
     <style name="Theme.AlertDialog.Dark" parent="Theme.AlertDialog">
         <item name="colorAccent">@color/colorAccentDark</item>
+    </style>
+
+    <style name="Theme.AlertDialog.Fumo" parent="Theme.AlertDialog">
+        <item name="colorAccent">@color/md_white_1000</item>
+        <item name="colorSurface">@color/fumo_primary</item>
+        <item name="colorOnSurface">@color/colorAccentLight</item>
     </style>
 
     <!--==============-->
@@ -83,6 +92,10 @@
         <item name="colorOnSurface">@color/FOOF</item>
     </style>
 
+    <style name="Theme.Widget.NavigationView.Fumo" parent="Theme.Widget.NavigationView.Dark">
+        <item name="colorOnSurface">@color/md_white_1000</item>
+        <item name="android:backgroundTint">@color/fumo_primary</item>
+    </style>
 
     <!--===============-->
     <!--Text Appearance-->

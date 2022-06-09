@@ -22,6 +22,9 @@
     <color name="dialogLight">@color/md_white_1000</color>
     <color name="selectorColorLight">@color/md_blue_A400_38</color>
 
+    <color name="fumo_primary">#a3d9e4</color>
+    <color name="fumo_secondary">#2abddb</color>
+
     <color name="FOOF">#FF00FF</color>
     <color name="FOO" >#FFFF00</color>
 
@@ -52,6 +55,7 @@
     <color name="md_black_1000_54">#8A000000</color>
     <color name="md_black_1000_38">#61000000</color>
     <color name="md_black_1000_12">#1F000000</color>
+    <color name="md_black_1000_30">#4D000000</color>
 
     <color name="md_white_1000">#FFFFFFFF</color>
     <color name="md_white_1000_70">#B3FFFFFF</color>

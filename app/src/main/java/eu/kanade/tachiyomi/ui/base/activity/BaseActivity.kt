@@ -24,6 +24,7 @@ abstract class BaseActivity<VB : ViewBinding> : AppCompatActivity() {
         when (preferences.themeLight().get()) {
             Values.LightThemeVariant.blue -> R.style.Theme_Tachiyomi_LightBlue
             Values.LightThemeVariant.smoothie -> R.style.Theme_Tachiyomi_Smoothie
+            Values.LightThemeVariant.fumo -> R.style.Theme_Tachiyomi_Fumo
             else -> {
                 when {
                     // Light status + navigation bar
@@ -48,7 +49,6 @@ abstract class BaseActivity<VB : ViewBinding> : AppCompatActivity() {
             Values.DarkThemeVariant.blue -> R.style.Theme_Tachiyomi_DarkBlue
             Values.DarkThemeVariant.amoled -> R.style.Theme_Tachiyomi_Amoled
             Values.DarkThemeVariant.red -> R.style.Theme_Tachiyomi_Red
-            Values.DarkThemeVariant.fumo -> R.style.Theme_Tachiyomi_Fumo
             else -> R.style.Theme_Tachiyomi_Dark
         }
     }

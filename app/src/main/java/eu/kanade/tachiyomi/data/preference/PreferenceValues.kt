@@ -17,6 +17,7 @@ object PreferenceValues {
         default,
         blue,
         smoothie,
+        fumo,
     }
 
     // Keys are lowercase to match legacy string values
@@ -25,7 +26,6 @@ object PreferenceValues {
         blue,
         amoled,
         red,
-        fumo,
     }
 
     enum class DisplayMode {

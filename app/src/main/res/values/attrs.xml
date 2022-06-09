@@ -24,5 +24,6 @@
     <attr name="icon_color" format="reference|integer"/>
     <attr name="md_color_compact_title" format="reference|integer"/>
     <attr name="backgroundImage" format="reference|integer"/>
+    <attr name="mangaInfoBG" format="reference|integer"/>
 
 </resources>

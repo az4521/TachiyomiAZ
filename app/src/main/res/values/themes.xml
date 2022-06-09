@@ -28,6 +28,7 @@
 
         <!-- Base background/text colors -->
         <item name="android:colorBackground">@color/backgroundLight</item>
+        <item name="android:textColor">@color/textColorPrimaryLight</item>
         <item name="android:textColorPrimary">@color/textColorPrimaryLight</item>
         <item name="android:textColorSecondary">@color/textColorSecondaryLight</item>
         <item name="android:textColorHint">@color/textColorHintLight</item>
@@ -60,6 +61,7 @@
         <item name="textAppearanceButton">@style/TextAppearance.Widget.Button</item>
         <item name="textInputStyle">@style/Theme.Widget.TextInputLayout.OutlinedBox</item>
         <item name="android:itemTextAppearance">@style/TextAppearance.Widget.Menu</item>
+        <item name="mangaInfoBG">@android:color/transparent</item>
 
         <!-- Material Dialogs -->
         <item name="md_background_color">?attr/colorSurface</item>
@@ -96,7 +98,6 @@
         <item name="colorPrimary">@color/colorPrimary</item>
         <item name="colorOnPrimary">@color/textColorPrimaryDark</item>
         <item name="colorPrimaryVariant">@color/colorPrimaryDark</item>
-        <item name="colorPrimaryVariant">@color/colorPrimaryDark</item>
 
         <item name="actionBarTheme">@style/Theme.Toolbar.Light</item>
         <item name="navigation_view_theme">@style/Theme.Widget.NavigationView.Blue</item>
@@ -122,6 +123,39 @@
         <item name="navigation_view_theme">@style/Theme.Widget.NavigationView.FOOF</item>
         <item name="md_color_title">@color/FOOF</item>
         <item name="md_color_compact_title">@color/FOOF</item>
+    </style>
+
+    <style name="Theme.Tachiyomi.Fumo" parent="Theme.Tachiyomi.Dark">
+
+        <item name="backgroundImage">@drawable/fumo</item>
+        <item name="android:colorBackground">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@color/fumo_primary</item>
+
+        <item name="colorPrimary">@color/fumo_primary</item>
+        <item name="colorPrimaryVariant">@color/colorAccentLight</item>
+        <item name="colorSecondary">@color/colorAccentLight</item>
+        <item name="colorOnPrimary">@color/md_white_1000</item>
+        <item name="colorOnSurface">@color/md_white_1000</item>
+        <item name="colorSurface">@color/md_black_1000_12</item>
+
+        <item name="android:textColor">@color/md_white_1000</item>
+        <item name="android:textColorPrimary">@color/md_white_1000</item>
+        <item name="android:textColorSecondary">@color/md_white_1000</item>
+        <item name="android:textColorHint">@color/md_white_1000</item>
+
+        <item name="md_background_color">@color/fumo_primary</item>
+        <item name="md_color_title">@color/colorAccentLight</item>
+        <item name="md_color_compact_title">@color/md_white_1000</item>
+        <item name="md_color_content">@color/colorAccentLight</item>
+        <item name="md_color_button_text">@color/colorAccentLight</item>
+        <item name="md_corner_radius">@dimen/card_radius</item>
+
+        <item name="actionBarTheme">@style/Theme.Toolbar.Fumo</item>
+        <item name="dialogTheme">@style/Theme.AlertDialog.Fumo</item>
+        <item name="alertDialogTheme">@style/Theme.AlertDialog.Fumo</item>
+        <item name="navigation_view_theme">@style/Theme.Widget.NavigationView.Fumo</item>
+        <item name="mangaInfoBG">@color/md_black_1000_30</item>
+
     </style>
 
     <!--=============-->
@@ -181,6 +215,7 @@
         <item name="textAppearanceButton">@style/TextAppearance.Widget.Button</item>
         <item name="textInputStyle">@style/Theme.Widget.TextInputLayout.OutlinedBox</item>
         <item name="android:itemTextAppearance">@style/TextAppearance.Widget.Menu</item>
+        <item name="mangaInfoBG">@android:color/transparent</item>
 
         <!-- Material Dialogs -->
         <item name="md_background_color">?attr/colorSurface</item>
@@ -209,7 +244,6 @@
     </style>
 
     <style name="Theme.Tachiyomi.Amoled" parent="Theme.Base.Dark">
-        <item name="backgroundImage">@android:color/transparent</item>
         <item name="colorPrimary">@color/colorAmoledPrimary</item>
         <item name="colorPrimaryVariant">@color/colorAmoledPrimary</item>
         <item name="colorSurface">@color/colorAmoledPrimary</item>
@@ -225,7 +259,6 @@
     </style>
 
     <style name="Theme.Tachiyomi.Red" parent="Theme.Tachiyomi.Amoled">
-        <item name="backgroundImage">@android:color/transparent</item>
         <item name="actionBarTheme">@style/Theme.Toolbar.Red</item>
         <item name="colorPrimary">@color/md_black_1000</item>
         <item name="colorPrimaryVariant">@color/red</item>
@@ -241,10 +274,6 @@
         <item name="navigation_view_theme">@style/Theme.Widget.NavigationView.Red</item>
         <item name="md_color_title">@color/red</item>
         <item name="md_color_compact_title">@color/red</item>
-    </style>
-
-    <style name="Theme.Tachiyomi.Fumo" parent="Theme.Tachiyomi.Red">
-        <item name="backgroundImage">@drawable/background</item>
     </style>
 
     <!--==============-->
