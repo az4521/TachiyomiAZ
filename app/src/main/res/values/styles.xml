@@ -83,6 +83,7 @@
         <item name="colorPrimary">?colorAccent</item>
         <item name="colorOnSurface">@color/md_grey_100</item>
         <item name="android:backgroundTint">?colorSurface</item>
+        <item name="android:background">?colorSurface</item>
     </style>
 
     <style name="Theme.Widget.NavigationView.Red" parent="Theme.Widget.NavigationView.Amoled">

@@ -28,7 +28,6 @@
 
         <!-- Base background/text colors -->
         <item name="android:colorBackground">@color/backgroundLight</item>
-        <item name="android:textColor">@color/textColorPrimaryLight</item>
         <item name="android:textColorPrimary">@color/textColorPrimaryLight</item>
         <item name="android:textColorSecondary">@color/textColorSecondaryLight</item>
         <item name="android:textColorHint">@color/textColorHintLight</item>
@@ -144,7 +143,7 @@
         <item name="android:textColorHint">@color/md_white_1000</item>
 
         <item name="md_background_color">@color/fumo_primary</item>
-        <item name="md_color_title">@color/colorAccentLight</item>
+        <item name="md_color_title">@color/md_white_1000</item>
         <item name="md_color_compact_title">@color/md_white_1000</item>
         <item name="md_color_content">@color/colorAccentLight</item>
         <item name="md_color_button_text">@color/colorAccentLight</item>
