@@ -67,7 +67,9 @@ class EmptyView @JvmOverloads constructor(context: Context, attrs: AttributeSet?
             "ಥ_ಥ",
             "(˘･_･˘)",
             "(；￣Д￣)",
-            "(･Д･。"
+            "(･Д･。",
+            "ᗜ˰ᗜ",
+            "ᗜˬᗜ"
         )
 
         fun getRandomErrorFace(): String {
