@@ -69,6 +69,11 @@ class EmptyView @JvmOverloads constructor(context: Context, attrs: AttributeSet?
             "(；￣Д￣)",
             "(･Д･。",
             "ᗜ˰ᗜ",
+            "⨂_⨂",
+            "(◕_◕)",
+            "+_+",
+            "(>w<)",
+            "囧",
             "ᗜˬᗜ"
         )
 
