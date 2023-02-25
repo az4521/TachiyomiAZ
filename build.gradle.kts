@@ -15,7 +15,6 @@ allprojects {
         maven { setUrl("https://oss.sonatype.org/content/repositories/snapshots/") }
         maven { setUrl("https://dl.bintray.com/ibm-cloud-sdks/ibm-cloud-sdk-repo") }
         maven { setUrl("https://plugins.gradle.org/m2/") }
-        jcenter()
     }
 }
 
@@ -43,15 +42,15 @@ buildscript {
     dependencies {
         classpath("com.github.ben-manes:gradle-versions-plugin:0.28.0")
         classpath("com.github.zellius:android-shortcut-gradle-plugin:0.1.2")
-        classpath("com.google.gms:google-services:4.3.5")
-        classpath("com.google.android.gms:oss-licenses-plugin:0.10.2")
+        classpath("com.google.gms:google-services:4.3.15")
+        classpath("com.google.android.gms:oss-licenses-plugin:0.10.6")
         classpath(kotlin("serialization", version = "1.4.21"))
         // Realm (EH)
         classpath("io.realm:realm-gradle-plugin:7.0.1")
 
         // Firebase (EH)
         //classpath("io.fabric.tools:gradle:1.31.2")
-        classpath ("com.google.firebase:firebase-crashlytics-gradle:2.2.1")
+        classpath ("com.google.firebase:firebase-crashlytics-gradle:2.9.4")
 
     }
     repositories {
