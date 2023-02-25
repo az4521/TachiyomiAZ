@@ -5,6 +5,7 @@ import java.text.SimpleDateFormat
 apply plugin: 'com.android.application'
 apply plugin: 'com.google.android.gms.oss-licenses-plugin'
 apply plugin: 'kotlin-android'
+apply plugin: 'kotlin-android-extensions'
 apply plugin: 'kotlin-kapt'
 apply plugin: 'com.github.zellius.shortcut-helper'
 apply plugin: 'kotlinx-serialization'
@@ -34,13 +35,13 @@ ext {
 }
 
 android {
-    compileSdkVersion 33
+    compileSdkVersion 31
     publishNonDefault true
 
     defaultConfig {
         applicationId "eu.kanade.tachiyomi.az"
         minSdkVersion 21
-        targetSdkVersion 33
+        targetSdkVersion 29
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         versionCode 8740
         versionName "v8.7.4-AZ"
@@ -138,7 +139,7 @@ androidExtensions {
 dependencies {
 
     // Anime dependencies (AZ)
-    implementation 'com.google.android.exoplayer:exoplayer:2.18.3'
+    implementation 'com.google.android.exoplayer:exoplayer:2.12.2'
 
 
     // Modified dependencies
@@ -162,7 +163,7 @@ dependencies {
     implementation 'androidx.browser:browser:1.3.0'
     implementation 'androidx.multidex:multidex:2.0.1'
 
-    final lifecycle_version = '2.5.1'
+    final lifecycle_version = '2.2.0'
     implementation "androidx.lifecycle:lifecycle-common-java8:$lifecycle_version"
     implementation "androidx.lifecycle:lifecycle-extensions:$lifecycle_version"
     implementation "androidx.lifecycle:lifecycle-runtime-ktx:$lifecycle_version"
@@ -170,7 +171,7 @@ dependencies {
     // UI library
     implementation 'com.google.android.material:material:1.3.0'
 
-    standardImplementation 'com.google.firebase:firebase-core:21.1.1'
+    standardImplementation 'com.google.firebase:firebase-core:18.0.2'
 
     // ReactiveX
     implementation 'io.reactivex:rxandroid:1.2.1'
@@ -179,11 +180,11 @@ dependencies {
     implementation 'com.github.pwittchen:reactivenetwork:0.13.0'
 
     // Network client
-    final okhttp_version = '5.0.0-alpha.11'
+    final okhttp_version = '4.7.2'
     implementation "com.squareup.okhttp3:okhttp:$okhttp_version"
     implementation "com.squareup.okhttp3:logging-interceptor:$okhttp_version"
     implementation "com.squareup.okhttp3:okhttp-dnsoverhttps:$okhttp_version"
-    implementation 'com.squareup.okio:okio:3.2.0'
+    implementation 'com.squareup.okio:okio:2.6.0'
 
     // TLS 1.3 support for Android < 10
     implementation 'org.conscrypt:conscrypt-android:2.4.0'
@@ -199,7 +200,7 @@ dependencies {
     final kotlin_serialization_version = '1.3.3'
     implementation "org.jetbrains.kotlinx:kotlinx-serialization-json:$kotlin_serialization_version"
     implementation "org.jetbrains.kotlinx:kotlinx-serialization-protobuf:$kotlin_serialization_version"
-    implementation 'com.google.code.gson:gson:2.8.9'
+    implementation 'com.google.code.gson:gson:2.8.6'
     implementation 'com.github.salomonbrys.kotson:kotson:2.5.0'
 
     // JavaScript engine
@@ -214,18 +215,18 @@ dependencies {
     implementation 'org.jsoup:jsoup:1.14.3'
 
     // Job scheduling
-    final work_version = '2.8.0'
+    final work_version = '2.5.0'
     implementation "androidx.work:work-runtime:$work_version"
     implementation "androidx.work:work-runtime-ktx:$work_version"
 
     // [EXH] Android 7 SSL Workaround
-    implementation 'com.google.android.gms:play-services-safetynet:18.0.1'
+    implementation 'com.google.android.gms:play-services-safetynet:17.0.0'
 
     // Changelog
     implementation 'com.github.gabrielemariotti.changeloglib:changelog:2.1.0'
 
     // Database
-    implementation 'androidx.sqlite:sqlite-ktx:2.3.0'
+    implementation 'androidx.sqlite:sqlite-ktx:2.1.0'
     implementation 'com.github.inorichi.storio:storio-common:8be19de@aar'
     implementation 'com.github.inorichi.storio:storio-sqlite:8be19de@aar'
     implementation 'io.requery:sqlite-android:3.31.0'
@@ -332,7 +333,7 @@ dependencies {
     implementation 'com.github.akarnokd:rxjava2-interop:0.13.7'
 
     // Firebase (EH)
-    implementation 'com.google.firebase:firebase-crashlytics:18.3.5'
+    implementation 'com.google.firebase:firebase-crashlytics:17.3.1'
 
     // Better logging (EH)
     implementation 'com.elvishew:xlog:1.6.1'
@@ -373,7 +374,7 @@ dependencies {
 }
 
 buildscript {
-    ext.kotlin_version = '1.8.10'
+    ext.kotlin_version = '1.6.21'
     repositories {
         mavenCentral()
     }
