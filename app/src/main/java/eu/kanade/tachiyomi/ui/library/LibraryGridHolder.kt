@@ -63,7 +63,6 @@ open class LibraryGridHolder(
         // Update the title of the manga.
         binding.title.text = item.manga.title
 
-<<<<<<< HEAD:app/src/main/java/eu/kanade/tachiyomi/ui/library/LibraryGridHolder.kt
         // Update the unread count and its visibility.
         with(binding.unread_text) {
             isVisible = item.unreadCount > 0
