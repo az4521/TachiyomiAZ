@@ -21,8 +21,8 @@ class ExtensionGroupHolder(view: View, adapter: FlexibleAdapter<*>) :
 
         binding.title.text = text
 
-        binding.action_button.isVisible = item.actionLabel != null && item.actionOnClick != null
-        binding.action_button.text = item.actionLabel
-        binding.action_button.setOnClickListener(if (item.actionLabel != null) item.actionOnClick else null)
+        binding.actionButton.isVisible = item.actionLabel != null && item.actionOnClick != null
+        binding.actionButton.text = item.actionLabel
+        binding.actionButton.setOnClickListener(if (item.actionLabel != null) item.actionOnClick else null)
     }
 }

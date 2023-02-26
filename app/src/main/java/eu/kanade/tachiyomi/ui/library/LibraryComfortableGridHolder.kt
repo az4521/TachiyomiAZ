@@ -29,17 +29,17 @@ class LibraryComfortableGridHolder(
     adapter: FlexibleAdapter<IFlexible<RecyclerView.ViewHolder>>
 ) : LibraryGridHolder(view, adapter) {
 
+    private val binding = SourceComfortableGridItemBinding.bind(view)
+
     // SY -->
     init {
-        playLayout.clicks()
+        binding.play_layout.clicks()
             .onEach {
                 playButtonClicked()
             }
             .launchIn((adapter as LibraryCategoryAdapter).controller.scope)
     }
     // SY <--
-
-    private val binding = SourceComfortableGridItemBinding.bind(view)
 
     /**
      * Method called from [LibraryCategoryAdapter.onBindViewHolder]. It updates the data for this
