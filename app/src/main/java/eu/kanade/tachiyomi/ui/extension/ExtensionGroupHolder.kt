@@ -5,12 +5,12 @@ import android.view.View
 import androidx.core.view.isVisible
 import eu.davidea.flexibleadapter.FlexibleAdapter
 import eu.davidea.viewholders.FlexibleViewHolder
-import eu.kanade.tachiyomi.databinding.SectionHeaderItemBinding
+import eu.kanade.tachiyomi.databinding.ExtensionCardHeaderBinding
 
 class ExtensionGroupHolder(view: View, adapter: FlexibleAdapter<*>) :
     FlexibleViewHolder(view, adapter) {
 
-    private val binding = SectionHeaderItemBinding.bind(view)
+    private val binding = ExtensionCardHeaderBinding.bind(view)
 
     @SuppressLint("SetTextI18n")
     fun bind(item: ExtensionGroupItem) {

@@ -31,7 +31,7 @@ class LibraryComfortableGridHolder(
 
     // SY -->
     init {
-        play_layout.clicks()
+        playLayout.clicks()
             .onEach {
                 playButtonClicked()
             }
@@ -55,20 +55,20 @@ class LibraryComfortableGridHolder(
         binding.title.text = item.manga.title
 
         // Update the unread count and its visibility.
-        with(binding.unread_text) {
+        with(binding.unreadText) {
             isVisible = item.unreadCount > 0
             text = item.unreadCount.toString()
         }
         // Update the download count and its visibility.
-        with(binding.download_text) {
+        with(binding.downloadText) {
             isVisible = item.downloadCount > 0
             text = item.downloadCount.toString()
         }
         // set local visibility if its local manga
-        binding.local_text.isVisible = item.manga.isLocal()
+        binding.localText.isVisible = item.manga.isLocal()
 
         // SY -->
-        binding.play_layout.isVisible = (item.manga.unread > 0 && item.startReadingButton)
+        binding.playLayout.isVisible = (item.manga.unread > 0 && item.startReadingButton)
         // SY <--
 
         // Setting this via XML doesn't work
