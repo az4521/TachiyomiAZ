@@ -10,31 +10,33 @@ import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.data.preference.getOrDefault
-import eu.kanade.tachiyomi.ui.base.holder.BaseFlexibleViewHolder
 import java.util.Date
-import kotlinx.android.synthetic.main.chapters_item.chapter_description
-import kotlinx.android.synthetic.main.chapters_item.chapter_menu
-import kotlinx.android.synthetic.main.chapters_item.chapter_title
-import kotlinx.android.synthetic.main.chapters_item.download_text
 import uy.kohesive.injekt.injectLazy
+import androidx.core.view.isVisible
+import eu.davidea.viewholders.FlexibleViewHolder
+import eu.kanade.tachiyomi.databinding.ChaptersItemBinding
+import java.util.Date
 
 class ChapterHolder(
     private val view: View,
     private val adapter: ChaptersAdapter
-) : BaseFlexibleViewHolder(view, adapter) {
+) : FlexibleViewHolder(view, adapter) {
+
     private val prefs: PreferencesHelper by injectLazy()
+
+    private val binding = ChaptersItemBinding.bind(view)
 
     init {
         // We need to post a Runnable to show the popup to make sure that the PopupMenu is
         // correctly positioned. The reason being that the view may change position before the
         // PopupMenu is shown.
-        chapter_menu.setOnClickListener { it.post { showPopupMenu(it) } }
+        binding.chapter_menu.setOnClickListener { it.post { showPopupMenu(it) } }
     }
 
     fun bind(item: ChapterItem, manga: Manga) {
         val chapter = item.chapter
 
-        chapter_title.text = when (manga.displayMode) {
+        binding.chapterTitle.text = when (manga.displayMode) {
             Manga.DISPLAY_NUMBER -> {
                 val number = adapter.decimalFormat.format(chapter.chapter_number.toDouble())
                 itemView.context.getString(R.string.display_mode_chapter, number)
@@ -44,10 +46,10 @@ class ChapterHolder(
 
         // Set correct text color
         val chapterColor = if (chapter.read) adapter.readColor else adapter.unreadColor
-        chapter_title.setTextColor(chapterColor)
-        chapter_description.setTextColor(chapterColor)
+        binding.chapter_title.setTextColor(chapterColor)
+        binding.chapter_description.setTextColor(chapterColor)
         if (chapter.bookmark) {
-            chapter_title.setTextColor(adapter.bookmarkedColor)
+            binding.chapter_title.setTextColor(adapter.bookmarkedColor)
         }
 
         val descriptions = mutableListOf<CharSequence>()
@@ -67,15 +69,15 @@ class ChapterHolder(
         }
 
         if (descriptions.isNotEmpty()) {
-            chapter_description.text = descriptions.joinTo(SpannableStringBuilder(), " • ")
+            binding.chapterDescription.text = descriptions.joinTo(SpannableStringBuilder(), " • ")
         } else {
-            chapter_description.text = ""
+            binding.chapterDescription.text = ""
         }
 
         notifyStatus(item.status)
     }
 
-    fun notifyStatus(status: Int) = with(download_text) {
+    fun notifyStatus(status: Int) = with(binding.download_text) {
         when (status) {
             Download.QUEUE -> setText(R.string.chapter_queued)
             Download.DOWNLOADING -> setText(R.string.chapter_downloading)
