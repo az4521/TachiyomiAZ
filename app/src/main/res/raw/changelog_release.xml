@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <changelog bulletedList="true">
+    <changelogversion versionName="v8.8.2-AZ" changeDate="">
+        <changelogtext>fix exh</changelogtext>
+        <changelogtext>remove user agent from nh</changelogtext>
+        <changelogtext>add option to hide "last used" source in sources screen</changelogtext>
+        <changelogtext>fix .gifs not animating with new image decoder</changelogtext>
+        <changelogtext>fix tracking status button not being clickable</changelogtext>
+        <changelogtext>fix viz extension (probably also fixes some image loading issues with other exts)</changelogtext>
+        <changelogtext>fix some galleries being missing on hitomi (probably also fixes json parsing issues in other sources)</changelogtext>
+    </changelogversion>
     <changelogversion versionName="v8.8.1-AZ" changeDate="">
         <changelogtext>Remove dead built-in sources (hbrowse, perveden)</changelogtext>
         <changelogtext>Remove broken built-in sources (hitomi.la, 8muses), please use extensions instead</changelogtext>
