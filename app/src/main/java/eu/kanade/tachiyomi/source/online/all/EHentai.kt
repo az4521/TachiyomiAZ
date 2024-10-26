@@ -281,9 +281,17 @@ class EHentai(
 
     private fun parseChapterPage(response: Element) =
         with(response) {
-            select(".gdtm a").map {
-                Pair(it.child(0).attr("alt").toInt(), it.attr("href"))
-            }.sortedBy(Pair<Int, String>::first).map { it.second }
+            // quick garbage fix to for new thumbs format that's only on exh but will definitely change
+            // so i'm going to just support both on both sites cuz i don't want to update this again
+            // TODO: remove .gdtm a when that gets removed from e-h
+            (
+                select(".gdtm a").map {
+                    Pair(it.child(0).attr("alt").toInt(), it.attr("href"))
+                } +
+                    select("#gdt a").map {
+                        Pair(it.child(0).attr("title").removePrefix("Page ").substringBefore(":").toInt(), it.attr("href"))
+                    }
+                ).sortedBy(Pair<Int, String>::first).map { it.second }
         }
 
     private fun chapterPageCall(np: String): Observable<Response> {
