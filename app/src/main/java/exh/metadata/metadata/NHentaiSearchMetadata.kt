@@ -115,6 +115,7 @@ class NHentaiSearchMetadata : RaisedSearchMetadata() {
                 "p" -> "png"
                 "j" -> "jpg"
                 "g" -> "gif"
+                "w" -> "webp"
                 else -> null
             }
 
