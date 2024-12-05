@@ -7,6 +7,7 @@ import android.webkit.WebView
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.data.track.myanimelist.MyAnimeListApi
+import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.webview.BaseWebViewActivity
 import eu.kanade.tachiyomi.util.system.WebViewClientCompat
@@ -16,6 +17,7 @@ import uy.kohesive.injekt.injectLazy
 
 class MyAnimeListLoginActivity : BaseWebViewActivity() {
     private val trackManager: TrackManager by injectLazy()
+    private val networkHelper: NetworkHelper by injectLazy()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -57,7 +59,7 @@ class MyAnimeListLoginActivity : BaseWebViewActivity() {
                         }
                     }
                 }
-
+            binding.webview.settings.userAgentString = networkHelper.defaultUserAgent
             binding.webview.loadUrl(MyAnimeListApi.loginUrl())
         }
     }
