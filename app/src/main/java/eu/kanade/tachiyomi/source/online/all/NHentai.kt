@@ -201,6 +201,7 @@ class NHentai(context: Context) : HttpSource(), LewdSource<NHentaiSearchMetadata
         metadata: NHentaiSearchMetadata,
         input: Response
     ) {
+        val server = MEDIA_SERVER_REGEX.find(input.body.string())?.groupValues?.get(1)?.toInt() ?: 1
         val json =
             GALLERY_JSON_REGEX.find(input.body.string())!!.groupValues[1].replace(UNICODE_ESCAPE_REGEX) {
                 it.groupValues[1].toInt(
@@ -217,6 +218,8 @@ class NHentai(context: Context) : HttpSource(), LewdSource<NHentaiSearchMetadata
             favoritesCount = obj["num_favorites"].nullLong
 
             mediaId = obj["media_id"].nullString
+
+            mediaServer = server
 
             obj["title"].nullObj?.let { title ->
                 japaneseTitle = title["japanese"].nullString
@@ -275,7 +278,7 @@ class NHentai(context: Context) : HttpSource(), LewdSource<NHentaiSearchMetadata
                 emptyList()
             } else {
                 metadata.pageImageTypes.mapIndexed { index, s ->
-                    val imageUrl = imageUrlFromType(metadata.mediaId!!, index + 1, s)
+                    val imageUrl = imageUrlFromType(metadata.mediaId!!, metadata.mediaServer!!, index + 1, s)
                     Page(index, imageUrl!!, imageUrl)
                 }
             }
@@ -285,10 +288,11 @@ class NHentai(context: Context) : HttpSource(), LewdSource<NHentaiSearchMetadata
 
     fun imageUrlFromType(
         mediaId: String,
+        mediaServer: Int,
         page: Int,
         t: String
     ) = NHentaiSearchMetadata.typeToExtension(t)?.let {
-        "https://i.nhentai.net/galleries/$mediaId/$page.$it"
+        "https://i$mediaServer.nhentai.net/galleries/$mediaId/$page.$it"
     }
 
     override fun chapterListParse(response: Response): List<SChapter> {
@@ -352,6 +356,7 @@ class NHentai(context: Context) : HttpSource(), LewdSource<NHentaiSearchMetadata
 
     companion object {
         private val GALLERY_JSON_REGEX = Regex(".parse\\(\"(.*)\"\\);")
+        private val MEDIA_SERVER_REGEX = Regex("media_server:\\s*(\\d+),")
         private val UNICODE_ESCAPE_REGEX = Regex("\\\\u([0-9a-fA-F]{4})")
         private const val REVERSE_PARAM = "TEH_REVERSE"
 

@@ -27,6 +27,7 @@ class NHentaiSearchMetadata : RaisedSearchMetadata() {
     var favoritesCount: Long? = null
 
     var mediaId: String? = null
+    var mediaServer: Int? = null
 
     var japaneseTitle by titleDelegate(TITLE_TYPE_JAPANESE)
     var englishTitle by titleDelegate(TITLE_TYPE_ENGLISH)
