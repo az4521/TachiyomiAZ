@@ -279,7 +279,7 @@ class NHentai(context: Context) : HttpSource(), LewdSource<NHentaiSearchMetadata
                 emptyList()
             } else {
                 metadata.pageImageTypes.mapIndexed { index, s ->
-                    val imageUrl = imageUrlFromType(metadata.mediaId!!, metadata.mediaServer!!, index + 1, s)
+                    val imageUrl = imageUrlFromType(metadata.mediaId!!, metadata.mediaServer ?: 1, index + 1, s)
                     Page(index, imageUrl!!, imageUrl)
                 }
             }

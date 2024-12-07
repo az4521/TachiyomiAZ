@@ -42,10 +42,11 @@ class NHentaiSearchMetadata : RaisedSearchMetadata() {
     override fun copyTo(manga: SManga) {
         nhId?.let { manga.url = nhIdToPath(it) }
 
-        if (mediaId != null && mediaServer != null) {
+        if (mediaId != null) {
+            val server = mediaServer ?: 1
             val hqThumbs = Injekt.get<PreferencesHelper>().eh_nh_useHighQualityThumbs().get()
             typeToExtension(if (hqThumbs) coverImageType else thumbnailImageType)?.let {
-                manga.thumbnail_url = "https://t$mediaServer.nhentai.net/galleries/$mediaId/${if (hqThumbs) {
+                manga.thumbnail_url = "https://t$server.nhentai.net/galleries/$mediaId/${if (hqThumbs) {
                     "cover"
                 } else {
                     "thumb"
