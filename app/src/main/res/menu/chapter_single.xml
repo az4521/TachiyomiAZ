@@ -34,4 +34,8 @@
         android:id="@+id/action_mark_previous_as_read"
         android:title="@string/action_mark_previous_as_read" />
 
+    <item
+        android:id="@+id/action_remove_page_cache"
+        android:title="@string/action_remove_page_cache" />
+
 </menu>

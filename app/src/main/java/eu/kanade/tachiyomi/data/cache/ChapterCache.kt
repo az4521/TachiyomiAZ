@@ -176,6 +176,18 @@ class ChapterCache(private val context: Context) {
         }
     }
 
+    fun removePageListFromCache(
+        chapter: Chapter
+    ) {
+        try {
+            val key = DiskUtil.hashKeyForDisk(getKey(chapter))
+            diskCache.remove(key)
+            diskCache.flush()
+        } catch (e: Exception) {
+            // Ignore.
+        }
+    }
+
     /**
      * Returns true if image is in cache.
      *

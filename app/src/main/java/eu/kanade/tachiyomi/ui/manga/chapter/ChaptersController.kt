@@ -472,6 +472,7 @@ class ChaptersController :
             menu.findItem(R.id.action_remove_bookmark)?.isVisible = chapters.all { it.chapter.bookmark }
             menu.findItem(R.id.action_mark_as_read)?.isVisible = chapters.any { !it.chapter.read }
             menu.findItem(R.id.action_mark_as_unread)?.isVisible = chapters.all { it.chapter.read }
+            menu.findItem(R.id.action_remove_page_cache)?.isVisible = true
 
             // Hide FAB to avoid interfering with the bottom action toolbar
             binding.fab.hide()
@@ -497,7 +498,7 @@ class ChaptersController :
             R.id.action_mark_as_read -> markAsRead(getSelectedChapters())
             R.id.action_mark_as_unread -> markAsUnread(getSelectedChapters())
             R.id.action_mark_previous_as_read -> markPreviousAsRead(getSelectedChapters()[0])
-
+            R.id.action_remove_page_cache -> removePageCache(getSelectedChapters())
             else -> return false
         }
         return true
@@ -525,6 +526,7 @@ class ChaptersController :
             R.id.action_mark_as_read -> markAsRead(chapters)
             R.id.action_mark_as_unread -> markAsUnread(chapters)
             R.id.action_mark_previous_as_read -> markPreviousAsRead(chapter)
+            R.id.action_remove_page_cache -> removePageCache(chapters)
         }
     }
 
@@ -585,6 +587,14 @@ class ChaptersController :
         if (chapterPos != -1) {
             markAsRead(chapters.take(chapterPos))
         }
+        destroyActionModeIfNeeded()
+    }
+
+    private fun removePageCache(
+        chapters: List<ChapterItem>
+    ) {
+        destroyActionModeIfNeeded()
+        presenter.removePageCache(chapters)
         destroyActionModeIfNeeded()
     }
 

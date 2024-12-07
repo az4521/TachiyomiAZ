@@ -58,4 +58,9 @@
         app:iconTint="?attr/colorOnPrimary"
         app:showAsAction="always" />
 
+    <item
+        android:id="@+id/action_remove_page_cache"
+        android:title="@string/action_remove_page_cache"
+        app:showAsAction="never"
+        />
 </menu>

@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.ui.manga.chapter
 import android.os.Bundle
 import com.jakewharton.rxrelay.BehaviorRelay
 import com.jakewharton.rxrelay.PublishRelay
+import eu.kanade.tachiyomi.data.cache.ChapterCache
 import eu.kanade.tachiyomi.data.database.DatabaseHelper
 import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.data.database.models.Manga
@@ -45,7 +46,8 @@ class ChaptersPresenter(
     private val mangaFavoriteRelay: PublishRelay<Boolean>,
     val preferences: PreferencesHelper = Injekt.get(),
     private val db: DatabaseHelper = Injekt.get(),
-    private val downloadManager: DownloadManager = Injekt.get()
+    private val downloadManager: DownloadManager = Injekt.get(),
+    private val chapterCache: ChapterCache = Injekt.get()
 ) : BasePresenter<ChaptersController>() {
     /**
      * List of chapters of the manga. It's always unfiltered and unsorted.
@@ -334,6 +336,18 @@ class ChaptersPresenter(
      */
     fun downloadChapters(chapters: List<Chapter>) {
         downloadManager.downloadChapters(manga, chapters)
+    }
+
+    /**
+     * Removes the page cache for the given list of chapters.
+     * @param chapters the list of chapters from which to purge the page cache
+     */
+    fun removePageCache(
+        chapters: List<ChapterItem>
+    ) {
+        chapters.forEach {
+            chapterCache.removePageListFromCache(it.chapter)
+        }
     }
 
     /**
