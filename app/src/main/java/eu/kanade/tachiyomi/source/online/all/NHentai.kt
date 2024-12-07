@@ -201,9 +201,10 @@ class NHentai(context: Context) : HttpSource(), LewdSource<NHentaiSearchMetadata
         metadata: NHentaiSearchMetadata,
         input: Response
     ) {
-        val server = MEDIA_SERVER_REGEX.find(input.body.string())?.groupValues?.get(1)?.toInt() ?: 1
+        val strdata = input.body.string()
+        val server = MEDIA_SERVER_REGEX.find(strdata)?.groupValues?.get(1)?.toInt() ?: 1
         val json =
-            GALLERY_JSON_REGEX.find(input.body.string())!!.groupValues[1].replace(UNICODE_ESCAPE_REGEX) {
+            GALLERY_JSON_REGEX.find(strdata)!!.groupValues[1].replace(UNICODE_ESCAPE_REGEX) {
                 it.groupValues[1].toInt(
                     radix = 16
                 ).toChar().toString()
@@ -356,7 +357,7 @@ class NHentai(context: Context) : HttpSource(), LewdSource<NHentaiSearchMetadata
 
     companion object {
         private val GALLERY_JSON_REGEX = Regex(".parse\\(\"(.*)\"\\);")
-        private val MEDIA_SERVER_REGEX = Regex("media_server:\\s*(\\d+),")
+        private val MEDIA_SERVER_REGEX = Regex("media_server\\s*:\\s*(\\d+)")
         private val UNICODE_ESCAPE_REGEX = Regex("\\\\u([0-9a-fA-F]{4})")
         private const val REVERSE_PARAM = "TEH_REVERSE"
 
