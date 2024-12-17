@@ -31,10 +31,8 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.hippo.unifile.UniFile
-import com.nononsenseapps.filepicker.FilePickerActivity
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.util.lang.truncateCenter
-import eu.kanade.tachiyomi.widget.CustomLayoutPickerActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
@@ -121,19 +119,6 @@ fun Context.notification(
 ): Notification {
     val builder = notificationBuilder(channelId, block)
     return builder.build()
-}
-
-/**
- * Helper method to construct an Intent to use a custom file picker.
- * @param currentDir the path the file picker will open with.
- * @return an Intent to start the file picker activity.
- */
-fun Context.getFilePicker(currentDir: String): Intent {
-    return Intent(this, CustomLayoutPickerActivity::class.java)
-        .putExtra(FilePickerActivity.EXTRA_ALLOW_MULTIPLE, false)
-        .putExtra(FilePickerActivity.EXTRA_ALLOW_CREATE_DIR, true)
-        .putExtra(FilePickerActivity.EXTRA_MODE, FilePickerActivity.MODE_DIR)
-        .putExtra(FilePickerActivity.EXTRA_START_PATH, currentDir)
 }
 
 /**

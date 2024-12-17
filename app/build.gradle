@@ -262,7 +262,7 @@ dependencies {
     implementation "info.android15.nucleus:nucleus-support-v7:$nucleus_version"
 
     // Dependency injection
-    implementation "com.github.inorichi.injekt:injekt-core:65b0440"
+    implementation "com.github.mihonapp:injekt:91edab2317"
 
     // Image library
     final glide_version = '4.16.0'
@@ -284,9 +284,8 @@ dependencies {
     // UI
     implementation 'com.dmitrymalkovich.android:material-design-dimens:1.4'
     implementation 'com.github.dmytrodanylyk.android-process-button:library:1.0.4'
-    implementation 'eu.davidea:flexible-adapter:5.1.0'
-    implementation 'eu.davidea:flexible-adapter-ui:1.0.0'
-    implementation 'com.nononsenseapps:filepicker:2.5.2'
+    implementation 'com.github.arkon.FlexibleAdapter:flexible-adapter:c8013533'
+    implementation 'com.github.arkon.FlexibleAdapter:flexible-adapter-ui:c8013533'
     implementation 'com.nightlynexus.viewstatepageradapter:viewstatepageradapter:1.1.0'
     implementation 'com.github.mthli:Slice:v1.3'
     implementation 'com.github.chrisbanes:PhotoView:2.3.0'
@@ -408,6 +407,7 @@ buildscript {
 
 repositories {
     mavenCentral()
+    jcenter()
 }
 
 // See https://kotlinlang.org/docs/reference/experimental.html#experimental-status-of-experimental-api-markers
