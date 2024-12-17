@@ -45,7 +45,6 @@ subprojects {
 buildscript {
     dependencies {
         classpath("com.github.ben-manes:gradle-versions-plugin:0.28.0")
-        classpath("com.github.zellius:android-shortcut-gradle-plugin:0.1.2")
         classpath("com.google.gms:google-services:4.3.5")
         classpath("com.google.android.gms:oss-licenses-plugin:0.10.6")
         classpath(kotlin("serialization", version = "1.9.22"))
