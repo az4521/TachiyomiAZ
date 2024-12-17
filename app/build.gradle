@@ -6,13 +6,10 @@ apply plugin: 'com.android.application'
 apply plugin: 'com.google.android.gms.oss-licenses-plugin'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-kapt'
-apply plugin: 'com.github.zellius.shortcut-helper'
 apply plugin: 'kotlinx-serialization'
 apply plugin: 'kotlin-parcelize'
 // Realm (EH)
 apply plugin: 'realm-android'
-
-shortcutHelper.filePath = './shortcuts.xml'
 
 ext {
     // Git is needed in your system PATH for these commands to work.
