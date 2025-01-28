@@ -91,6 +91,19 @@ class DownloadCache(
     }
 
     /**
+     * Returns the amount of downloaded chapters.
+     */
+    fun getDownloadCount(): Int {
+        checkRenew()
+
+        return rootDir.files.map { source ->
+            source.value.files.map { manga ->
+                manga.value.files.filter { !it.endsWith(Downloader.TMP_DIR_SUFFIX) }.size
+            }.sum() ?: 0
+        }.sum() ?: 0
+    }
+
+    /**
      * Returns the amount of downloaded chapters for a manga.
      *
      * @param manga the manga to check.

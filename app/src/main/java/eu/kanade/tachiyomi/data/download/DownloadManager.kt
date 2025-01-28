@@ -186,6 +186,13 @@ class DownloadManager(private val context: Context) {
     }
 
     /**
+     * Returns the amount of downloaded chapters
+     */
+    fun getDownloadCount(): Int {
+        return cache.getDownloadCount()
+    }
+
+    /**
      * Returns the amount of downloaded chapters for a manga.
      *
      * @param manga the manga to check.

@@ -4,9 +4,12 @@ import android.app.Application
 import com.pushtorefresh.storio.sqlite.queries.RawQuery
 import eu.kanade.tachiyomi.data.database.DatabaseHelper
 import eu.kanade.tachiyomi.data.database.tables.MangaTable
+import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
+import eu.kanade.tachiyomi.source.LocalSource
 import eu.kanade.tachiyomi.source.SourceManager
+import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.util.system.jobScheduler
 import exh.EH_SOURCE_ID
 import exh.EXHMigrations
@@ -31,6 +34,7 @@ object DebugFunctions {
     val db: DatabaseHelper by injectLazy()
     val prefs: PreferencesHelper by injectLazy()
     val sourceManager: SourceManager by injectLazy()
+    val DownloadManager: DownloadManager by injectLazy()
 
     fun forceUpgradeMigration() {
         prefs.eh_lastVersionCode().set(0)
@@ -162,6 +166,31 @@ object DebugFunctions {
                     .build()
             )
         }
+    }
+
+    fun getStatisticsInfo(): StatisticsInfoClass {
+        val statisticsObject = StatisticsInfoClass()
+        runBlocking {
+            val libraryManga = db.getLibraryMangas().await()
+            val databaseManga = db.getMangas().await()
+            val databaseTracks = db.getAllTracks().await()
+            val databaseChapters = db.getAllChapters().await()
+
+            val databaseMangaMap = databaseManga.associateBy { it.id }
+
+            statisticsObject.apply {
+                mangaCount = libraryManga.count()
+                completedMangaCount = libraryManga.count { it.status == SManga.COMPLETED && it.unread == 0 }
+                startedMangaCount = databaseChapters.distinctBy { it.manga_id }.count { databaseMangaMap[it.manga_id]?.favorite ?: false }
+                localMangaCount = databaseManga.count { it.source == LocalSource.ID }
+                totalChapterCount = databaseChapters.count { databaseMangaMap[it.manga_id]?.favorite ?: false }
+                readChapterCount = databaseChapters.count { it.read }
+                downloadedChapterCount = DownloadManager.getDownloadCount()
+                trackedMangaCount = databaseTracks.distinctBy { it.manga_id }.count()
+                meanMangaScore = if (trackedMangaCount == 0) { Double.NaN } else { databaseTracks.map { it.score }.filter { it > 0 }.average() }
+            }
+        }
+        return statisticsObject
     }
 
     fun countMangaInDatabaseInLibrary() = db.getMangas().executeAsBlocking().count { it.favorite }

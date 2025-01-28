@@ -47,6 +47,12 @@ class SettingsMainController : SettingsController() {
                 onClick { navigateTo(SettingsGeneralController()) }
             }
             preference {
+                iconRes = R.drawable.ic_query_stats_24dp
+                iconTint = tintColor
+                titleRes = R.string.pref_category_statistics
+                onClick { navigateTo(SettingsStatisticsController()) }
+            }
+            preference {
                 iconRes = R.drawable.ic_collections_bookmark_24dp
                 iconTint = tintColor
                 titleRes = R.string.pref_category_library

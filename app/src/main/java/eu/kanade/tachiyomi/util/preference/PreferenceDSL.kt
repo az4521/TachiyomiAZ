@@ -36,14 +36,26 @@ inline fun PreferenceGroup.infoPreference(
     @StringRes infoRes: Int
 ): Preference {
     return initThenAdd(
-        Preference(context),
-        {
-            iconRes = R.drawable.ic_info_24dp
-            iconTint = context.getResourceColor(android.R.attr.textColorHint)
-            summaryRes = infoRes
-            isSelectable = false
-        }
-    )
+        Preference(context)
+    ) {
+        iconRes = R.drawable.ic_info_24dp
+        iconTint = context.getResourceColor(android.R.attr.textColorHint)
+        summaryRes = infoRes
+        isSelectable = false
+    }
+}
+
+inline fun PreferenceGroup.statisticsPreference(
+    summaryString: String,
+    @StringRes titleres: Int
+): Preference {
+    return initThenAdd(
+        Preference(context)
+    ) {
+        titleRes = titleres
+        summary = summaryString
+        isSelectable = false
+    }
 }
 
 inline fun PreferenceGroup.switchPreference(block: (@DSL SwitchPreferenceCompat).() -> Unit): SwitchPreferenceCompat {
