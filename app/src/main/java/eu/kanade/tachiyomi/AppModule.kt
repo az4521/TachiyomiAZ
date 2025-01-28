@@ -47,9 +47,11 @@ class AppModule(val app: Application) : InjektModule {
 
         addSingletonFactory { JavaScriptEngine(app) }
 
-        addSingletonFactory { SourceManager(app).also { get<ExtensionManager>().init(it) } }
+        addSingletonFactory { SourceManager(app) }
 
         addSingletonFactory { ExtensionManager(app) }
+
+        get<ExtensionManager>().init(get())
 
         addSingletonFactory { DownloadManager(app) }
 

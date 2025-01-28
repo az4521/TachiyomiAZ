@@ -12,7 +12,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import rx.Observable
 import rx.Subscription
@@ -45,8 +44,7 @@ class SourcePresenter(
         super.onCreate(savedState)
 
         // Load enabled and last used sources
-        loadSources()
-        loadLastUsedSource()
+        updateSources()
     }
 
     /**
@@ -67,7 +65,7 @@ class SourcePresenter(
                     else -> d1.compareTo(d2)
                 }
             }
-        val byLang = sources.groupByTo(map, { it.lang })
+        val byLang = sources.groupByTo(map) { it.lang }
         var sourceItems =
             byLang.flatMap {
                 val langItem = LangItem(it.key)
