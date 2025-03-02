@@ -47,7 +47,7 @@ class Pururin(delegate: HttpSource) :
             }
 
         return urlImportFetchSearchManga(newQuery) {
-            super.fetchSearchManga(page, query, filters)
+            super<DelegatedHttpSource>.fetchSearchManga(page, query, filters)
         }
     }
 

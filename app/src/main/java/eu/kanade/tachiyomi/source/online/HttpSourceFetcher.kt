@@ -2,11 +2,14 @@ package eu.kanade.tachiyomi.source.online
 
 import com.elvishew.xlog.XLog
 import eu.kanade.tachiyomi.source.model.Page
+import kotlinx.coroutines.runBlocking
 import rx.Observable
+import rx.schedulers.Schedulers
 
-fun HttpSource.getImageUrl(page: Page): Observable<Page> {
+fun HttpSource.rxCompatGetImageUrl(page: Page): Observable<Page> {
     page.status = Page.LOAD_PAGE
-    return fetchImageUrl(page)
+    return Observable.fromCallable { runBlocking { getImageUrl(page) } }
+        .subscribeOn(Schedulers.io())
         .doOnError { page.status = Page.ERROR }
         .onErrorReturn {
             // [EXH]
@@ -35,5 +38,5 @@ fun HttpSource.fetchAllImageUrlsFromPageList(pages: List<Page>): Observable<Page
 fun HttpSource.fetchRemainingImageUrlsFromPageList(pages: List<Page>): Observable<Page> {
     return Observable.from(pages)
         .filter { it.imageUrl.isNullOrEmpty() }
-        .concatMap { getImageUrl(it) }
+        .concatMap { rxCompatGetImageUrl(it) }
 }

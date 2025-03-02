@@ -20,18 +20,18 @@ import uy.kohesive.injekt.api.get
 /**
  * A basic interface for creating a source. It could be an online source, a local source, etc...
  */
-interface Source : tachiyomi.source.Source {
+interface Source {
     /**
      * Id for the source. Must be unique.
      */
-    override val id: Long
+    val id: Long
 
     /**
      * Name of the source.
      */
-    override val name: String
+    val name: String
 
-    override val lang: String
+    val lang: String
         get() = ""
 
     /**
@@ -59,11 +59,32 @@ interface Source : tachiyomi.source.Source {
     fun fetchPageList(chapter: SChapter): Observable<List<Page>>
 
     /**
+     * 1.5 ext lib Get the updated details for a manga.
+     */
+    suspend fun getMangaDetails(manga: SManga): SManga {
+        return fetchMangaDetails(manga).awaitSingle()
+    }
+
+    /**
+     * 1.5 ext lib Get all the available chapters for a manga.
+     */
+    suspend fun getChapterList(manga: SManga): List<SChapter> {
+        return fetchChapterList(manga).awaitSingle()
+    }
+
+    /**
+     * 1.5 ext lib Get the list of pages a chapter has.
+     */
+    suspend fun getPageList(chapter: SChapter): List<Page> {
+        return fetchPageList(chapter).awaitSingle()
+    }
+
+    /**
      * [1.x API] Get the updated details for a manga.
      */
-    override suspend fun getMangaDetails(manga: MangaInfo): MangaInfo {
+    suspend fun getMangaDetails(manga: MangaInfo): MangaInfo {
         val sManga = manga.toSManga()
-        val networkManga = fetchMangaDetails(sManga).awaitSingle()
+        val networkManga = getMangaDetails(sManga)
         sManga.copyFrom(networkManga)
         return sManga.toMangaInfo()
     }
@@ -71,16 +92,16 @@ interface Source : tachiyomi.source.Source {
     /**
      * [1.x API] Get all the available chapters for a manga.
      */
-    override suspend fun getChapterList(manga: MangaInfo): List<ChapterInfo> {
-        return fetchChapterList(manga.toSManga()).awaitSingle()
+    suspend fun getChapterList(manga: MangaInfo): List<ChapterInfo> {
+        return getChapterList(manga.toSManga())
             .map { it.toChapterInfo() }
     }
 
     /**
      * [1.x API] Get the list of pages a chapter has.
      */
-    override suspend fun getPageList(chapter: ChapterInfo): List<tachiyomi.source.model.Page> {
-        return fetchPageList(chapter.toSChapter()).awaitSingle()
+    suspend fun getPageList(chapter: ChapterInfo): List<tachiyomi.source.model.Page> {
+        return getPageList(chapter.toSChapter())
             .map { it.toPageUrl() }
     }
 }

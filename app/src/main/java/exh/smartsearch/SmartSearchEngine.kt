@@ -12,7 +12,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.supervisorScope
-import rx.schedulers.Schedulers
 import uy.kohesive.injekt.injectLazy
 import kotlin.coroutines.CoroutineContext
 
@@ -46,8 +45,7 @@ class SmartSearchEngine(
                             }
 
                         val searchResults =
-                            source.fetchSearchManga(1, builtQuery, FilterList())
-                                .toSingle().await(Schedulers.io())
+                            source.getSearchManga(1, builtQuery, FilterList())
 
                         searchResults.mangas.map {
                             val cleanedMangaTitle = cleanSmartSearchTitle(it.title)
@@ -75,7 +73,7 @@ class SmartSearchEngine(
                     } else {
                         title
                     }
-                val searchResults = source.fetchSearchManga(1, searchQuery, FilterList()).toSingle().await(Schedulers.io())
+                val searchResults = source.getSearchManga(1, searchQuery, FilterList())
 
                 if (searchResults.mangas.size == 1) {
                     return@supervisorScope listOf(SearchEntry(searchResults.mangas.first(), 0.0))

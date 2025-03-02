@@ -46,6 +46,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.ObsoleteCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -130,6 +131,7 @@ class MigrationListController(bundle: Bundle? = null) :
         }
     }
 
+    @OptIn(ObsoleteCoroutinesApi::class)
     private suspend fun runMigrations(mangas: List<MigratingManga>) {
         val useSourceWithMost = preferences.useSourceWithMost().get()
         val useSmartSearch = preferences.smartMigration().get()

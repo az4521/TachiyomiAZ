@@ -13,6 +13,7 @@ import eu.kanade.tachiyomi.source.model.MangasPage
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
+import eu.kanade.tachiyomi.util.lang.awaitSingle
 import exh.log.maybeInjectEHLogger
 import exh.patch.injectPatches
 import exh.source.DelegatedHttpSource
@@ -82,10 +83,13 @@ abstract class HttpSource : CatalogueSource {
      * of the MD5 of the string: sourcename/language/versionId
      * Note the generated id sets the sign bit to 0.
      */
-    override val id by lazy {
+    override val id by lazy { generateId(name, lang, versionId) }
+
+    @Suppress("MemberVisibilityCanBePrivate")
+    protected fun generateId(name: String, lang: String, versionId: Int): Long {
         val key = "${name.lowercase()}/$lang/$versionId"
         val bytes = MessageDigest.getInstance("MD5").digest(key.toByteArray())
-        (0..7).map { bytes[it].toLong() and 0xff shl 8 * (7 - it) }.reduce(Long::or) and Long.MAX_VALUE
+        return (0..7).map { bytes[it].toLong() and 0xff shl 8 * (7 - it) }.reduce(Long::or) and Long.MAX_VALUE
     }
 
     /**
@@ -118,6 +122,7 @@ abstract class HttpSource : CatalogueSource {
      *
      * @param page the page number to retrieve.
      */
+    @Deprecated("Use the non-RxJava API instead", replaceWith = ReplaceWith("getPopularManga"))
     override fun fetchPopularManga(page: Int): Observable<MangasPage> {
         return client.newCall(popularMangaRequest(page))
             .asObservableSuccess()
@@ -148,6 +153,7 @@ abstract class HttpSource : CatalogueSource {
      * @param query the search query.
      * @param filters the list of filters to apply.
      */
+    @Deprecated("Use the non-RxJava API instead", replaceWith = ReplaceWith("getSearchManga"))
     override fun fetchSearchManga(
         page: Int,
         query: String,
@@ -185,6 +191,7 @@ abstract class HttpSource : CatalogueSource {
      *
      * @param page the page number to retrieve.
      */
+    @Deprecated("Use the non-RxJava API instead", replaceWith = ReplaceWith("getLatestUpdates"))
     override fun fetchLatestUpdates(page: Int): Observable<MangasPage> {
         return client.newCall(latestUpdatesRequest(page))
             .asObservableSuccess()
@@ -213,6 +220,12 @@ abstract class HttpSource : CatalogueSource {
      *
      * @param manga the manga to be updated.
      */
+    @Suppress("DEPRECATION")
+    override suspend fun getMangaDetails(manga: SManga): SManga {
+        return fetchMangaDetails(manga).awaitSingle()
+    }
+
+    @Deprecated("Use getMangaDetails instead")
     override fun fetchMangaDetails(manga: SManga): Observable<SManga> {
         return client.newCall(mangaDetailsRequest(manga))
             .asObservableSuccess()
@@ -244,6 +257,12 @@ abstract class HttpSource : CatalogueSource {
      *
      * @param manga the manga to look for chapters.
      */
+    @Suppress("DEPRECATION")
+    override suspend fun getChapterList(manga: SManga): List<SChapter> {
+        return fetchChapterList(manga).awaitSingle()
+    }
+
+    @Deprecated("Use getChapterList instead")
     override fun fetchChapterList(manga: SManga): Observable<List<SChapter>> {
         return if (manga.status != SManga.LICENSED) {
             client.newCall(chapterListRequest(manga))
@@ -278,6 +297,12 @@ abstract class HttpSource : CatalogueSource {
      *
      * @param chapter the chapter whose page list has to be fetched.
      */
+    @Suppress("DEPRECATION")
+    override suspend fun getPageList(chapter: SChapter): List<Page> {
+        return fetchPageList(chapter).awaitSingle()
+    }
+
+    @Deprecated("Use getPageList instead")
     override fun fetchPageList(chapter: SChapter): Observable<List<Page>> {
         return client.newCall(pageListRequest(chapter))
             .asObservableSuccess()
@@ -309,6 +334,12 @@ abstract class HttpSource : CatalogueSource {
      *
      * @param page the page whose source image has to be fetched.
      */
+    @Suppress("DEPRECATION")
+    open suspend fun getImageUrl(page: Page): String {
+        return fetchImageUrl(page).awaitSingle()
+    }
+
+    @Deprecated("Use the non-RxJava API instead", replaceWith = ReplaceWith("getImageUrl"))
     open fun fetchImageUrl(page: Page): Observable<String> {
         return client.newCall(imageUrlRequest(page))
             .asObservableSuccess()

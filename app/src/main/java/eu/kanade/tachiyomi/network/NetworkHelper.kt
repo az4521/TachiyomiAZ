@@ -28,7 +28,7 @@ open class NetworkHelper(context: Context) {
     open val cookieManager = AndroidCookieJar()
 
     // SY -->
-    open /* SY <-- */ val client by lazy {
+    open /* SY <-- */ val legacyClient by lazy {
         val builder =
             OkHttpClient.Builder()
                 .cookieJar(cookieManager)
@@ -71,12 +71,16 @@ open class NetworkHelper(context: Context) {
         builder.build()
     }
 
+    @Deprecated("Since extension-lib 1.5", ReplaceWith("client"))
     open val cloudflareClient =
-        client.newBuilder()
+        legacyClient.newBuilder()
             .addInterceptor(UserAgentInterceptor())
             .addInterceptor(CloudflareInterceptor(context))
             .maybeInjectEHLogger()
             .build()
+
+    @Suppress("DEPRECATION")
+    open val client = cloudflareClient
 
     val defaultUserAgent by lazy {
         preferences.defaultUserAgent().get()

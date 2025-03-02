@@ -13,6 +13,7 @@ import eu.kanade.tachiyomi.util.lang.plusAssign
 import eu.kanade.tachiyomi.util.system.ImageUtil
 import exh.EH_SOURCE_ID
 import exh.EXH_SOURCE_ID
+import kotlinx.coroutines.runBlocking
 import rx.Completable
 import rx.Observable
 import rx.schedulers.Schedulers
@@ -240,15 +241,15 @@ class HttpPageLoader(
      */
     private fun HttpSource.fetchImageFromCacheThenNet(page: ReaderPage): Observable<ReaderPage> {
         return if (page.imageUrl.isNullOrEmpty()) {
-            getImageUrl(page).flatMap { getCachedImage(it) }
+            rxCompatGetImageUrl(page).flatMap { getCachedImage(it) }
         } else {
             getCachedImage(page)
         }
     }
 
-    private fun HttpSource.getImageUrl(page: ReaderPage): Observable<ReaderPage> {
+    private fun HttpSource.rxCompatGetImageUrl(page: ReaderPage): Observable<ReaderPage> {
         page.status = Page.LOAD_PAGE
-        return fetchImageUrl(page)
+        return Observable.fromCallable { runBlocking { getImageUrl(page) } }.subscribeOn(Schedulers.io())
             .doOnError { page.status = Page.ERROR }
             .onErrorReturn {
                 // [EXH]

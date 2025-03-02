@@ -32,7 +32,7 @@ class Tsumino(delegate: HttpSource) :
         query: String,
         filters: FilterList
     ) = urlImportFetchSearchManga(query) {
-        super.fetchSearchManga(page, query, filters)
+        super<DelegatedHttpSource>.fetchSearchManga(page, query, filters)
     }
 
     override fun mapUrlToMangaUrl(uri: Uri): String? {
