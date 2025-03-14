@@ -14,9 +14,6 @@ import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.databinding.SourceCompactGridItemBinding
 import eu.kanade.tachiyomi.util.isLocal
 import eu.kanade.tachiyomi.util.view.visibleIf
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
-import reactivecircus.flowbinding.android.view.clicks
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -41,11 +38,9 @@ open class LibraryGridHolder(
 
     // SY -->
     init {
-        binding.playLayout.clicks()
-            .onEach {
-                playButtonClicked()
-            }
-            .launchIn((adapter as LibraryCategoryAdapter).controller.scope)
+        binding.playLayout.setOnClickListener {
+            playButtonClicked()
+        }
     }
     // SY <--
 
