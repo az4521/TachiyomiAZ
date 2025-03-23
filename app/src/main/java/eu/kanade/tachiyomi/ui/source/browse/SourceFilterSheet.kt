@@ -27,7 +27,7 @@ constructor(context: Context, attrs: AttributeSet? = null) :
     val adapter: FlexibleAdapter<IFlexible<*>> =
         FlexibleAdapter<IFlexible<*>>(null)
             .setDisplayHeadersAtStartUp(true)
-            .setStickyHeaders(true)
+    // .setStickyHeaders(true)
 
     var onSearchClicked = {}
 
