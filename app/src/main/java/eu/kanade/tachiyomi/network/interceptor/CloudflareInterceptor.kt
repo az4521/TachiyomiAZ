@@ -38,7 +38,6 @@ class CloudflareInterceptor(private val context: Context) : Interceptor {
         WebSettings.getDefaultUserAgent(context)
     }
 
-    @Synchronized
     override fun intercept(chain: Interceptor.Chain): Response {
         initWebView
 
