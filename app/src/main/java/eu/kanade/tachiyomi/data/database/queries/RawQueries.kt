@@ -166,7 +166,7 @@ fun getAllRecentsType(
     isResuming: Boolean,
 ) = """
 	SELECT * FROM
-	(SELECT mangas.url as mangaUrl, mangas.*, chapters.*, history.*
+	(SELECT mangas.url as mangaUrl, chapters.url as chapterUrl, mangas.*, chapters.*, history.*
     FROM (
         SELECT mangas.*
         FROM mangas
@@ -196,9 +196,9 @@ fun getAllRecentsType(
     AND lower(${Manga.COL_TITLE}) LIKE '%$search%')
 	UNION
 	SELECT * FROM
-	(SELECT ${Manga.TABLE}.${Manga.COL_URL} as mangaUrl, ${Manga.TABLE}.*, ${Chapter.TABLE}.*, 
+	(SELECT ${Manga.TABLE}.${Manga.COL_URL} as mangaUrl, chapters.url as chapterUrl, ${Manga.TABLE}.*, ${Chapter.TABLE}.*, 
         Null as history_id, 
-        Null as history_chapter_id, 
+        Null as history_chapter_id,
         chapters.date_fetch as history_last_read, 
         Null as history_time_read
     FROM ${Manga.TABLE}
@@ -218,6 +218,7 @@ fun getAllRecentsType(
     UNION
     SELECT * FROM
     (SELECT mangas.url as mangaUrl, 
+        Null as chapterUrl,
         mangas.*,
 		Null as _id,
 		Null as manga_id,
