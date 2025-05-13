@@ -34,11 +34,7 @@ private val DELEGATED_LEWD_SOURCES =
 val LIBRARY_UPDATE_EXCLUDED_SOURCES =
     listOf(
         EH_SOURCE_ID,
-        EXH_SOURCE_ID,
-        NHENTAI_SOURCE_ID,
-        HENTAI_CAFE_SOURCE_ID,
-        TSUMINO_SOURCE_ID,
-        PURURIN_SOURCE_ID
+        EXH_SOURCE_ID
     )
 
 private inline fun <reified T> delegatedSourceId(): Long {
