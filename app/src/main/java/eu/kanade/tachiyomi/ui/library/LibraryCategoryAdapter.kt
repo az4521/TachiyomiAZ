@@ -1,10 +1,12 @@
 package eu.kanade.tachiyomi.ui.library
 
+import android.util.Log
 import com.pushtorefresh.storio.sqlite.queries.RawQuery
 import eu.davidea.flexibleadapter.FlexibleAdapter
 import eu.kanade.tachiyomi.data.database.DatabaseHelper
 import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.data.database.tables.MangaTable
+import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.ui.category.CategoryAdapter
 import exh.isLewdSource
 import exh.metadata.sql.tables.SearchMetadataTable
@@ -22,6 +24,8 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
 
 /**
@@ -138,17 +142,8 @@ class LibraryCategoryAdapter(view: LibraryCategoryView, val controller: LibraryC
                                 if (isLewdSource(item.manga.source)) {
                                     val mangaId = item.manga.id ?: -1
                                     if (convertedResult.binarySearch(mangaId) < 0) {
-                                        // REMOVE THIS GARBAGE CODE!!!!!!!
-                                        if (savedSearchText == "poopenfarten" && item.manga.url.lowercase().startsWith("https://mangadex.org/title/")) { // this fucking sucks i will remove this later but for now it's like an easter egg :)
-                                            val uuid = item.manga.url.lowercase()
-                                                .removePrefix("https://mangadex.org/title/")
-                                                .substringBefore("/")
-                                            uuid in MANGADEX_DMCA_UUIDS // we love O(N^2)
-                                        }
-                                        // REMOVE THIS GARBAGE CODE!!!!!!!
-
                                         // Check if this manga even has metadata
-                                        else if (mangaWithMetaIds.binarySearch(mangaId) < 0) {
+                                        if (mangaWithMetaIds.binarySearch(mangaId) < 0) {
                                             // No meta? Filter using title
                                             item.filter(savedSearchText to true)
                                         } else {
@@ -158,7 +153,24 @@ class LibraryCategoryAdapter(view: LibraryCategoryView, val controller: LibraryC
                                         true
                                     }
                                 } else {
-                                    item.filter(savedSearchText to true)
+                                    // REMOVE THIS GARBAGE CODE!!!!!!!
+                                    if (savedSearchText == "poopenfarten") { // this fucking sucks i will remove this later but for now it's like an easter egg :)
+                                        val sourceManager: SourceManager = Injekt.get()
+                                        val source = sourceManager.get(item.manga.source)
+
+                                        if (source?.name?.lowercase()?.contains("mangadex") == true) {
+                                            Log.d("DEX!!!!!", item.manga.url)
+                                            val uuid = item.manga.url.removePrefix("/manga/")
+                                            Log.d("DEX!!!!", uuid)
+                                            uuid in MANGADEX_DMCA_UUIDS // we love O(N^2)
+                                        } else {
+                                            false
+                                        }
+                                    }
+                                    // REMOVE THIS GARBAGE CODE!!!!!!!
+                                    else {
+                                        item.filter(savedSearchText to true)
+                                    }
                                 }
                             }.toList()
                         } catch (e: Exception) {
