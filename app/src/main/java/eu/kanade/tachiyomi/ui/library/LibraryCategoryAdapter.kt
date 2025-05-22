@@ -1141,6 +1141,7 @@ class LibraryCategoryAdapter(view: LibraryCategoryView, val controller: LibraryC
             "8fc23d64-35c5-4391-b9e3-a20540ec00d4",
             "3846a7a5-c6db-44ef-b9b0-a5aa0260f983",
             "fb569d12-1e00-47e3-86cd-793b4eae715c",
+            "a96676e5-8ae2-425e-b549-7f15dd34a6d8",
             "b1703185-df48-4f7c-aa65-e140e86c3f95",
             "f9791093-547e-41dd-a875-9d35bf125ecc",
             "8c975da1-1841-47a8-a89a-33994079137a",
