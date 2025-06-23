@@ -51,6 +51,7 @@ import androidx.core.view.GestureDetectorCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsCompat.Type.displayCutout
 import androidx.core.view.WindowInsetsCompat.Type.statusBars
 import androidx.core.view.WindowInsetsCompat.Type.systemBars
 import androidx.core.view.WindowInsetsControllerCompat
@@ -1015,7 +1016,7 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
         val peek = 50.dpToPx
         lastVis = window.decorView.rootWindowInsetsCompat?.isVisible(statusBars()) ?: false
         var firstPass = true
-        binding.readerLayout.doOnApplyWindowInsetsCompat { _, insets, _ ->
+        binding.readerLayout.doOnApplyWindowInsetsCompat { v, insets, _ ->
             setNavColor(insets)
             val systemInsets = insets.ignoredSystemInsets
             val currentOrientation = resources.configuration.orientation
@@ -1024,6 +1025,12 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
             val cutOutInsets = if (isLandscapeFully) insets.displayCutout else null
             val vis = insets.isVisible(statusBars())
             val fullscreen = preferences.fullscreen().get() && !isSplitScreen
+            if (!isLandscapeFully) {
+                val cutoutInsets = insets.getInsetsIgnoringVisibility(displayCutout())
+                v.updatePadding(left = cutoutInsets.left, right = cutoutInsets.right)
+            } else {
+                v.updatePadding(left = 0, right = 0)
+            }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 if (!firstPass && lastVis != vis && fullscreen) {
                     onVisibilityChange(vis)
@@ -1966,6 +1973,7 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
 
             val params = window.attributes
             if (currentOrientation == Configuration.ORIENTATION_LANDSCAPE) {
+                binding.root.requestApplyInsets()
                 params.layoutInDisplayCutoutMode =
                     if (preferences.landscapeCutoutBehavior().get() == 0) {
                         WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_NEVER

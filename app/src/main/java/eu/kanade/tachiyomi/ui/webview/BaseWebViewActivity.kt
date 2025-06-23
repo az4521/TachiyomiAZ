@@ -18,6 +18,7 @@ import androidx.core.net.toUri
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsCompat.Type.displayCutout
 import androidx.core.view.WindowInsetsCompat.Type.systemBars
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.isInvisible
@@ -63,14 +64,14 @@ open class BaseWebViewActivity : BaseActivity<WebviewActivityBinding>() {
         ViewCompat.setOnApplyWindowInsetsListener(container) { v, insets ->
             val contextView = window?.decorView?.findViewById<View>(R.id.action_mode_bar)
             contextView?.updateLayoutParams<ViewGroup.MarginLayoutParams> {
-                leftMargin = insets.getInsets(systemBars()).left
-                rightMargin = insets.getInsets(systemBars()).right
+                leftMargin = insets.getInsets(systemBars() or displayCutout()).left
+                rightMargin = insets.getInsets(systemBars() or displayCutout()).right
             }
             // Consume any horizontal insets and pad all content in. There's not much we can do
             // with horizontal insets
             v.updatePadding(
-                left = insets.getInsets(systemBars()).left,
-                right = insets.getInsets(systemBars()).right,
+                left = insets.getInsets(systemBars() or displayCutout()).left,
+                right = insets.getInsets(systemBars() or displayCutout()).right,
             )
             WindowInsetsCompat
                 .Builder(insets)
@@ -130,7 +131,12 @@ open class BaseWebViewActivity : BaseActivity<WebviewActivityBinding>() {
                         newProgress: Int,
                     ) {
                         binding.progressBar.isVisible = true
-                        binding.progressBar.progress = newProgress
+                        if (newProgress == 0) {
+                            binding.progressBar.isIndeterminate = true
+                        } else {
+                            binding.progressBar.isIndeterminate = false
+                            binding.progressBar.progress = newProgress
+                        }
                         if (newProgress == 100) {
                             binding.progressBar.isInvisible = true
                             invalidateOptionsMenu()

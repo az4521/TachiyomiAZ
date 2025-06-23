@@ -821,7 +821,7 @@ fun Controller.setAppBarBG(
             activityBinding?.appBar?.backgroundColor = Color.TRANSPARENT
         }
         if (activityBinding?.appBar?.isInvisible != true) {
-            activity?.window?.statusBarColor =
+            activityBinding?.statusBar?.backgroundColor =
                 context.getResourceColor(android.R.attr.statusBarColor)
         }
     } else {
@@ -833,7 +833,7 @@ fun Controller.setAppBarBG(
             )
         activityBinding?.appBar?.setBackgroundColor(color)
         if (activityBinding?.appBar?.isInvisible != true) {
-            activity?.window?.statusBarColor =
+            activityBinding?.statusBar?.backgroundColor =
                 ColorUtils.setAlphaComponent(color, (0.87f * 255).roundToInt())
         }
         if ((this as? FloatingSearchInterface)?.showFloatingBar() == true) {

@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.util.system
 
+import android.app.ActivityOptions
 import android.app.LocaleManager
 import android.app.Notification
 import android.app.NotificationManager
@@ -505,3 +506,22 @@ val Context.systemLangContext: Context
         configuration.setLocale(systemLocale)
         return createConfigurationContext(configuration)
     }
+
+fun activityOptionsBackgroundOptions(always: Boolean = true): ActivityOptions? {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+        val opts = ActivityOptions.makeBasic()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
+            opts.pendingIntentCreatorBackgroundActivityStartMode =
+                if (always) {
+                    ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_ALWAYS
+                } else {
+                    ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_IF_VISIBLE
+                }
+        } else {
+            opts.pendingIntentCreatorBackgroundActivityStartMode =
+                ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+        }
+        return opts
+    }
+    return null
+}

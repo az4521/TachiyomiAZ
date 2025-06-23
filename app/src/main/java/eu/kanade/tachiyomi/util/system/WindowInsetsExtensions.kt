@@ -6,6 +6,7 @@ import android.view.WindowInsets
 import androidx.annotation.RequiresApi
 import androidx.core.graphics.Insets
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsCompat.Type.displayCutout
 import androidx.core.view.WindowInsetsCompat.Type.mandatorySystemGestures
 import androidx.core.view.WindowInsetsCompat.Type.systemBars
 
@@ -25,6 +26,18 @@ val WindowInsetsCompat.ignoredSystemInsets: Insets
             getInsetsIgnoringVisibility(systemBars())
         } else {
             getInsets(systemBars())
+        }
+
+fun Insets.start(isLTR: Boolean) = if (isLTR) left else right
+
+fun Insets.end(isLTR: Boolean) = start(!isLTR)
+
+val WindowInsetsCompat.ignoredDisplayCutout: Insets
+    get() =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            getInsetsIgnoringVisibility(displayCutout() or systemBars())
+        } else {
+            getInsets(0)
         }
 
 fun WindowInsetsCompat.hasSideNavBar() =

@@ -94,6 +94,7 @@ import eu.kanade.tachiyomi.util.chapter.updateTrackChapterMarkedAsRead
 import eu.kanade.tachiyomi.util.isLocal
 import eu.kanade.tachiyomi.util.moveCategories
 import eu.kanade.tachiyomi.util.storage.getUriCompat
+import eu.kanade.tachiyomi.util.system.activityOptionsBackgroundOptions
 import eu.kanade.tachiyomi.util.system.addCheckBoxPrompt
 import eu.kanade.tachiyomi.util.system.contextCompatColor
 import eu.kanade.tachiyomi.util.system.dpToPx
@@ -111,6 +112,7 @@ import eu.kanade.tachiyomi.util.system.setCustomTitleAndMessage
 import eu.kanade.tachiyomi.util.system.timeSpanFromNow
 import eu.kanade.tachiyomi.util.system.toast
 import eu.kanade.tachiyomi.util.view.activityBinding
+import eu.kanade.tachiyomi.util.view.backgroundColor
 import eu.kanade.tachiyomi.util.view.copyToClipboard
 import eu.kanade.tachiyomi.util.view.findChild
 import eu.kanade.tachiyomi.util.view.getText
@@ -321,10 +323,10 @@ class MangaDetailsController :
                     val newColor =
                         makeColorFrom(color, context.getResourceColor(R.attr.colorPrimaryVariant))
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1 || context.isInNightMode()) {
-                        activity?.window?.navigationBarColor =
+                        activityBinding?.navBar?.backgroundColor =
                             ColorUtils.setAlphaComponent(
                                 newColor,
-                                Color.alpha(activity?.window?.navigationBarColor ?: Color.BLACK),
+                                Color.alpha(activityBinding?.navBar?.backgroundColor ?: Color.BLACK),
                             )
                     }
                     newColor
@@ -562,7 +564,7 @@ class MangaDetailsController :
                         animator.animatedValue as Float,
                     ),
                 )
-                activity.window?.statusBarColor =
+                activityBinding?.statusBar?.backgroundColor =
                     if (toolbarIsColored) {
                         ColorUtils.blendARGB(
                             topColor,
@@ -576,7 +578,7 @@ class MangaDetailsController :
             cA.start()
         } else {
             activityBinding?.appBar?.setBackgroundColor(if (toolbarIsColored) scrollingColor else topColor)
-            activity.window?.statusBarColor =
+            activityBinding?.statusBar?.backgroundColor =
                 if (toolbarIsColored) scrollingStatusColor else topColor
         }
     }
@@ -632,7 +634,8 @@ class MangaDetailsController :
         val scrollingColor = headerColor ?: activity!!.getResourceColor(R.attr.colorPrimaryVariant)
         val scrollingStatusColor =
             ColorUtils.setAlphaComponent(scrollingColor, (0.87f * 255).roundToInt())
-        activity?.window?.statusBarColor = if (toolbarIsColored) scrollingStatusColor else topColor
+        activityBinding?.statusBar?.backgroundColor =
+            if (toolbarIsColored) scrollingStatusColor else topColor
         activityBinding?.appBar?.setBackgroundColor(
             if (toolbarIsColored) scrollingColor else topColor,
         )
@@ -718,7 +721,7 @@ class MangaDetailsController :
                 if (router.backstack.last().controller !is FloatingSearchInterface) {
                     activityBinding?.appBar?.setBackgroundColor(colorSurface)
                 }
-                activity?.window?.statusBarColor = activity?.getResourceColor(
+                activityBinding?.statusBar?.backgroundColor = activity?.getResourceColor(
                     android.R.attr.statusBarColor,
                 ) ?: colorSurface
             }
@@ -1302,6 +1305,7 @@ class MangaDetailsController :
                                 manga?.id?.hashCode() ?: 0,
                                 Intent.createChooser(shareCoverIntent, context.getString(R.string.share)),
                                 PendingIntent.FLAG_IMMUTABLE,
+                                activityOptionsBackgroundOptions(false)?.toBundle(),
                             )
                         val action =
                             ChooserAction

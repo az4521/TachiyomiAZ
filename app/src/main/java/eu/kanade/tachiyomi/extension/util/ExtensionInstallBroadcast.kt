@@ -19,6 +19,7 @@ import eu.kanade.tachiyomi.extension.util.ExtensionInstallBroadcast.Companion.EX
 import eu.kanade.tachiyomi.extension.util.ExtensionInstallBroadcast.Companion.PACKAGE_INSTALLED_ACTION
 import eu.kanade.tachiyomi.extension.util.ExtensionInstallBroadcast.Companion.packageInstallStep
 import eu.kanade.tachiyomi.util.system.DeviceUtil
+import eu.kanade.tachiyomi.util.system.activityOptionsBackgroundOptions
 import eu.kanade.tachiyomi.util.system.toast
 import uy.kohesive.injekt.injectLazy
 
@@ -116,7 +117,9 @@ class ExtensionInstallBroadcast : BroadcastReceiver() {
                     PackageInstaller.STATUS_FAILURE, PackageInstaller.STATUS_FAILURE_ABORTED, PackageInstaller.STATUS_FAILURE_BLOCKED, PackageInstaller.STATUS_FAILURE_CONFLICT, PackageInstaller.STATUS_FAILURE_INCOMPATIBLE, PackageInstaller.STATUS_FAILURE_INVALID, PackageInstaller.STATUS_FAILURE_STORAGE -> {
                         extensionManager.setInstallationResult(downloadId, false)
                         if (status != PackageInstaller.STATUS_FAILURE_ABORTED) {
-                            if (DeviceUtil.isMiui) {
+                            if (status == PackageInstaller.STATUS_FAILURE_CONFLICT) {
+                                context.toast(R.string.extension_must_reinstall, Toast.LENGTH_LONG)
+                            } else if (DeviceUtil.isMiui) {
                                 context.toast(R.string.extensions_miui_warning, Toast.LENGTH_LONG)
                             } else {
                                 context.toast(R.string.could_not_install_extension)
@@ -162,7 +165,6 @@ class ExtensionInstallActivity : Activity() {
             session.openWrite("package", 0, -1).use { packageInSession ->
                 data.copyTo(packageInSession)
             }
-
             val newIntent =
                 Intent(this, ExtensionInstallActivity::class.java)
                     .setAction(PACKAGE_INSTALLED_ACTION)
@@ -180,6 +182,7 @@ class ExtensionInstallActivity : Activity() {
                     downloadId.hashCode(),
                     newIntent,
                     PendingIntent.FLAG_UPDATE_CURRENT or mutableFlag,
+                    activityOptionsBackgroundOptions()?.toBundle(),
                 )
             val statusReceiver = pendingIntent.intentSender
             session.commit(statusReceiver)

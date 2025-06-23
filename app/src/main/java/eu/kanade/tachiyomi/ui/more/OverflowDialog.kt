@@ -19,8 +19,12 @@ import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.util.lang.addBetaTag
 import eu.kanade.tachiyomi.util.lang.withSubtitle
 import eu.kanade.tachiyomi.util.system.dpToPx
+import eu.kanade.tachiyomi.util.system.end
 import eu.kanade.tachiyomi.util.system.getResourceColor
+import eu.kanade.tachiyomi.util.system.ignoredDisplayCutout
+import eu.kanade.tachiyomi.util.system.isLTR
 import eu.kanade.tachiyomi.util.system.openInBrowser
+import eu.kanade.tachiyomi.util.system.rootWindowInsetsCompat
 import uy.kohesive.injekt.injectLazy
 
 class OverflowDialog(
@@ -122,8 +126,12 @@ class OverflowDialog(
             dismiss()
         }
 
+        val insets =
+            activity.window.decorView.rootWindowInsetsCompat!!
+                .ignoredDisplayCutout
         binding.overflowCardView.updateLayoutParams<ViewGroup.MarginLayoutParams> {
-            topMargin = activity.toolbarHeight - 2.dpToPx
+            topMargin = activity.toolbarHeight - 2.dpToPx + insets.top
+            marginEnd = 14.dpToPx + insets.end(context.resources.isLTR)
         }
         window?.let { window ->
             window.navigationBarColor = Color.TRANSPARENT

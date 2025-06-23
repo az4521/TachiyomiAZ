@@ -4,6 +4,7 @@
     android:id="@+id/reader_layout"
     android:layout_width="match_parent"
     tools:background="@color/color_button_default"
+    android:background="@color/black"
     android:layout_height="match_parent"
     android:gravity="center">
 

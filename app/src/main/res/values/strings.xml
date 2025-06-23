@@ -341,6 +341,7 @@
     <string name="nsfw_short">18+</string>
     <string name="installed_">Installed %1$s</string>
     <string name="extensions_miui_warning">MIUI Optimization must be disabled to install extensions.</string>
+    <string name="extension_must_reinstall">Please uninstall, then reinstall to update.</string>
     <string name="may_contain_nsfw">May contain NSFW (18+) content</string>
     <string name="app_info">App info</string>
     <string name="_must_be_enabled_first">%1$s must be enabled first</string>
