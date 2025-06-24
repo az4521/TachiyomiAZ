@@ -8,9 +8,9 @@ import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.LinearLayout
-import android.widget.ProgressBar
 import androidx.appcompat.widget.AppCompatTextView
 import androidx.core.view.updatePaddingRelative
+import com.google.android.material.loadingindicator.LoadingIndicator
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.ui.reader.model.ChapterTransition
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
@@ -108,7 +108,7 @@ class PagerTransitionHolder(
      * Sets the loading state on the pages container.
      */
     private fun setLoading() {
-        val progress = ProgressBar(context, null, android.R.attr.progressBarStyle)
+        val progress = LoadingIndicator(context, null)
 
         val textView =
             AppCompatTextView(context).apply {

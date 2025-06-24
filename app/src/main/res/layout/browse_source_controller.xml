@@ -15,9 +15,9 @@
         android:id="@+id/catalogue_view"
         tools:context="eu.kanade.tachiyomi.ui.source.browse.BrowseSourceController">
 
-        <ProgressBar
+        <com.google.android.material.loadingindicator.LoadingIndicator
             android:id="@+id/progress"
-            style="?android:attr/progressBarStyleLarge"
+            app:indicatorSize="100dp"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center_vertical|center_horizontal"
@@ -25,12 +25,44 @@
             tools:visibility="visible"/>
 
     </FrameLayout>
-    
-    <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
-        android:id="@+id/fab"
-        style="@style/Theme.Widget.FAB"
-        android:text="@string/filter"
-        app:icon="@drawable/ic_filter_list_24dp"/>
+
+    <com.google.android.material.floatingtoolbar.FloatingToolbarLayout
+        android:id="@+id/floating_browse_bar"
+        android:layout_gravity="bottom|center"
+        app:layout_behavior="com.google.android.material.behavior.HideViewOnScrollBehavior"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content">
+        <com.google.android.material.button.MaterialButtonGroup
+            android:id="@+id/buttonGroup"
+            style="@style/Widget.Material3Expressive.MaterialButtonGroup.Connected"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content">
+            <com.google.android.material.button.MaterialButton
+                style="?attr/materialButtonStyle"
+                android:checkable="true"
+                android:id="@+id/popular_group"
+                android:text="@string/popular"
+                app:icon="@drawable/ic_heart_24dp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+            <com.google.android.material.button.MaterialButton
+                style="?attr/materialButtonStyle"
+                android:checkable="true"
+                android:id="@+id/latest_group"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/latest"
+                app:icon="@drawable/ic_new_releases_24dp" />
+            <com.google.android.material.button.MaterialButton
+                style="?attr/materialButtonStyle"
+                android:checkable="true"
+                android:id="@+id/filter_group"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/filter"
+                app:icon="@drawable/ic_filter_list_24dp"/>
+        </com.google.android.material.button.MaterialButtonGroup>
+    </com.google.android.material.floatingtoolbar.FloatingToolbarLayout>
 
     <eu.kanade.tachiyomi.widget.EmptyView
         android:id="@+id/empty_view"
@@ -38,7 +70,6 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:visibility="gone"
-        tools:visibility="visible"
         android:gravity="center"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"

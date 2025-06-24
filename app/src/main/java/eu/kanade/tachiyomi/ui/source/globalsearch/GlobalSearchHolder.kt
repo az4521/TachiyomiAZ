@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.ui.source.globalsearch
 import android.annotation.SuppressLint
 import android.view.View
 import androidx.core.view.isVisible
+import com.google.android.material.carousel.CarouselLayoutManager
 import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.databinding.SourceGlobalSearchControllerCardBinding
 import eu.kanade.tachiyomi.source.LocalSource
@@ -32,13 +33,8 @@ class GlobalSearchHolder(
     init {
         // Set layout horizontal.
         binding.recycler.layoutManager =
-            androidx.recyclerview.widget.LinearLayoutManager(
-                view.context,
-                androidx.recyclerview.widget.LinearLayoutManager.HORIZONTAL,
-                false,
-            )
+            CarouselLayoutManager()
         binding.recycler.adapter = mangaAdapter
-
         binding.titleMoreIcon.isVisible = adapter.controller !is SearchController && adapter.controller.extensionFilter == null
         if (binding.titleMoreIcon.isVisible) {
             binding.titleWrapper.setOnClickListener {

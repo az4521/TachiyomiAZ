@@ -61,6 +61,7 @@ import eu.kanade.tachiyomi.util.system.getResourceColor
 import eu.kanade.tachiyomi.util.system.ignoredSystemInsets
 import eu.kanade.tachiyomi.util.system.isLTR
 import eu.kanade.tachiyomi.util.system.isPromptChecked
+import eu.kanade.tachiyomi.util.system.isTablet
 import eu.kanade.tachiyomi.util.system.launchUI
 import eu.kanade.tachiyomi.util.system.materialAlertDialog
 import eu.kanade.tachiyomi.util.system.rootWindowInsetsCompat
@@ -149,6 +150,8 @@ class RecentsController(
                     },
                 )?.lowercase(Locale.ROOT),
         )
+
+    override fun showTabs(): Boolean = activity?.isTablet() != true || activityBinding?.sideNav == null
 
     override fun createBinding(inflater: LayoutInflater) = RecentsControllerBinding.inflate(inflater)
 
@@ -335,7 +338,7 @@ class RecentsController(
                     }
 
                     if (isControllerVisible) {
-                        activityBinding?.tabsFrameLayout?.isVisible =
+                        activityBinding?.tabsFrameLayout?.isVisible = showTabs() &&
                             state != BottomSheetBehavior.STATE_EXPANDED
                     }
                     binding.downloadBottomSheet.dlBottomSheet.apply {
@@ -486,6 +489,19 @@ class RecentsController(
             activityBinding?.appBar?.isInvisible = showingDownloads
             (activity as? MainActivity)?.setStatusBarColorTransparent(showingDownloads)
             setTitle()
+            if (activityBinding?.sideNav?.isExpanded == true) {
+                activityBinding
+                    ?.sideNav
+                    ?.menu
+                    ?.findItem(
+                        when (presenter.viewType) {
+                            RecentsViewType.GroupedAll -> R.id.nav_summary
+                            RecentsViewType.UngroupedAll -> R.id.nav_ungrouped
+                            RecentsViewType.History -> R.id.nav_history
+                            else -> R.id.nav_updates
+                        },
+                    )?.isChecked = true
+            }
         }
     }
 
@@ -819,7 +835,7 @@ class RecentsController(
         updateTitleAndMenu()
     }
 
-    private fun setViewType(viewType: RecentsViewType) {
+    fun setViewType(viewType: RecentsViewType) {
         if (viewType != presenter.viewType) {
             presenter.toggleGroupRecents(viewType)
             updateTitleAndMenu()
@@ -1056,7 +1072,7 @@ class RecentsController(
                             }
                         },
                     )
-                    (activity as? MainActivity)?.showTabBar(true)
+                    (activity as? MainActivity)?.showTabBar(showTabs())
                 }
             }
         } else {

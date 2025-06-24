@@ -9,6 +9,7 @@ import androidx.core.view.WindowInsetsCompat.Type.systemBars
 import androidx.core.view.isInvisible
 import androidx.core.view.updateLayoutParams
 import androidx.recyclerview.widget.ItemTouchHelper
+import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import eu.davidea.flexibleadapter.FlexibleAdapter
@@ -151,9 +152,22 @@ class DownloadBottomSheet
             updateFab()
             if (oldRunning != running) {
                 prepareMenu()
+                updateVisibleTaskIndex(isRunning)
 
                 // Check if download queue is empty and update information accordingly.
                 setInformationView()
+            }
+        }
+
+        private fun updateVisibleTaskIndex(isRunning: Boolean) {
+            val layoutManager: RecyclerView.LayoutManager = binding.dlRecycler.layoutManager ?: return
+            if (layoutManager is LinearLayoutManager) {
+                val first = layoutManager.findFirstVisibleItemPosition()
+                val last = layoutManager.findLastVisibleItemPosition()
+                for (i in first..last) {
+                    val viewHolder = binding.dlRecycler.findViewHolderForAdapterPosition(i) as? DownloadHolder
+                    viewHolder?.setWave(isRunning)
+                }
             }
         }
 

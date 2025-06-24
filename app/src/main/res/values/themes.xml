@@ -20,6 +20,7 @@
         <item name="colorPrimaryVariant">@color/primaryVariantTachiyomi</item>
         <item name="colorSurface">@color/background</item> //old colorSecondary
         <item name="colorSurfaceVariant">?colorPrimaryVariant</item> //old colorSecondary
+        <item name="colorSurfaceContainer">?colorPrimaryVariant</item>
         <item name="colorOnSurface">@color/colorOnSurface</item> //old colorOnSecondary
         <item name="colorSecondary">@color/secondaryTachiyomi</item> //colorAccent
         <item name="colorOnSecondary">@color/md_white_1000</item>
@@ -69,6 +70,9 @@
         <item name="bottomSheetDialogTheme">@style/BottomSheetDialogTheme</item>
         <item name="actionBarTheme">@style/Theme.ActionBar.DayNight</item>
         <item name="preferenceTheme">@style/Tachiyomi.PreferenceTheme</item>
+        <item name="loadingIndicatorStyle">@style/Tachiyomi.LoadingIndicatorStyle</item>
+        <item name="circularProgressIndicatorStyle">@style/Tachiyomi.CircularProgressIndicator</item>
+        <item name="linearProgressIndicatorStyle">@style/Tachiyomi.LinearProgressIndicator</item>
 
         <!-- Custom Attributes-->
         <item name="actionBarTintColor">?attr/colorOnBackground</item>

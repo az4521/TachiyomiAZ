@@ -15,7 +15,7 @@
         android:layout_height="match_parent"
         android:descendantFocusability="blocksDescendants" />
 
-    <ProgressBar
+    <com.google.android.material.loadingindicator.LoadingIndicator
         android:id="@+id/please_wait"
         android:layout_width="56dp"
         android:layout_height="56dp"

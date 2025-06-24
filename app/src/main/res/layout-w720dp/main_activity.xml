@@ -230,7 +230,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:menuGravity="center"
         app:layout_constraintTop_toTopOf="parent"
-        app:menu="@menu/bottom_navigation" />
+        app:menu="@menu/side_navigation" />
 
     <View
         android:id="@+id/status_bar"

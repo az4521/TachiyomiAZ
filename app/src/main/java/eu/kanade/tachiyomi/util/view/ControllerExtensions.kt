@@ -316,7 +316,7 @@ fun Controller.scrollViewWith(
     val tabBarHeight = 48.dpToPx
     activityBinding?.appBar?.lockYPos = false
     activityBinding?.appBar?.y = 0f
-    val includeTabView = this is TabbedInterface
+    val includeTabView = (this as? TabbedInterface)?.showTabs() == true
     activityBinding?.appBar?.useTabsInPreLayout = includeTabView
     activityBinding?.appBar?.setToolbarModeBy(this@scrollViewWith)
     var appBarHeight = (
@@ -467,6 +467,15 @@ fun Controller.scrollViewWith(
                             recycler.smoothScrollToTop()
                         } else if (recycler is NestedScrollView) {
                             recycler.smoothScrollTo(0, 0)
+                        }
+                    }
+                    activityBinding!!.appBar.doOnLayout {
+                        if ((fullAppBarHeight ?: 0) > 0 && isControllerVisible) {
+                            appBarHeight = fullAppBarHeight!!
+                            recycler.rootWindowInsets?.let { insets ->
+                                recycler.dispatchApplyWindowInsets(insets)
+                                activityBinding?.appBar?.updateAppBarAfterY(recycler)
+                            }
                         }
                     }
                 } else {
@@ -821,6 +830,8 @@ fun Controller.setAppBarBG(
             activityBinding?.appBar?.backgroundColor = Color.TRANSPARENT
         }
         if (activityBinding?.appBar?.isInvisible != true) {
+            activity?.window?.statusBarColor =
+                context.getResourceColor(android.R.attr.statusBarColor)
             activityBinding?.statusBar?.backgroundColor =
                 context.getResourceColor(android.R.attr.statusBarColor)
         }
@@ -833,6 +844,8 @@ fun Controller.setAppBarBG(
             )
         activityBinding?.appBar?.setBackgroundColor(color)
         if (activityBinding?.appBar?.isInvisible != true) {
+            activity?.window?.statusBarColor =
+                ColorUtils.setAlphaComponent(color, (0.87f * 255).roundToInt())
             activityBinding?.statusBar?.backgroundColor =
                 ColorUtils.setAlphaComponent(color, (0.87f * 255).roundToInt())
         }
@@ -967,7 +980,7 @@ val Controller.fullAppBarHeight: Int?
     get() =
         (activity as? MainActivity)?.bigToolbarHeight(
             (this as? FloatingSearchInterface)?.showFloatingBar() == true,
-            this is TabbedInterface,
+            (this as? TabbedInterface)?.showTabs() == true,
             this !is SmallToolbarInterface,
         )
 

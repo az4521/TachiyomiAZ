@@ -324,7 +324,7 @@ fun NavigationBarView.getItemView(
     @IdRes id: Int,
 ): NavigationBarItemView? {
     val order = (menu as MenuBuilder).findItemIndex(id)
-    return (getChildAt(0) as NavigationBarMenuView).getChildAt(order) as? NavigationBarItemView
+    return (menuView as NavigationBarMenuView).getChildAt(order) as? NavigationBarItemView
 }
 
 fun RecyclerView.smoothScrollToTop() {

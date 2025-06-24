@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:checked="true"
+        android:id="@+id/nav_library"
+        android:icon="@drawable/ic_library_selector_24dp"
+        android:title="@string/library" />
+    <item
+        android:id="@+id/nav_recents"
+        android:icon="@drawable/ic_recents_selector_24dp"
+        android:title="@string/recents" >
+    </item>
+    <item
+    android:id="@+id/nav_recents_group"
+    android:title="@string/recents" >
+    <menu
+        android:id="@+id/recents_menu_group"
+        android:visible="false">
+        <item
+            android:id="@+id/nav_summary"
+            android:icon="@drawable/ic_recents_outline_24dp"
+            android:title="@string/grouped" />
+        <item
+            android:id="@+id/nav_ungrouped"
+            android:icon="@drawable/ic_recents_filled_24dp"
+            android:title="@string/all" />
+        <item
+            android:id="@+id/nav_history"
+            android:icon="@drawable/ic_read_24dp"
+            android:title="@string/history" />
+        <item
+            android:id="@+id/nav_updates"
+            android:icon="@drawable/ic_new_releases_24dp"
+            android:title="@string/updates" />
+    </menu>
+    </item>
+    <item
+        android:id="@+id/nav_browse"
+        android:icon="@drawable/ic_browse_selector_24dp"
+        android:title="@string/browse" />
+
+</menu>

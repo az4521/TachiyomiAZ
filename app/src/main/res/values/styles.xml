@@ -70,6 +70,16 @@
         <item name="switchPreferenceCompatStyle">@style/Widget.Tachiyomi.SwitchPreferenceCompat</item>
     </style>
 
+    <style name="Tachiyomi.LoadingIndicatorStyle" parent="@style/Widget.Material3.LoadingIndicator">
+        <item name="indicatorColor">?colorSecondary</item>
+    </style>
+    <style name="Tachiyomi.LinearProgressIndicator" parent="@style/Widget.Material3.LinearProgressIndicator">
+        <item name="indicatorColor">?colorSecondary</item>
+    </style>
+    <style name="Tachiyomi.CircularProgressIndicator" parent="@style/Widget.Material3.CircularProgressIndicator">
+        <item name="indicatorColor">?colorSecondary</item>
+    </style>
+
     <style name="Widget.Tachiyomi.SwitchPreferenceCompat" parent="Preference.SwitchPreferenceCompat.Material">
         <item name="widgetLayout">@layout/preference_widget_material_switch</item>
     </style>
@@ -271,7 +281,7 @@
         <item name="buttonTint">@null</item>
     </style>
 
-    <style name="Widget.Tachiyomi.BottomNavigationView" parent="Widget.Material3.BottomNavigationView">
+    <style name="Widget.Tachiyomi.BottomNavigationView" parent="Widget.Material3Expressive.BottomNavigationView">
         <item name="itemPaddingBottom">10dp</item>
         <item name="itemPaddingTop">10dp</item>
         <item name="android:minHeight">68dp</item>
@@ -285,7 +295,7 @@
     </style>
 
 
-    <style name="Widget.Tachiyomi.NavigationRail" parent="Widget.Material3.NavigationRailView">
+    <style name="Widget.Tachiyomi.NavigationRail" parent="Widget.Material3Expressive.NavigationRailView">
         <item name="android:minHeight">68dp</item>
         <item name="itemIconTint">@color/bottom_nav_item_selector</item>
         <item name="itemRippleColor">@color/ripple_nav</item>

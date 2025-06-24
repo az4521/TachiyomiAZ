@@ -67,6 +67,7 @@ import com.bluelinelabs.conductor.Router
 import com.getkeepsafe.taptargetview.TapTarget
 import com.getkeepsafe.taptargetview.TapTargetView
 import com.google.android.material.navigation.NavigationBarView
+import com.google.android.material.navigationrail.NavigationRailView
 import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.transition.platform.MaterialContainerTransformSharedElementCallback
 import com.google.common.primitives.Floats.max
@@ -118,6 +119,7 @@ import eu.kanade.tachiyomi.util.system.ignoredSystemInsets
 import eu.kanade.tachiyomi.util.system.isBottomTappable
 import eu.kanade.tachiyomi.util.system.isInNightMode
 import eu.kanade.tachiyomi.util.system.isLTR
+import eu.kanade.tachiyomi.util.system.isTablet
 import eu.kanade.tachiyomi.util.system.launchIO
 import eu.kanade.tachiyomi.util.system.launchUI
 import eu.kanade.tachiyomi.util.system.materialAlertDialog
@@ -377,6 +379,13 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
         setContentView(binding.root)
 
         binding.toolbar.overflowIcon?.setTint(getResourceColor(R.attr.actionBarTintColor))
+        if (isTablet() && binding.sideNav != null) {
+            binding.sideNav
+                ?.menu
+                ?.findItem(R.id.nav_recents)
+                ?.isVisible = false
+            binding.sideNav?.expand()
+        }
 
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
             window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_PAN)
@@ -501,6 +510,39 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
             }
             continueSwitchingTabs = false
             val currentRoot = router.backstack.firstOrNull()
+            when (id) {
+                R.id.nav_summary, R.id.nav_ungrouped, R.id.nav_history, R.id.nav_updates -> {
+                    val recentsType =
+                        when (id) {
+                            R.id.nav_summary -> RecentsViewType.GroupedAll
+                            R.id.nav_ungrouped -> RecentsViewType.UngroupedAll
+                            R.id.nav_history -> RecentsViewType.History
+                            else -> RecentsViewType.Updates
+                        }
+                    val updatePlace = {
+                        val controller =
+                            router.backstack.firstOrNull()?.controller as? RecentsController
+                        controller?.setViewType(recentsType)
+                        controller?.hideSheet()
+                        binding.mainTabs.run { selectTab(getTabAt(recentsType.mainValue)) }
+                    }
+                    if (currentRoot?.tag()?.toIntOrNull() != R.id.nav_recents) {
+                        setRoot(RecentsController(), R.id.nav_recents)
+                        nav.post {
+                            updatePlace()
+                        }
+                    } else {
+                        val controller =
+                            router.backstack.firstOrNull()?.controller as? RecentsController
+                        if (controller?.presenter?.viewType != recentsType) {
+                            updatePlace()
+                        } else if (router.backstackSize == 1) {
+                            controller.toggleSheet()
+                        }
+                    }
+                    return@setOnItemSelectedListener true
+                }
+            }
             if (currentRoot?.tag()?.toIntOrNull() != id) {
                 setRoot(
                     when (id) {
@@ -517,7 +559,7 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
                     controller?.toggleSheet()
                 }
             }
-            true
+            id != R.id.nav_recents || (nav as? NavigationRailView)?.isExpanded != true
         }
 
         if (!router.hasRootController()) {
@@ -1707,7 +1749,9 @@ interface RootSearchInterface {
     }
 }
 
-interface TabbedInterface
+interface TabbedInterface {
+    fun showTabs(): Boolean = true
+}
 
 interface HingeSupportedController {
     fun updateForHinge()

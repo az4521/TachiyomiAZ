@@ -74,11 +74,13 @@ class ExtensionManager(
 
     fun getAppIconForSource(source: Source): Drawable? = getAppIconForSource(source.id)
 
+    fun getPackageName(sourceId: Long): String? =
+        _installedExtensionsFlow.value
+            .find { ext -> ext.sources.any { it.id == sourceId } }
+            ?.pkgName
+
     private fun getAppIconForSource(sourceId: Long): Drawable? {
-        val pkgName =
-            _installedExtensionsFlow.value
-                .find { ext -> ext.sources.any { it.id == sourceId } }
-                ?.pkgName
+        val pkgName = getPackageName(sourceId)
         return if (pkgName != null) {
             try {
                 return iconMap.getOrPut(pkgName) {

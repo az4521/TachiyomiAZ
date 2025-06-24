@@ -4,6 +4,7 @@ import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Color
+import android.os.Build
 import android.util.AttributeSet
 import android.widget.FrameLayout
 import androidx.core.animation.doOnEnd
@@ -87,7 +88,6 @@ class DownloadButton
                 Download.State.CHECKED -> {
                     binding.downloadProgress.isVisible = false
                     binding.downloadBorder.isVisible = true
-                    binding.downloadProgressIndeterminate.isVisible = false
                     binding.downloadBorder.setImageDrawable(filledCircle)
                     binding.downloadBorder.drawable.setTint(activeColor)
                     binding.downloadIcon.drawable.setTint(Color.WHITE)
@@ -95,27 +95,30 @@ class DownloadButton
                 Download.State.NOT_DOWNLOADED -> {
                     binding.downloadBorder.isVisible = true
                     binding.downloadProgress.isVisible = false
-                    binding.downloadProgressIndeterminate.isVisible = false
                     binding.downloadBorder.setImageDrawable(borderCircle)
                     binding.downloadBorder.drawable.setTint(activeColor)
                     binding.downloadIcon.drawable.setTint(activeColor)
                 }
                 Download.State.QUEUE -> {
                     binding.downloadBorder.isVisible = false
-                    binding.downloadProgress.isVisible = false
-                    binding.downloadProgressIndeterminate.isVisible = true
+                    binding.downloadProgress.isVisible = true
                     binding.downloadProgress.isIndeterminate = true
                     binding.downloadIcon.drawable.setTint(disabledColor)
+                    binding.downloadProgress.setIndicatorColor(disabledColor)
+                    binding.downloadProgress.progress = 0
                 }
                 Download.State.DOWNLOADING -> {
-                    binding.downloadBorder.isVisible = true
+                    binding.downloadBorder.isVisible = false
                     binding.downloadProgress.isVisible = true
-                    binding.downloadProgressIndeterminate.isVisible = false
                     binding.downloadBorder.setImageDrawable(borderCircle)
                     binding.downloadProgress.isIndeterminate = false
-                    binding.downloadProgress.progress = progress
-                    binding.downloadBorder.drawable.setTint(progressBGColor)
-                    binding.downloadProgress.progressDrawable?.setTint(downloadedColor)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                        binding.downloadProgress.setProgress(progress, isAnimating)
+                    } else {
+                        binding.downloadProgress.progress = progress
+                    }
+                    binding.downloadProgress.trackColor = progressBGColor
+                    binding.downloadProgress.setIndicatorColor(downloadedColor)
                     binding.downloadIcon.drawable.setTint(disabledColor)
                     if (!isAnimating) {
                         iconAnimation =
@@ -131,7 +134,6 @@ class DownloadButton
                 Download.State.DOWNLOADED -> {
                     binding.downloadProgress.isVisible = false
                     binding.downloadBorder.isVisible = true
-                    binding.downloadProgressIndeterminate.isVisible = false
                     binding.downloadBorder.drawable.setTint(downloadedColor)
                     if (animated) {
                         binding.downloadBorder.setImageDrawable(filledAnim)
@@ -157,7 +159,6 @@ class DownloadButton
                 Download.State.ERROR -> {
                     binding.downloadProgress.isVisible = false
                     binding.downloadBorder.isVisible = true
-                    binding.downloadProgressIndeterminate.isVisible = false
                     binding.downloadBorder.setImageDrawable(borderCircle)
                     binding.downloadBorder.drawable.setTint(errorColor)
                     binding.downloadIcon.drawable.setTint(errorColor)

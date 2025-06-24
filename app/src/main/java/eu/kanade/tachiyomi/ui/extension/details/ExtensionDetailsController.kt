@@ -68,6 +68,7 @@ class ExtensionDetailsController(
 
     private val preferences: PreferencesHelper = Injekt.get()
     private val network: NetworkHelper by injectLazy()
+    private val sourceId = args.getLong(SOURCE_ID_KEY)
 
     init {
         setHasOptionsMenu(true)
@@ -79,12 +80,24 @@ class ExtensionDetailsController(
         },
     )
 
+    constructor(pkgName: String, sourceId: Long) : this(
+        Bundle().apply {
+            putString(PKGNAME_KEY, pkgName)
+            putLong(SOURCE_ID_KEY, sourceId)
+        },
+    )
+
     override fun createBinding(inflater: LayoutInflater) =
         ExtensionDetailControllerBinding.inflate(inflater.cloneInContext(getPreferenceThemeContext()))
 
     override val presenter = ExtensionDetailsPresenter(args.getString(PKGNAME_KEY)!!)
 
-    override fun getTitle(): String? = resources?.getString(R.string.extension_info)
+    override fun getTitle(): String? {
+        val enabledLanguages by lazy { preferences.enabledLanguages().get() }
+        val singleSource =
+            if (sourceId != 0L) presenter.extension?.sources?.find { it.id == sourceId } else null
+        return singleSource?.nameBasedOnEnabledLanguages(enabledLanguages) ?: resources?.getString(R.string.extension_info)
+    }
 
     @SuppressLint("PrivateResource")
     override fun onViewCreated(view: View) {
@@ -112,10 +125,22 @@ class ExtensionDetailsController(
                     .map { it.name }
                     .distinct()
                     .size == 1
-        val langauges = preferences.enabledLanguages().get()
+        val languages = preferences.enabledLanguages().get()
 
-        for (source in extension.sources.sortedByDescending { it.isLangEnabled(langauges) }) {
-            addPreferencesForSource(screen, source, multiSource, isMultiLangSingleSource)
+        val singleSource =
+            if (sourceId != 0L) extension.sources.find { it.id == sourceId } else null
+        if (singleSource != null) {
+            addPreferencesForSource(
+                screen,
+                singleSource,
+                multiSource,
+                isMultiLangSingleSource,
+                false,
+            )
+        } else {
+            for (source in extension.sources.sortedByDescending { it.isLangEnabled(languages) }) {
+                addPreferencesForSource(screen, source, multiSource, isMultiLangSingleSource)
+            }
         }
 
         manager.setPreferences(screen)
@@ -127,14 +152,22 @@ class ExtensionDetailsController(
                 .setStableIdMode(ConcatAdapter.Config.StableIdMode.ISOLATED_STABLE_IDS)
                 .build()
         screen.setShouldUseGeneratedIds(true)
-        val extHeaderAdapter = ExtensionDetailsHeaderAdapter(presenter)
-        extHeaderAdapter.setHasStableIds(true)
-        binding.extensionPrefsRecycler.adapter =
-            ConcatAdapter(
-                concatAdapterConfig,
-                extHeaderAdapter,
-                PreferenceGroupAdapter(screen),
-            )
+        if (singleSource != null) {
+            binding.extensionPrefsRecycler.adapter =
+                ConcatAdapter(
+                    concatAdapterConfig,
+                    PreferenceGroupAdapter(screen),
+                )
+        } else {
+            val extHeaderAdapter = ExtensionDetailsHeaderAdapter(presenter)
+            extHeaderAdapter.setHasStableIds(true)
+            binding.extensionPrefsRecycler.adapter =
+                ConcatAdapter(
+                    concatAdapterConfig,
+                    extHeaderAdapter,
+                    PreferenceGroupAdapter(screen),
+                )
+        }
         binding.extensionPrefsRecycler.addItemDecoration(ExtensionSettingsDividerItemDecoration(context))
     }
 
@@ -224,56 +257,59 @@ class ExtensionDetailsController(
         source: Source,
         isMultiSource: Boolean,
         isMultiLangSingleSource: Boolean,
+        showSwitch: Boolean = true,
     ) {
         val context = screen.context
 
         val prefs = mutableListOf<Preference>()
-        val block: (@DSL SwitchPreferenceCompat).() -> Unit = {
-            key = source.preferenceKey() + "_enabled"
-            title =
-                when {
-                    isMultiSource && !isMultiLangSingleSource -> source.toString()
-                    else -> LocaleHelper.getSourceDisplayName(source.lang, context)
-                }
-            isPersistent = false
-            isChecked = source.isEnabled()
-
-            onChange { newValue ->
-                if (source.isLangEnabled()) {
-                    val checked = newValue as Boolean
-                    toggleSource(source, checked)
-                    prefs.forEach { it.isVisible = checked }
-                    true
-                } else {
-                    binding.coordinator.snack(
-                        context.getString(
-                            R.string._must_be_enabled_first,
-                            title,
-                        ),
-                        Snackbar.LENGTH_LONG,
-                    ) {
-                        setAction(R.string.enable) {
-                            preferences.enabledLanguages() += source.lang
-                            isChecked = true
-                            toggleSource(source, true)
-                            prefs.forEach { it.isVisible = true }
-                        }
+        if (showSwitch) {
+            val block: (@DSL SwitchPreferenceCompat).() -> Unit = {
+                key = source.preferenceKey() + "_enabled"
+                title =
+                    when {
+                        isMultiSource && !isMultiLangSingleSource -> source.toString()
+                        else -> LocaleHelper.getSourceDisplayName(source.lang, context)
                     }
-                    false
+                isPersistent = false
+                isChecked = source.isEnabled()
+
+                onChange { newValue ->
+                    if (source.isLangEnabled()) {
+                        val checked = newValue as Boolean
+                        toggleSource(source, checked)
+                        prefs.forEach { it.isVisible = checked }
+                        true
+                    } else {
+                        binding.coordinator.snack(
+                            context.getString(
+                                R.string._must_be_enabled_first,
+                                title,
+                            ),
+                            Snackbar.LENGTH_LONG,
+                        ) {
+                            setAction(R.string.enable) {
+                                preferences.enabledLanguages() += source.lang
+                                isChecked = true
+                                toggleSource(source, true)
+                                prefs.forEach { it.isVisible = true }
+                            }
+                        }
+                        false
+                    }
                 }
+
+                // React to enable/disable all changes
+                preferences
+                    .hiddenSources()
+                    .asFlow()
+                    .onEach {
+                        val enabled = source.isEnabled()
+                        isChecked = enabled
+                    }.launchIn(viewScope)
             }
 
-            // React to enable/disable all changes
-            preferences
-                .hiddenSources()
-                .asFlow()
-                .onEach {
-                    val enabled = source.isEnabled()
-                    isChecked = enabled
-                }.launchIn(viewScope)
+            screen.switchPreference(block)
         }
-
-        screen.switchPreference(block)
         if (source is ConfigurableSource) {
             val newScreen = screen.preferenceManager.createPreferenceScreen(context)
             source.setupPreferenceScreen(newScreen)
@@ -398,6 +434,7 @@ class ExtensionDetailsController(
 
     private companion object {
         const val PKGNAME_KEY = "pkg_name"
+        const val SOURCE_ID_KEY = "source_id"
         const val LASTOPENPREFERENCE_KEY = "last_open_preference"
         private const val URL_EXTENSION_BLOB =
             "https://github.com/tachiyomiorg/tachiyomi-extensions/blob/master"

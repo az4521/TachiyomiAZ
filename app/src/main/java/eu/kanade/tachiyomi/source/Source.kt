@@ -97,4 +97,6 @@ interface Source {
 
 fun Source.icon(): Drawable? = Injekt.get<ExtensionManager>().getAppIconForSource(this)
 
+fun Source.pkgName() = Injekt.get<ExtensionManager>().getPackageName(id)
+
 fun Source.preferenceKey(): String = "source_$id"

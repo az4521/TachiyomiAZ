@@ -8,8 +8,9 @@
     android:clipChildren="false"
     android:layout_height="match_parent">
 
-    <ProgressBar
+    <com.google.android.material.loadingindicator.LoadingIndicator
         android:id="@+id/progress"
+        app:indicatorSize="75dp"
         android:layout_width="75dp"
         android:layout_height="75dp"
         android:layout_gravity="center" />

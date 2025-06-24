@@ -150,7 +150,7 @@ dependencies {
     // Android X libraries
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("androidx.cardview:cardview:1.0.0")
-    implementation("com.google.android.material:material:1.12.0")
+    implementation("com.google.android.material:material:1.14.0-alpha02")
     implementation("androidx.webkit:webkit:1.13.0")
     implementation("androidx.recyclerview:recyclerview:1.4.0")
     implementation("androidx.preference:preference:1.2.1")

@@ -17,26 +17,21 @@
         android:src="@drawable/border_circle"
         android:padding="3dp"/>
 
-    <ProgressBar
-        android:id="@+id/download_progress_indeterminate"
-        android:layout_width="30dp"
-        android:layout_height="30dp"
-        android:visibility="gone"
-        android:layout_gravity="center"
-        android:indeterminate="true"
-        android:indeterminateTint="@color/material_on_surface_disabled"/>
-
-    <ProgressBar
+    <com.google.android.material.progressindicator.CircularProgressIndicator
         android:id="@+id/download_progress"
         android:layout_width="30dp"
         android:layout_height="30dp"
         android:visibility="gone"
         tools:visibility="visible"
-        style="?android:attr/progressBarStyleHorizontal"
-        android:progressDrawable="@drawable/circle_progress"
+        tools:progress="40"
+        app:waveSpeed="7dp"
+        app:waveAmplitude="0.5dp"
+        app:wavelength="4dp"
+        app:trackThickness="2dp"
+        app:indicatorSize="23.8dp"
         android:layout_gravity="center"
-        android:progressTint="@color/download"
-        android:progressBackgroundTint="@color/material_on_surface_disabled"/>
+        app:indicatorColor="@color/download"
+        app:trackColor="@color/material_on_surface_disabled"/>
 
 
     <ImageView
