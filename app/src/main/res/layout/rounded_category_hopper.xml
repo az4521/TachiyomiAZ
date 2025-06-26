@@ -12,53 +12,42 @@
     app:cardCornerRadius="18dp"
     app:cardElevation="6dp">
 
-    <androidx.constraintlayout.widget.ConstraintLayout
+    <com.google.android.material.button.MaterialButtonGroup
         android:id="@+id/category_hopper_layout"
         android:layout_width="wrap_content"
+        android:spacing="4dp"
         android:layout_height="wrap_content"
         android:background="?attr/colorSecondary"
         android:clickable="true"
         android:focusable="true">
 
-        <ImageButton
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/up_category"
-            style="@style/Theme.Widget.ImageBorderless.Secondary"
+            style="@style/Theme.Widget.ImageBorderlessExpressive.Secondary"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginEnd="4dp"
+            android:layout_height="48dp"
+            app:iconGravity="textStart"
             android:contentDescription="@string/previous_title"
             android:padding="12dp"
-            android:src="@drawable/ic_expand_less_24dp"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toStartOf="@id/category_button"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
+            app:icon="@drawable/ic_expand_less_24dp" />
 
-        <ImageButton
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/category_button"
-            style="@style/Theme.Widget.ImageBorderless.Secondary"
+            style="@style/Theme.Widget.ImageBorderlessExpressive.Secondary"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_height="48dp"
             android:contentDescription="@string/categories"
             android:padding="12dp"
             android:src="@drawable/ic_label_outline_24dp"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toStartOf="@id/down_category"
-            app:layout_constraintStart_toEndOf="@id/up_category"
-            app:layout_constraintTop_toTopOf="parent" />
+            app:icon="@drawable/ic_label_outline_24dp" />
 
-        <ImageButton
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/down_category"
-            style="@style/Theme.Widget.ImageBorderless.Secondary"
+            style="@style/Theme.Widget.ImageBorderlessExpressive.Secondary"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="4dp"
+            android:layout_height="48dp"
             android:contentDescription="@string/next_title"
             android:padding="12dp"
-            android:src="@drawable/ic_expand_more_24dp"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toEndOf="@id/category_button"
-            app:layout_constraintTop_toTopOf="parent" />
-    </androidx.constraintlayout.widget.ConstraintLayout>
+            app:icon="@drawable/ic_expand_more_24dp" />
+    </com.google.android.material.button.MaterialButtonGroup>
 </com.google.android.material.card.MaterialCardView>

@@ -10,7 +10,7 @@
     app:behavior_peekHeight="60dp"
     app:layout_behavior="com.google.android.material.bottomsheet.BottomSheetBehavior">
 
-    <androidx.constraintlayout.widget.ConstraintLayout
+    <FrameLayout
         android:id="@+id/topbar_layout"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
@@ -25,152 +25,76 @@
             android:alpha="0.25"
             android:contentDescription="@string/drag_handle"
             android:src="@drawable/draggable_pill"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
+            android:layout_gravity="top|center"
             app:tint="?actionBarTintColor" />
 
-        <ImageButton
+        <LinearLayout
+            android:id="@+id/buttonGroup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:spacing="0dp"
+            android:orientation="horizontal" >
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/chapters_button"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            app:layout_constraintWidth_max="wrap"
-            android:background="?selectableItemBackgroundBorderless"
-            android:contentDescription="@string/next_title"
-            android:padding="@dimen/material_layout_keylines_screen_edge_margin"
-            android:tooltipText="@string/view_chapters"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toStartOf="@id/webview_button"
-            app:layout_constraintHorizontal_chainStyle="spread"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            app:srcCompat="@drawable/ic_format_list_numbered_24dp"
-            app:tint="?actionBarTintColor" />
+            style="@style/Widget.Tachiyomi.Button.ReaderIcon"
+            app:icon="@drawable/ic_format_list_numbered_24dp"
+            android:contentDescription="@string/view_chapters"
+            android:tooltipText="@string/view_chapters" />
 
-        <ImageButton
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/webview_button"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:background="?selectableItemBackgroundBorderless"
+            style="@style/Widget.Tachiyomi.Button.ReaderIcon"
+            app:icon="@drawable/ic_open_in_webview_24dp"
             android:contentDescription="@string/open_in_webview"
-            android:padding="@dimen/material_layout_keylines_screen_edge_margin"
-            android:tooltipText="@string/open_in_webview"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toStartOf="@id/reading_mode"
-            app:layout_constraintHorizontal_chainStyle="spread"
-            app:layout_constraintStart_toEndOf="@id/chapters_button"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintWidth_max="wrap"
-            app:srcCompat="@drawable/ic_open_in_webview_24dp"
-            app:tint="?actionBarTintColor" />
+            android:tooltipText="@string/open_in_webview" />
 
-        <ImageButton
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/reading_mode"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:background="?selectableItemBackgroundBorderless"
+            style="@style/Widget.Tachiyomi.Button.ReaderIcon"
+            app:icon="@drawable/ic_reader_default_24dp"
             android:contentDescription="@string/reading_mode"
-            android:padding="@dimen/material_layout_keylines_screen_edge_margin"
-            android:tooltipText="@string/reading_mode"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toStartOf="@id/rotation_sheet_button"
-            app:layout_constraintHorizontal_chainStyle="spread"
-            app:layout_constraintStart_toEndOf="@id/webview_button"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintWidth_max="wrap"
-            app:srcCompat="@drawable/ic_reader_default_24dp"
-            app:tint="?actionBarTintColor" />
+            android:tooltipText="@string/reading_mode" />
 
-        <ImageButton
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/rotation_sheet_button"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:background="?selectableItemBackgroundBorderless"
-            android:contentDescription="@string/open_in_webview"
-            android:padding="@dimen/material_layout_keylines_screen_edge_margin"
+            style="@style/Widget.Tachiyomi.Button.ReaderIcon"
+            app:icon="@drawable/ic_screen_rotation_24dp"
+            android:contentDescription="@string/rotation"
             android:tooltipText="@string/rotation"
             android:visibility="gone"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toStartOf="@id/crop_borders_sheet_button"
-            app:layout_constraintHorizontal_chainStyle="spread"
-            app:layout_constraintStart_toEndOf="@id/reading_mode"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintWidth_max="wrap"
-            app:srcCompat="@drawable/ic_screen_rotation_24dp"
-            app:tint="?actionBarTintColor"
             tools:visibility="visible" />
 
-        <ImageButton
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/crop_borders_sheet_button"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:background="?selectableItemBackgroundBorderless"
+            style="@style/Widget.Tachiyomi.Button.ReaderIcon"
+            app:icon="@drawable/anim_crop_to_free"
             android:contentDescription="@string/crop_borders"
-            android:padding="@dimen/material_layout_keylines_screen_edge_margin"
             android:tooltipText="@string/crop_borders"
             android:visibility="gone"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toStartOf="@id/double_page"
-            app:layout_constraintHorizontal_chainStyle="spread"
-            app:layout_constraintStart_toEndOf="@id/rotation_sheet_button"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintWidth_max="wrap"
-            app:srcCompat="@drawable/anim_crop_to_free"
-            app:tint="?actionBarTintColor"
             tools:visibility="visible" />
 
-        <ImageButton
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/double_page"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:background="?selectableItemBackgroundBorderless"
-            android:contentDescription="@string/next_title"
-            android:padding="@dimen/material_layout_keylines_screen_edge_margin"
-            android:tooltipText="@string/double_pages"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toStartOf="@id/shift_page_button"
-            app:layout_constraintHorizontal_chainStyle="spread"
-            app:layout_constraintStart_toEndOf="@id/crop_borders_sheet_button"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintWidth_max="wrap"
-            app:srcCompat="@drawable/ic_book_open_variant_24dp"
-            app:tint="?actionBarTintColor" />
+            style="@style/Widget.Tachiyomi.Button.ReaderIcon"
+            app:icon="@drawable/ic_book_open_variant_24dp"
+            android:contentDescription="@string/page_layout"
+            android:tooltipText="@string/page_layout" />
 
-        <ImageButton
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/shift_page_button"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:background="?selectableItemBackgroundBorderless"
-            android:contentDescription="@string/next_title"
-            android:padding="@dimen/material_layout_keylines_screen_edge_margin"
-            android:tooltipText="@string/shift_one_page_over"
-            android:visibility="gone"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toStartOf="@id/display_options"
-            app:layout_constraintHorizontal_chainStyle="spread"
-            app:layout_constraintStart_toEndOf="@id/double_page"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintWidth_max="wrap"
-            app:srcCompat="@drawable/ic_page_next_outline_24dp"
-            app:tint="?actionBarTintColor"
-            tools:visibility="visible" />
+            style="@style/Widget.Tachiyomi.Button.ReaderIcon"
+            app:icon="@drawable/ic_page_next_outline_24dp"
+            android:contentDescription="@string/shift_one_page_over"
+            android:tooltipText="@string/shift_one_page_over" />
 
-        <ImageButton
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/display_options"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:background="?selectableItemBackgroundBorderless"
-            android:contentDescription="@string/next_title"
-            android:padding="@dimen/material_layout_keylines_screen_edge_margin"
-            android:tooltipText="@string/display_options"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintHorizontal_chainStyle="spread"
-            app:layout_constraintStart_toEndOf="@id/shift_page_button"
-            app:layout_constraintTop_toTopOf="parent"
-            app:srcCompat="@drawable/ic_tune_24dp"
-            app:tint="?actionBarTintColor" />
-    </androidx.constraintlayout.widget.ConstraintLayout>
+            style="@style/Widget.Tachiyomi.Button.ReaderIcon"
+            app:icon="@drawable/ic_tune_24dp"
+            android:contentDescription="@string/display_options"
+            android:tooltipText="@string/display_options" />
+        </LinearLayout>
+    </FrameLayout>
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/chapter_recycler"

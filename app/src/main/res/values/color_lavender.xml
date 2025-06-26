@@ -11,7 +11,7 @@
 -->
 <resources>
     <color name="lavender_primary">#9C64D3</color>
-    <color name="lavender_on_primary">#EDE2FF</color>
+    <color name="lavender_on_primary">#F7F2F8</color>
     <color name="lavender_primary_variant">#DED3F3</color>
     <color name="lavender_primary_inverse">#D6BAFF</color>
     <color name="lavender_secondary">#7B46AF</color>

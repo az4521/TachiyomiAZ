@@ -45,21 +45,19 @@ class SourceItem(
         payloads: MutableList<Any>,
     ) {
         holder.bind(this)
+        val mangaAdapter = adapter as SourceAdapter
+        val setTop = mangaAdapter.getItem(position - 1) !is SourceItem
+        val setBottom = mangaAdapter.getItem(position + 1) !is SourceItem
+        holder.setCorners(setTop, setBottom)
     }
 
     override fun equals(other: Any?): Boolean {
         if (other is SourceItem) {
             return source.id == other.source.id &&
-                header?.code == other.header?.code &&
-                isPinned == other.isPinned
+                header?.code == other.header?.code
         }
         return false
     }
 
-    override fun hashCode(): Int {
-        var result = source.id.hashCode()
-        result = 31 * result + (header?.hashCode() ?: 0)
-        result = 31 * result + isPinned.hashCode()
-        return result
-    }
+    override fun hashCode(): Int = 31 * source.id.hashCode() + (header?.hashCode() ?: 0)
 }

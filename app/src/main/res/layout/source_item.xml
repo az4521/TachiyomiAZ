@@ -5,12 +5,19 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content">
 
-    <FrameLayout
+    <com.google.android.material.card.MaterialCardView
         android:id="@+id/end_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="@color/material_red_500"
-        android:visibility="gone">
+        android:layout_marginStart="10dp"
+        android:layout_marginEnd="10dp"
+        android:visibility="gone"
+        app:cardPreventCornerOverlap="false"
+        app:strokeWidth="0dp"
+        android:elevation="0dp"
+        app:cardBackgroundColor="@color/material_red_500"
+        app:cardElevation="0dp"
+        app:cardCornerRadius="12dp">
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/close_right"
@@ -23,14 +30,21 @@
             android:src="@drawable/ic_close_24dp"
             android:text="@string/hide"
             android:textColor="@color/md_white_1000" />
-    </FrameLayout>
+    </com.google.android.material.card.MaterialCardView>>
 
-
-    <FrameLayout
+    <com.google.android.material.card.MaterialCardView
         android:id="@+id/start_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="@color/material_red_500">
+        android:layout_marginStart="10dp"
+        android:layout_marginEnd="10dp"
+        android:visibility="gone"
+        app:cardPreventCornerOverlap="false"
+        app:strokeWidth="0dp"
+        android:elevation="0dp"
+        app:cardBackgroundColor="@color/material_red_500"
+        app:cardElevation="0dp"
+        app:cardCornerRadius="12dp">
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/close_left"
@@ -42,13 +56,24 @@
             android:src="@drawable/ic_close_24dp"
             android:text="@string/hide"
             android:textColor="@color/md_white_1000" />
-    </FrameLayout>
-
+    </com.google.android.material.card.MaterialCardView>
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/source_card"
+        android:layout_width="fill_parent"
+        android:layout_marginStart="10dp"
+        android:layout_marginEnd="10dp"
+        app:cardPreventCornerOverlap="false"
+        app:strokeWidth="0dp"
+        android:elevation="0dp"
+        app:cardBackgroundColor="@color/card_container"
+        app:cardElevation="0dp"
+        app:cardCornerRadius="12dp"
+        android:layout_height="wrap_content">
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/card"
         android:layout_width="match_parent"
         android:layout_height="@dimen/material_component_lists_two_line_height"
-        android:background="@drawable/list_item_selector">
+        android:background="@drawable/transparent_item_selector">
 
         <ImageView
             android:id="@+id/source_image"
@@ -89,20 +114,20 @@
             android:textAllCaps="false"
             app:layout_constraintEnd_toStartOf="@id/source_pin" />
 
-        <ImageButton
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/source_pin"
-            style="@style/Theme.Widget.ImageBorderless"
-            android:layout_width="0dp"
+            style="?materialIconButtonStyle"
+            app:iconTint="?attr/colorSecondary"
+            android:layout_width="48dp"
             android:layout_height="0dp"
-            android:layout_margin="10dp"
-            android:layout_marginEnd="8dp"
-            android:src="@drawable/ic_pin_24dp"
-            app:tint="?attr/colorSecondary"
+            app:iconGravity="textStart"
+            android:layout_marginEnd="0dp"
+            app:icon="@drawable/ic_pin_24dp"
             app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintDimensionRatio="1:1"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="parent"
             android:contentDescription="@string/pin" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
+    </com.google.android.material.card.MaterialCardView>
 </FrameLayout>

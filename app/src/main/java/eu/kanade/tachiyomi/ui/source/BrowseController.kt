@@ -135,6 +135,7 @@ class BrowseController :
         binding.sourceRecycler.layoutManager = LinearLayoutManagerAccurateOffset(view.context)
 
         binding.sourceRecycler.adapter = adapter
+        binding.sourceRecycler.addItemDecoration(SourceDividerItemDecoration(view.context))
         adapter?.isSwipeEnabled = true
         adapter?.stateRestorationPolicy = RecyclerView.Adapter.StateRestorationPolicy.PREVENT_WHEN_EMPTY
         scrollViewWith(

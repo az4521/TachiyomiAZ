@@ -35,6 +35,10 @@ class ChapterItem(
         payloads: MutableList<Any?>?,
     ) {
         holder.bind(this, manga)
+        val mangaAdapter = adapter as MangaDetailsAdapter
+        val setTop = mangaAdapter.getItem(position - 1) !is ChapterItem
+        val setBottom = mangaAdapter.getItem(position + 1) !is ChapterItem
+        holder.setCorners(setTop, setBottom)
     }
 
     override fun unbindViewHolder(

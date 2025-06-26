@@ -66,7 +66,7 @@
     <!-- Flat Lime Theme -->
     <color name="primaryLime">#7CF7A5</color>
     <color name="secondaryLime">#4AF88A</color>
-    <color name="primaryVariantLime">@color/primaryVariantTachiyomi</color>
+    <color name="primaryVariantLime">#121A14</color>
     <color name="onPrimaryLime">#043314</color>
     <color name="primaryInverseLime">#09933c</color>
     <color name="backgroundLime">#202125</color>

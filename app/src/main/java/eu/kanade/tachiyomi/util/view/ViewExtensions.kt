@@ -66,6 +66,7 @@ import com.google.android.material.navigation.NavigationBarItemView
 import com.google.android.material.navigation.NavigationBarMenuView
 import com.google.android.material.navigation.NavigationBarView
 import com.google.android.material.shape.CornerFamily
+import com.google.android.material.shape.MaterialShapeDrawable
 import com.google.android.material.shape.ShapeAppearanceModel
 import com.google.android.material.snackbar.Snackbar
 import eu.kanade.tachiyomi.R
@@ -446,7 +447,7 @@ fun setCards(
 }
 
 var View.backgroundColor: Int?
-    get() = (background as? ColorDrawable)?.color
+    get() = (background as? ColorDrawable)?.color ?: (background as? MaterialShapeDrawable)?.fillColor?.defaultColor
     set(value) {
         if (value != null) setBackgroundColor(value) else background = null
     }

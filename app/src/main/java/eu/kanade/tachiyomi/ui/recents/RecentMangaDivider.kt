@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.recents
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Rect
@@ -8,6 +9,7 @@ import android.view.View
 import eu.kanade.tachiyomi.util.system.dpToPx
 import eu.kanade.tachiyomi.util.system.isLTR
 
+@SuppressLint("UseKtx")
 class RecentMangaDivider(
     context: Context,
 ) : androidx.recyclerview.widget.RecyclerView.ItemDecoration() {

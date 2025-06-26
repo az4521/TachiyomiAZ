@@ -3,11 +3,13 @@ package eu.kanade.tachiyomi.ui.source
 import android.content.res.ColorStateList
 import android.view.View
 import androidx.core.view.isVisible
+import com.google.android.material.shape.CornerFamily
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.databinding.SourceItemBinding
 import eu.kanade.tachiyomi.source.LocalSource
 import eu.kanade.tachiyomi.source.icon
 import eu.kanade.tachiyomi.ui.base.holder.BaseFlexibleViewHolder
+import eu.kanade.tachiyomi.util.system.dpToPx
 import eu.kanade.tachiyomi.util.system.getResourceColor
 import eu.kanade.tachiyomi.util.view.compatToolTipText
 
@@ -38,7 +40,7 @@ class SourceHolder(
         binding.title.text = sourceName
 
         binding.sourcePin.apply {
-            imageTintList =
+            iconTint =
                 ColorStateList.valueOf(
                     context.getResourceColor(
                         if (isPinned) {
@@ -49,7 +51,8 @@ class SourceHolder(
                     ),
                 )
             compatToolTipText = context.getString(if (isPinned) R.string.unpin else R.string.pin)
-            setImageResource(
+            contentDescription = context.getString(if (isPinned) R.string.unpin else R.string.pin)
+            setIconResource(
                 if (isPinned) {
                     R.drawable.ic_pin_24dp
                 } else {
@@ -70,9 +73,27 @@ class SourceHolder(
         binding.sourceLatest.isVisible = source.supportsLatest
     }
 
-    override fun getFrontView(): View = binding.card
+    override fun getFrontView(): View = binding.sourceCard
 
     override fun getRearStartView(): View = binding.startView
 
     override fun getRearEndView(): View = binding.endView
+
+    fun setCorners(
+        top: Boolean,
+        bottom: Boolean,
+    ) {
+        val shapeModel =
+            binding.sourceCard.shapeAppearanceModel
+                .toBuilder()
+                .apply {
+                    setTopLeftCorner(CornerFamily.ROUNDED, if (top) 12f.dpToPx else 2f.dpToPx)
+                    setTopRightCorner(CornerFamily.ROUNDED, if (top) 12f.dpToPx else 2f.dpToPx)
+                    setBottomLeftCorner(CornerFamily.ROUNDED, if (bottom) 12f.dpToPx else 2f.dpToPx)
+                    setBottomRightCorner(CornerFamily.ROUNDED, if (bottom) 12f.dpToPx else 2f.dpToPx)
+                }.build()
+        binding.sourceCard.shapeAppearanceModel = shapeModel
+        binding.startView.shapeAppearanceModel = shapeModel
+        binding.endView.shapeAppearanceModel = shapeModel
+    }
 }

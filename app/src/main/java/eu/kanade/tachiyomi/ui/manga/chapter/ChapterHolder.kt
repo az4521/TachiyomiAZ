@@ -2,12 +2,15 @@ package eu.kanade.tachiyomi.ui.manga.chapter
 
 import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
+import android.annotation.SuppressLint
 import android.content.res.ColorStateList
 import android.view.View
 import androidx.core.animation.doOnEnd
 import androidx.core.animation.doOnStart
+import androidx.core.graphics.ColorUtils
 import androidx.core.view.isVisible
 import androidx.core.widget.TextViewCompat
+import com.google.android.material.shape.CornerFamily
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.data.download.model.Download
@@ -19,6 +22,7 @@ import eu.kanade.tachiyomi.util.isLocal
 import eu.kanade.tachiyomi.util.system.dpToPx
 import eu.kanade.tachiyomi.util.system.getResourceColor
 
+@SuppressLint("ClickableViewAccessibility")
 class ChapterHolder(
     view: View,
     private val adapter: MangaDetailsAdapter,
@@ -30,6 +34,9 @@ class ChapterHolder(
         binding.downloadButton.downloadButton.setOnLongClickListener {
             adapter.delegate.startDownloadRange(flexibleAdapterPosition)
             true
+        }
+        binding.expandedDownloadTarget.setOnTouchListener { _, event ->
+            binding.downloadButton.downloadButton.onTouchEvent(event)
         }
     }
 
@@ -75,7 +82,7 @@ class ChapterHolder(
             statuses.add(chapter.scanlator!!)
         }
 
-        if (binding.frontView.translationX == 0f) {
+        if (getFrontView().translationX == 0f) {
             binding.read.setImageResource(
                 if (item.read) R.drawable.ic_eye_off_24dp else R.drawable.ic_eye_24dp,
             )
@@ -115,7 +122,7 @@ class ChapterHolder(
         anim2.duration = 600
         anim2.startDelay = 500
         anim2.addUpdateListener {
-            if (binding.startView.isVisible && binding.frontView.translationX <= 0) {
+            if (binding.startView.isVisible && getFrontView().translationX <= 0) {
                 binding.startView.isVisible = false
                 binding.endView.isVisible = true
             }
@@ -132,17 +139,17 @@ class ChapterHolder(
         to: Float,
     ): ObjectAnimator =
         ObjectAnimator
-            .ofFloat(binding.frontView, View.TRANSLATION_X, from, to)
+            .ofFloat(getFrontView(), View.TRANSLATION_X, from, to)
             .setDuration(300)
 
-    override fun getFrontView(): View = binding.frontView
+    override fun getFrontView(): View = binding.chapterCard
 
     override fun getRearEndView(): View = binding.endView
 
     override fun getRearStartView(): View = binding.startView
 
     private fun resetFrontView() {
-        if (binding.frontView.translationX != 0f) {
+        if (getFrontView().translationX != 0f) {
             itemView.post {
                 androidx.transition.TransitionManager.endTransitions(adapter.recyclerView)
                 adapter.notifyItemChanged(flexibleAdapterPosition)
@@ -157,7 +164,16 @@ class ChapterHolder(
         animated: Boolean = false,
     ) = with(binding.downloadButton.downloadButton) {
         adapter.delegate.accentColor()?.let {
-            binding.startView.backgroundTintList = ColorStateList.valueOf(it)
+            binding.startView.setCardBackgroundColor(it)
+
+            val color = binding.chapterCard.cardBackgroundColor.defaultColor
+            val bgArray = FloatArray(3)
+            val accentArray = FloatArray(3)
+            ColorUtils.colorToHSL(color, bgArray)
+            ColorUtils.colorToHSL(it, accentArray)
+            bgArray[0] = accentArray[0]
+            binding.chapterCard.setCardBackgroundColor(ColorUtils.HSLToColor(bgArray))
+
             binding.bookmark.imageTintList =
                 ColorStateList.valueOf(
                     context.getResourceColor(android.R.attr.textColorPrimaryInverse),
@@ -174,5 +190,23 @@ class ChapterHolder(
         }
         isVisible = !localSource
         setDownloadStatus(status, progress, animated)
+    }
+
+    fun setCorners(
+        top: Boolean,
+        bottom: Boolean,
+    ) {
+        val shapeModel =
+            binding.chapterCard.shapeAppearanceModel
+                .toBuilder()
+                .apply {
+                    setTopLeftCorner(CornerFamily.ROUNDED, if (top) 12f.dpToPx else 2f.dpToPx)
+                    setTopRightCorner(CornerFamily.ROUNDED, if (top) 12f.dpToPx else 2f.dpToPx)
+                    setBottomLeftCorner(CornerFamily.ROUNDED, if (bottom) 12f.dpToPx else 2f.dpToPx)
+                    setBottomRightCorner(CornerFamily.ROUNDED, if (bottom) 12f.dpToPx else 2f.dpToPx)
+                }.build()
+        binding.chapterCard.shapeAppearanceModel = shapeModel
+        binding.startView.shapeAppearanceModel = shapeModel
+        binding.endView.shapeAppearanceModel = shapeModel
     }
 }

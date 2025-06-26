@@ -93,7 +93,6 @@ import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.source.globalsearch.GlobalSearchController
 import eu.kanade.tachiyomi.util.isLocal
 import eu.kanade.tachiyomi.util.moveCategories
-import eu.kanade.tachiyomi.util.system.contextCompatDrawable
 import eu.kanade.tachiyomi.util.system.disableItems
 import eu.kanade.tachiyomi.util.system.dpToPx
 import eu.kanade.tachiyomi.util.system.getResourceColor
@@ -1301,29 +1300,22 @@ open class LibraryController(
         }
         updateHopperAlpha()
         val isSingleCategory = !presenter.showAllCategories && !presenter.forceShowAllCategories
-        val context = binding.roundedCategoryHopper.root.context
-        binding.roundedCategoryHopper.upCategory.setImageDrawable(
-            context.contextCompatDrawable(
-                if (isSingleCategory) {
-                    R.drawable.ic_arrow_start_24dp
-                } else {
-                    R.drawable.ic_expand_less_24dp
-                },
-            ),
+        binding.roundedCategoryHopper.upCategory.setIconResource(
+            if (isSingleCategory) {
+                R.drawable.ic_arrow_start_24dp
+            } else {
+                R.drawable.ic_expand_less_24dp
+            },
         )
-        binding.roundedCategoryHopper.downCategory.setImageDrawable(
-            context.contextCompatDrawable(
-                if (isSingleCategory) {
-                    R.drawable.ic_arrow_end_24dp
-                } else {
-                    R.drawable.ic_expand_more_24dp
-                },
-            ),
+        binding.roundedCategoryHopper.downCategory.setIconResource(
+            if (isSingleCategory) {
+                R.drawable.ic_arrow_end_24dp
+            } else {
+                R.drawable.ic_expand_more_24dp
+            },
         )
-        binding.roundedCategoryHopper.categoryButton.setImageDrawable(
-            context.contextCompatDrawable(
-                LibraryGroup.groupTypeDrawableRes(presenter.groupType),
-            ),
+        binding.roundedCategoryHopper.categoryButton.setIconResource(
+            LibraryGroup.groupTypeDrawableRes(presenter.groupType),
         )
     }
 

@@ -66,10 +66,10 @@ class RecentMangaItem(
         position: Int,
         payloads: MutableList<Any?>?,
     ) {
-        if (mch.manga.id == null) {
-            (holder as? RecentMangaFooterHolder)?.bind((header as? RecentMangaHeaderItem)?.recentsType ?: 0)
-        } else if (chapter.id != null) {
-            (holder as? RecentMangaHolder)?.bind(this)
+        if (mch.manga.id == null && holder is RecentMangaFooterHolder) {
+            holder.bind((header as? RecentMangaHeaderItem)?.recentsType ?: 0)
+        } else if (chapter.id != null && holder is RecentMangaHolder) {
+            holder.bind(this)
         }
     }
 
