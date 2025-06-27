@@ -138,8 +138,6 @@ class MangaDetailsAdapter(
 
         fun mangaPresenter(): MangaDetailsPresenter
 
-        fun prepareToShareManga()
-
         fun openInWebView()
 
         fun startDownloadRange(position: Int)

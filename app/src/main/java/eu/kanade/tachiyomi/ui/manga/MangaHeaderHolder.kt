@@ -1,6 +1,5 @@
 package eu.kanade.tachiyomi.ui.manga
 
-import android.animation.AnimatorInflater
 import android.annotation.SuppressLint
 import android.content.res.ColorStateList
 import android.graphics.Bitmap
@@ -126,7 +125,6 @@ class MangaHeaderHolder(
             }
 
             webviewButton.setOnClickListener { adapter.delegate.openInWebView() }
-            shareButton.setOnClickListener { adapter.delegate.prepareToShareManga() }
             favoriteButton.setOnClickListener {
                 adapter.delegate.favoriteManga(false)
             }
@@ -476,7 +474,6 @@ class MangaHeaderHolder(
 
         if (manga.isLocal()) {
             binding.webviewButton.isVisible = false
-            binding.shareButton.isVisible = false
         }
 
         if (!manga.initialized) return
@@ -579,7 +576,6 @@ class MangaHeaderHolder(
 
     private fun MaterialButton.checked(checked: Boolean) {
         if (checked) {
-            stateListAnimator = AnimatorInflater.loadStateListAnimator(context, R.animator.icon_btn_state_list_anim)
             backgroundTintList =
                 ColorStateList.valueOf(
                     ColorUtils.blendARGB(
@@ -590,7 +586,6 @@ class MangaHeaderHolder(
                 )
             strokeColor = ColorStateList.valueOf(Color.TRANSPARENT)
         } else {
-            stateListAnimator = null
             resetStrokeColor()
             backgroundTintList =
                 ColorStateList.valueOf(context.getResourceColor(R.attr.background))
@@ -628,8 +623,7 @@ class MangaHeaderHolder(
             moreButton.setTextColor(accentColor)
             TextViewCompat.setCompoundDrawableTintList(lessButton, ColorStateList.valueOf(accentColor))
             lessButton.setTextColor(accentColor)
-            shareButton.imageTintList = ColorStateList.valueOf(accentColor)
-            webviewButton.imageTintList = ColorStateList.valueOf(accentColor)
+            webviewButton.iconTint = ColorStateList.valueOf(accentColor)
             filterButton.imageTintList = ColorStateList.valueOf(accentColor)
 
             val states =
@@ -655,8 +649,8 @@ class MangaHeaderHolder(
             trackButton.iconTint = ColorStateList.valueOf(accentColor)
             favoriteButton.iconTint = ColorStateList.valueOf(accentColor)
             if (updateAll) {
-                trackButton.checked(trackButton.stateListAnimator != null)
-                favoriteButton.checked(favoriteButton.stateListAnimator != null)
+                trackButton.checked(trackButton.strokeColor.defaultColor == Color.TRANSPARENT)
+                favoriteButton.checked(favoriteButton.strokeColor.defaultColor == Color.TRANSPARENT)
                 setGenreTags(this, manga)
             }
         }

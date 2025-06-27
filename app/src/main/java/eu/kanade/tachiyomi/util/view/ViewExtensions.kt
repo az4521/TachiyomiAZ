@@ -316,7 +316,7 @@ fun SwipeRefreshLayout.setStyle() {
 fun MaterialButton.resetStrokeColor() {
     strokeColor =
         ColorStateList.valueOf(
-            ColorUtils.setAlphaComponent(context.getResourceColor(R.attr.colorOnSurface), 31),
+            context.getColor(R.color.m3expressive_button_outline_color_selector),
         )
 }
 

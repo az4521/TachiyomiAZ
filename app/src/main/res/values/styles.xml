@@ -317,15 +317,15 @@
     </style>
 1
 
-    <style name="Widget.Tachiyomi.Button.OutlinedButton.Icon" parent="Widget.Material3.Button.OutlinedButton.Icon">
+    <style name="Widget.Tachiyomi.Button.OutlinedButton.Icon" parent="Widget.Material3Expressive.Button.OutlinedButton">
         <item name="android:paddingStart">12dp</item>
         <item name="android:paddingEnd">16dp</item>
         <item name="android:layout_width">wrap_content</item>
-        <item name="android:letterSpacing">0.0</item>
-        <item name="android:layout_height">40dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:paddingLeft">16dp</item>
+        <item name="android:paddingRight">@dimen/m3_btn_icon_btn_padding_right</item>
         <item name="iconTint">?attr/colorSecondary</item>
         <item name="rippleColor">?colorControlHighlight</item>
-        <item name="android:stateListAnimator">@animator/icon_btn_state_list_anim</item>
         <item name="android:textColor">?attr/colorOnBackground</item>
         <item name="cornerRadius">20dp</item>
     </style>

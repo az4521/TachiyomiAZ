@@ -511,9 +511,9 @@ class MangaDetailsController :
         offset: Int,
     ) {
         val systemInsets = insets.ignoredSystemInsets
-        binding.recycler.updatePaddingRelative(bottom = systemInsets.bottom)
+        binding.recycler.updatePaddingRelative(bottom = systemInsets.bottom + 2.dpToPx)
         binding.tabletRecycler.updatePaddingRelative(bottom = systemInsets.bottom)
-        val tHeight = toolbarHeight.takeIf { it ?: 0 > 0 } ?: appbarHeight
+        val tHeight = toolbarHeight.takeIf { (it ?: 0) > 0 } ?: appbarHeight
         headerHeight = tHeight + systemInsets.top
         binding.swipeRefresh.setProgressViewOffset(false, (-40).dpToPx, headerHeight + offset)
         if (isTablet) {
@@ -1188,6 +1188,8 @@ class MangaDetailsController :
         menu.findItem(R.id.action_migrate)?.isVisible = !presenter.isLockedFromSearch &&
             !presenter.manga.isLocal() &&
             presenter.manga.favorite
+        menu.findItem(R.id.action_share)?.isVisible = !presenter.isLockedFromSearch &&
+            !presenter.manga.isLocal()
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
@@ -1210,6 +1212,7 @@ class MangaDetailsController :
                         listOf(manga!!.id!!),
                     )
                 }
+            R.id.action_share -> prepareToShareManga()
             R.id.action_mark_all_as_read -> {
                 activity!!
                     .materialAlertDialog()
@@ -1264,7 +1267,7 @@ class MangaDetailsController :
         }
     }
 
-    override fun prepareToShareManga() {
+    private fun prepareToShareManga() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             presenter.shareManga()
         } else {

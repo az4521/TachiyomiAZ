@@ -170,7 +170,6 @@ open class BrowseSourceController(
             binding.latestGroup.isVisible =
                 (presenter.source as? CatalogueSource)?.supportsLatest == true
         }
-        updatePopLatestIcons()
         binding.latestGroup.setOnClickListener {
             if (!presenter.useLatest || !presenter.filtersMatchDefault() || presenter.query.isNotBlank()) {
                 presenter.useLatest = true
@@ -206,6 +205,7 @@ open class BrowseSourceController(
         } else {
             binding.progress.isVisible = true
         }
+        updatePopLatestIcons()
         requestFilePermissionsSafe(301, preferences, presenter.source is LocalSource)
     }
 
@@ -498,6 +498,7 @@ open class BrowseSourceController(
             }
             searchWithQuery(genreName)
         }
+        updatePopLatestIcons()
     }
 
     private fun openInWebView() {
