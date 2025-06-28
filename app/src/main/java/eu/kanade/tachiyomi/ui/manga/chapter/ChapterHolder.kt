@@ -10,7 +10,6 @@ import androidx.core.animation.doOnStart
 import androidx.core.graphics.ColorUtils
 import androidx.core.view.isVisible
 import androidx.core.widget.TextViewCompat
-import com.google.android.material.shape.CornerFamily
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.data.download.model.Download
@@ -21,6 +20,7 @@ import eu.kanade.tachiyomi.util.chapter.ChapterUtil.Companion.preferredChapterNa
 import eu.kanade.tachiyomi.util.isLocal
 import eu.kanade.tachiyomi.util.system.dpToPx
 import eu.kanade.tachiyomi.util.system.getResourceColor
+import eu.kanade.tachiyomi.util.view.makeContainerShape
 
 @SuppressLint("ClickableViewAccessibility")
 class ChapterHolder(
@@ -196,15 +196,7 @@ class ChapterHolder(
         top: Boolean,
         bottom: Boolean,
     ) {
-        val shapeModel =
-            binding.chapterCard.shapeAppearanceModel
-                .toBuilder()
-                .apply {
-                    setTopLeftCorner(CornerFamily.ROUNDED, if (top) 12f.dpToPx else 2f.dpToPx)
-                    setTopRightCorner(CornerFamily.ROUNDED, if (top) 12f.dpToPx else 2f.dpToPx)
-                    setBottomLeftCorner(CornerFamily.ROUNDED, if (bottom) 12f.dpToPx else 2f.dpToPx)
-                    setBottomRightCorner(CornerFamily.ROUNDED, if (bottom) 12f.dpToPx else 2f.dpToPx)
-                }.build()
+        val shapeModel = binding.chapterCard.makeContainerShape(top, bottom)
         binding.chapterCard.shapeAppearanceModel = shapeModel
         binding.startView.shapeAppearanceModel = shapeModel
         binding.endView.shapeAppearanceModel = shapeModel

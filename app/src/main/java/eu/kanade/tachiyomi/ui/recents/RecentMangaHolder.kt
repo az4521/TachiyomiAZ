@@ -588,31 +588,23 @@ class RecentMangaHolder(
         useContainers(true)
         val finalCard = binding.moreChaptersLayout.children.lastOrNull() as? MaterialCardView
         val hasSubChapters = finalCard != null
+        val mainCornerRadius = itemView.resources.getDimension(R.dimen.container_main_corner)
+        val subCornerRadius = itemView.resources.getDimension(R.dimen.container_sub_corner)
+        val topRadius = if (top) mainCornerRadius else subCornerRadius
+        val bottomRadius = if (bottom) mainCornerRadius else subCornerRadius
         val shapeModel =
             binding.recentCard.shapeAppearanceModel
                 .toBuilder()
                 .apply {
-                    setTopLeftCorner(CornerFamily.ROUNDED, if (top) 12f.dpToPx else 2f.dpToPx)
-                    setTopRightCorner(CornerFamily.ROUNDED, if (top) 12f.dpToPx else 2f.dpToPx)
+                    setTopLeftCorner(CornerFamily.ROUNDED, topRadius)
+                    setTopRightCorner(CornerFamily.ROUNDED, topRadius)
                     setBottomLeftCorner(
                         CornerFamily.ROUNDED,
-                        if (hasSubChapters) {
-                            0f
-                        } else if (bottom) {
-                            12f.dpToPx
-                        } else {
-                            2f.dpToPx
-                        },
+                        if (hasSubChapters) 0f else bottomRadius,
                     )
                     setBottomRightCorner(
                         CornerFamily.ROUNDED,
-                        if (hasSubChapters) {
-                            0f
-                        } else if (bottom) {
-                            12f.dpToPx
-                        } else {
-                            2f.dpToPx
-                        },
+                        if (hasSubChapters) 0f else bottomRadius,
                     )
                 }.build()
         binding.recentCard.shapeAppearanceModel = shapeModel
@@ -623,8 +615,8 @@ class RecentMangaHolder(
                 .apply {
                     setTopLeftCorner(CornerFamily.ROUNDED, 0f)
                     setTopRightCorner(CornerFamily.ROUNDED, 0f)
-                    setBottomLeftCorner(CornerFamily.ROUNDED, if (bottom) 12f.dpToPx else 2f.dpToPx)
-                    setBottomRightCorner(CornerFamily.ROUNDED, if (bottom) 12f.dpToPx else 2f.dpToPx)
+                    setBottomLeftCorner(CornerFamily.ROUNDED, bottomRadius)
+                    setBottomRightCorner(CornerFamily.ROUNDED, bottomRadius)
                 }.build()
     }
 }

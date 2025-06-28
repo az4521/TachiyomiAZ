@@ -65,7 +65,7 @@
         android:layout_marginTop="12dp"
         android:maxHeight="200dp"
         android:layout_marginBottom="16dp"
-        app:layout_constraintWidth_max="@dimen/coverMaxWidth"
+        app:layout_constraintWidth_max="@dimen/cover_max_width"
         app:layout_constraintWidth_min="50dp"
         app:layout_constraintWidth_percent="0.25"
         app:layout_constraintStart_toStartOf="parent"
@@ -81,7 +81,7 @@
             android:contentDescription="@string/cover_of_image"
             android:focusable="true"
             android:foreground="?android:attr/selectableItemBackground"
-            android:maxHeight="@dimen/coverMaxHeight"
+            android:maxHeight="@dimen/cover_max_height"
             tools:background="@color/primaryTachiyomi"
             tools:src="@mipmap/ic_launcher" />
     </com.google.android.material.card.MaterialCardView>

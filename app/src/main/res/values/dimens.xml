@@ -17,8 +17,10 @@
 
     <dimen name="fab_size">56dp</dimen>
     <dimen name="fab_margin">16dp</dimen>
-    <dimen name="coverMaxWidth">100dp</dimen>
-    <dimen name="coverMaxHeight">300dp</dimen>
+    <dimen name="cover_max_width">100dp</dimen>
+    <dimen name="cover_max_height">300dp</dimen>
+    <dimen name="container_main_corner">12dp</dimen>
+    <dimen name="container_sub_corner">2dp</dimen>
 
     <!--Nav header-->
 

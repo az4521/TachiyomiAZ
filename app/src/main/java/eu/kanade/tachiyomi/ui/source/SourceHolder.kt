@@ -3,15 +3,14 @@ package eu.kanade.tachiyomi.ui.source
 import android.content.res.ColorStateList
 import android.view.View
 import androidx.core.view.isVisible
-import com.google.android.material.shape.CornerFamily
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.databinding.SourceItemBinding
 import eu.kanade.tachiyomi.source.LocalSource
 import eu.kanade.tachiyomi.source.icon
 import eu.kanade.tachiyomi.ui.base.holder.BaseFlexibleViewHolder
-import eu.kanade.tachiyomi.util.system.dpToPx
 import eu.kanade.tachiyomi.util.system.getResourceColor
 import eu.kanade.tachiyomi.util.view.compatToolTipText
+import eu.kanade.tachiyomi.util.view.makeContainerShape
 
 class SourceHolder(
     view: View,
@@ -83,15 +82,7 @@ class SourceHolder(
         top: Boolean,
         bottom: Boolean,
     ) {
-        val shapeModel =
-            binding.sourceCard.shapeAppearanceModel
-                .toBuilder()
-                .apply {
-                    setTopLeftCorner(CornerFamily.ROUNDED, if (top) 12f.dpToPx else 2f.dpToPx)
-                    setTopRightCorner(CornerFamily.ROUNDED, if (top) 12f.dpToPx else 2f.dpToPx)
-                    setBottomLeftCorner(CornerFamily.ROUNDED, if (bottom) 12f.dpToPx else 2f.dpToPx)
-                    setBottomRightCorner(CornerFamily.ROUNDED, if (bottom) 12f.dpToPx else 2f.dpToPx)
-                }.build()
+        val shapeModel = binding.sourceCard.makeContainerShape(top, bottom)
         binding.sourceCard.shapeAppearanceModel = shapeModel
         binding.startView.shapeAppearanceModel = shapeModel
         binding.endView.shapeAppearanceModel = shapeModel

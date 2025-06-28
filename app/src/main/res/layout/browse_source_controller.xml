@@ -26,6 +26,18 @@
 
     </FrameLayout>
 
+    <eu.kanade.tachiyomi.widget.EmptyView
+        android:id="@+id/empty_view"
+        tools:paddingTop="300dp"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone"
+        android:gravity="center"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/extension_uninstall_button"/>
+
     <com.google.android.material.floatingtoolbar.FloatingToolbarLayout
         android:id="@+id/floating_browse_bar"
         android:layout_gravity="bottom|center"
@@ -43,6 +55,7 @@
                 android:id="@+id/popular_group"
                 app:toggleCheckedStateOnClick="false"
                 android:text="@string/popular"
+                android:layout_gravity="center"
                 app:icon="@drawable/ic_heart_outline_24dp"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content" />
@@ -50,6 +63,7 @@
                 style="?attr/materialButtonStyle"
                 android:checkable="true"
                 android:id="@+id/latest_group"
+                android:layout_gravity="center"
                 app:toggleCheckedStateOnClick="false"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -58,6 +72,7 @@
             <com.google.android.material.button.MaterialButton
                 style="?attr/materialButtonStyle"
                 android:checkable="true"
+                android:layout_gravity="center"
                 android:id="@+id/filter_group"
                 app:toggleCheckedStateOnClick="false"
                 android:layout_width="wrap_content"
@@ -66,17 +81,5 @@
                 app:icon="@drawable/ic_filter_list_24dp"/>
         </com.google.android.material.button.MaterialButtonGroup>
     </com.google.android.material.floatingtoolbar.FloatingToolbarLayout>
-
-    <eu.kanade.tachiyomi.widget.EmptyView
-        android:id="@+id/empty_view"
-        tools:paddingTop="300dp"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:visibility="gone"
-        android:gravity="center"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/extension_uninstall_button"/>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

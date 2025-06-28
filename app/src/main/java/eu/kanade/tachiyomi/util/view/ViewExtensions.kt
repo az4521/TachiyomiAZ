@@ -416,6 +416,24 @@ inline fun View.popupMenu(
     return popup
 }
 
+fun MaterialCardView.makeContainerShape(
+    top: Boolean,
+    bottom: Boolean,
+): ShapeAppearanceModel {
+    val mainCornerRadius = resources.getDimension(R.dimen.container_main_corner)
+    val subCornerRadius = resources.getDimension(R.dimen.container_sub_corner)
+    val topRadius = if (top) mainCornerRadius else subCornerRadius
+    val bottomRadius = if (bottom) mainCornerRadius else subCornerRadius
+    return shapeAppearanceModel
+        .toBuilder()
+        .apply {
+            setTopLeftCorner(CornerFamily.ROUNDED, topRadius)
+            setTopRightCorner(CornerFamily.ROUNDED, topRadius)
+            setBottomLeftCorner(CornerFamily.ROUNDED, bottomRadius)
+            setBottomRightCorner(CornerFamily.ROUNDED, bottomRadius)
+        }.build()
+}
+
 fun MaterialCardView.makeShapeCorners(
     @Dimension topStart: Float = 0f,
     @Dimension bottomEnd: Float = 0f,
