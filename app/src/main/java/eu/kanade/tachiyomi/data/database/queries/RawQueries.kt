@@ -68,8 +68,10 @@ fun limitAndOffset(
     endless: Boolean,
     isResuming: Boolean,
     offset: Int,
+    customLimit: Int = 0,
 ): String =
     when {
+        customLimit > 0 -> "LIMIT $customLimit\nOFFSET $offset"
         isResuming && endless && offset > 0 -> "LIMIT $offset"
         endless -> "LIMIT ${RecentsPresenter.ENDLESS_LIMIT}\nOFFSET $offset"
         else -> "LIMIT ${RecentsPresenter.SHORT_LIMIT}"
@@ -164,6 +166,7 @@ fun getAllRecentsType(
     endless: Boolean,
     offset: Int = 0,
     isResuming: Boolean,
+    customLimit: Int,
 ) = """
 	SELECT * FROM
 	(SELECT mangas.url as mangaUrl, chapters.url as chapterUrl, mangas.*, chapters.*, history.*
@@ -241,7 +244,7 @@ fun getAllRecentsType(
     WHERE ${Manga.COL_FAVORITE} = 1
     AND lower(${Manga.COL_TITLE}) LIKE '%$search%')
     ORDER BY history_last_read DESC
-    ${limitAndOffset(endless, isResuming, offset)}
+    ${limitAndOffset(endless, isResuming, offset, customLimit)}
 """
 
 fun getHistoryByMangaId() =

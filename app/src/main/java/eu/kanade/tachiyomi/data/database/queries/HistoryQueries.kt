@@ -109,6 +109,7 @@ interface HistoryQueries : DbProvider {
         endless: Boolean,
         offset: Int,
         isResuming: Boolean,
+        customLimit: Int = 0,
     ) = db
         .get()
         .listOfObjects(MangaChapterHistory::class.java)
@@ -122,6 +123,7 @@ interface HistoryQueries : DbProvider {
                         endless,
                         offset,
                         isResuming,
+                        customLimit,
                     ),
                 )
 //                .args(date.time, startDate.time)
