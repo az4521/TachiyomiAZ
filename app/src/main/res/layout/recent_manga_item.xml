@@ -7,13 +7,18 @@
     android:layout_height="wrap_content"
     android:background="?attr/background">
 
-    <FrameLayout
+    <com.google.android.material.card.MaterialCardView
         android:id="@+id/end_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="@color/download"
-        android:layout_gravity="top"
-        android:visibility="gone">
+        android:layout_marginStart="10dp"
+        android:layout_marginEnd="10dp"
+        android:visibility="gone"
+        app:strokeWidth="0dp"
+        android:elevation="0dp"
+        app:cardBackgroundColor="@color/download"
+        app:cardElevation="0dp"
+        app:cardCornerRadius="12dp">
         <ImageView
             android:id="@+id/read"
             android:layout_width="24dp"
@@ -23,7 +28,7 @@
             android:contentDescription="@string/read"
             android:src="@drawable/ic_eye_24dp"
             app:tint="@color/md_white_1000" />
-    </FrameLayout>
+    </com.google.android.material.card.MaterialCardView>
 
     <androidx.appcompat.widget.LinearLayoutCompat
         android:id="@+id/front_view"
@@ -33,9 +38,21 @@
         android:clipChildren="false"
         android:layout_height="wrap_content"
         android:orientation="vertical"
+        android:background="@android:color/transparent"
         android:layout_gravity="center_vertical"
         android:minHeight="@dimen/material_component_lists_single_line_with_avatar_height">
 
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/recent_card"
+            android:layout_width="fill_parent"
+            app:strokeWidth="0dp"
+            android:layout_marginStart="10dp"
+            android:layout_marginEnd="10dp"
+            android:elevation="0dp"
+            app:cardBackgroundColor="@color/card_container"
+            app:cardElevation="0dp"
+            app:cardCornerRadius="12dp"
+            android:layout_height="wrap_content">
         <androidx.constraintlayout.widget.ConstraintLayout
             android:id="@+id/main_view"
             android:layout_width="match_parent"
@@ -43,7 +60,7 @@
             android:clipToPadding="false"
             android:clipChildren="false"
             android:layout_gravity="center_vertical"
-            android:background="@drawable/list_item_selector"
+            android:background="@drawable/transparent_item_selector"
             android:minHeight="@dimen/material_component_lists_single_line_with_avatar_height">
 
             <FrameLayout
@@ -62,6 +79,7 @@
                     android:id="@+id/card"
                     android:layout_width="wrap_content"
                     android:layout_height="match_parent"
+                    app:cardBackgroundColor="@color/card_container"
                     android:layout_gravity="center">
 
                     <ImageView
@@ -69,7 +87,6 @@
                         android:layout_width="wrap_content"
                         android:layout_height="match_parent"
                         android:adjustViewBounds="true"
-                        android:background="?attr/background"
                         android:foreground="?android:attr/selectableItemBackground"
                         android:maxHeight="60dp"
                         app:layout_constraintBottom_toBottomOf="parent"
@@ -223,6 +240,7 @@
                 app:layout_constraintTop_toBottomOf="@id/bottom_line" />
 
         </androidx.constraintlayout.widget.ConstraintLayout>
+        </com.google.android.material.card.MaterialCardView>
         <androidx.appcompat.widget.LinearLayoutCompat
             android:id="@+id/more_chapters_layout"
             android:layout_width="match_parent"

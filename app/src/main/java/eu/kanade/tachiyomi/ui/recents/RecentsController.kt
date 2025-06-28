@@ -863,7 +863,7 @@ class RecentsController(
                 )
             } else {
                 if (activity == null) return false
-                openChapter(view?.findViewById(R.id.main_view), item.mch.manga, item.chapter)
+                openChapter(view?.findViewById(R.id.recent_card), item.mch.manga, item.chapter)
             }
         } else if (item is RecentMangaHeaderItem) {
             return false

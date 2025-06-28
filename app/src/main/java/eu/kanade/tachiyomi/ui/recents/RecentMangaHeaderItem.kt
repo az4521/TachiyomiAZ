@@ -8,7 +8,6 @@ import eu.davidea.flexibleadapter.items.IFlexible
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.databinding.RecentsHeaderItemBinding
 import eu.kanade.tachiyomi.ui.base.holder.BaseFlexibleViewHolder
-import eu.kanade.tachiyomi.ui.library.LibraryHeaderItem
 
 class RecentMangaHeaderItem(
     val recentsType: Int,
@@ -31,8 +30,8 @@ class RecentMangaHeaderItem(
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
-        if (other is LibraryHeaderItem) {
-            return recentsType == recentsType
+        if (other is RecentMangaHeaderItem) {
+            return recentsType == other.recentsType
         }
         return false
     }
