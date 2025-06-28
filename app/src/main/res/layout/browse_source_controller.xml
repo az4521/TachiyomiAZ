@@ -9,20 +9,20 @@
     android:layout_height="match_parent">
 
     <FrameLayout
+        android:id="@+id/catalogue_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
-        android:id="@+id/catalogue_view"
         tools:context="eu.kanade.tachiyomi.ui.source.browse.BrowseSourceController">
 
         <com.google.android.material.loadingindicator.LoadingIndicator
             android:id="@+id/progress"
-            app:indicatorSize="100dp"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center_vertical|center_horizontal"
             android:visibility="gone"
-            tools:visibility="visible"/>
+            app:indicatorSize="100dp"
+            tools:visibility="visible" />
 
     </FrameLayout>
 
@@ -41,22 +41,25 @@
                 style="?attr/materialButtonStyle"
                 android:checkable="true"
                 android:id="@+id/popular_group"
+                app:toggleCheckedStateOnClick="false"
                 android:text="@string/popular"
-                app:icon="@drawable/ic_heart_24dp"
+                app:icon="@drawable/ic_heart_outline_24dp"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content" />
             <com.google.android.material.button.MaterialButton
                 style="?attr/materialButtonStyle"
                 android:checkable="true"
                 android:id="@+id/latest_group"
+                app:toggleCheckedStateOnClick="false"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/latest"
-                app:icon="@drawable/ic_new_releases_24dp" />
+                app:icon="@drawable/ic_new_releases_outline_24dp" />
             <com.google.android.material.button.MaterialButton
                 style="?attr/materialButtonStyle"
                 android:checkable="true"
                 android:id="@+id/filter_group"
+                app:toggleCheckedStateOnClick="false"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/filter"

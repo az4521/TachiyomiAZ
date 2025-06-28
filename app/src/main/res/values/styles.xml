@@ -315,19 +315,58 @@
         <item name="tabBarIconColor">?tabBarIconColor</item>
         <item name="tabRippleColor">?colorControlHighlight</item>
     </style>
-1
+
+    <style name="Widget.Tachiyomi.MaterialButtonGroup" parent="Widget.Material3Expressive.MaterialButtonGroup">
+        <item name="materialThemeOverlay">@style/ThemeOverlay.Tachiyomi.MaterialButtonGroup.Overflow</item>
+    </style>
+
+    <style name="ThemeOverlay.Tachiyomi.MaterialButtonGroup.Overflow" parent="ThemeOverlay.Material3Expressive.MaterialButtonGroup.Overflow">
+        <item name="materialButtonGroupOverflowButtonStyle">@style/Widget.Tachiyomi.Button.IconButton.Outlined</item>
+    </style>
+
+    <style name="Widget.Tachiyomi.Button.IconButton.Tonal" parent="Widget.Material3Expressive.Button.IconButton.Tonal">
+        <item name="iconGravity">textStart</item>
+        <item name="iconTint">?colorOnBackground</item>
+    </style>
+
+    <style name="Widget.Tachiyomi.Button.IconButton.Tonal.Connected">
+        <item name="android:insetLeft">0dp</item>
+        <item name="android:insetRight">0dp</item>
+    </style>
+
+    <style name="Widget.Tachiyomi.Button.IconButton.Outlined" parent="Widget.Material3Expressive.Button.IconButton.Outlined">
+        <item name="iconGravity">textStart</item>
+        <item name="iconTint">?colorSecondary</item>
+        <item name="android:layout_gravity">center</item>
+    </style>
+
+    <style name="Widget.Tachiyomi.Button.IconButton.Outlined.Connected">
+        <item name="android:insetLeft">0dp</item>
+        <item name="android:insetRight">0dp</item>
+    </style>
 
     <style name="Widget.Tachiyomi.Button.OutlinedButton.Icon" parent="Widget.Material3Expressive.Button.OutlinedButton">
         <item name="android:paddingStart">12dp</item>
         <item name="android:paddingEnd">16dp</item>
+        <item name="toggleCheckedStateOnClick">false</item>
         <item name="android:layout_width">wrap_content</item>
         <item name="android:layout_height">wrap_content</item>
+        <item name="android:checkable">true</item>
+        <item name="materialThemeOverlay">@style/ThemeOverlay.Tachiyomi.Button.Outlined</item>
         <item name="android:paddingLeft">16dp</item>
         <item name="android:paddingRight">@dimen/m3_btn_icon_btn_padding_right</item>
-        <item name="iconTint">?attr/colorSecondary</item>
         <item name="rippleColor">?colorControlHighlight</item>
         <item name="android:textColor">?attr/colorOnBackground</item>
         <item name="cornerRadius">20dp</item>
+    </style>
+
+    <style name="ThemeOverlay.Tachiyomi.Button.Outlined" parent="">
+        <item name="colorContainer">@android:color/transparent</item>
+        <item name="colorContainerChecked">?colorSecondaryContainer</item>
+        <item name="colorContainerUnchecked">@android:color/transparent</item>
+        <item name="colorOnContainer">?colorSecondary</item>
+        <item name="colorOnContainerChecked">?colorOnBackground</item>
+        <item name="colorOnContainerUnchecked">?colorSecondary</item>
     </style>
 
     <style name="Widget.Tachiyomi.Button.OutlinedButton" parent="Widget.Material3Expressive.Button.OutlinedButton">

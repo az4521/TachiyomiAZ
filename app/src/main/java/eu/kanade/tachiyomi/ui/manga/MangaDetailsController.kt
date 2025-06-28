@@ -357,7 +357,7 @@ class MangaDetailsController :
 
     private fun setItemColors() {
         getHeader()?.updateColors()
-        if (adapter?.itemCount ?: 0 > 1) {
+        if ((adapter?.itemCount ?: 0) > 1) {
             if (isTablet) {
                 val chapterHolder = binding.recycler.findViewHolderForAdapterPosition(0) as? MangaHeaderHolder
                 chapterHolder?.updateColors()
@@ -439,7 +439,7 @@ class MangaDetailsController :
         binding.swipeRefresh.setDistanceToTriggerSync(70.dpToPx)
 
         if (isTablet) {
-            val tHeight = toolbarHeight.takeIf { it ?: 0 > 0 } ?: appbarHeight
+            val tHeight = toolbarHeight.takeIf { (it ?: 0) > 0 } ?: appbarHeight
             val insetsCompat =
                 view.rootWindowInsetsCompat ?: activityBinding?.root?.rootWindowInsetsCompat
             headerHeight = tHeight + (insetsCompat?.getInsets(systemBars())?.top ?: 0)
@@ -721,9 +721,8 @@ class MangaDetailsController :
                 if (router.backstack.last().controller !is FloatingSearchInterface) {
                     activityBinding?.appBar?.setBackgroundColor(colorSurface)
                 }
-                activityBinding?.statusBar?.backgroundColor = activity?.getResourceColor(
-                    android.R.attr.statusBarColor,
-                ) ?: colorSurface
+                activityBinding?.statusBar?.backgroundColor =
+                    activity?.getColor(R.color.status_bar) ?: colorSurface
             }
         }
     }
@@ -1188,8 +1187,6 @@ class MangaDetailsController :
         menu.findItem(R.id.action_migrate)?.isVisible = !presenter.isLockedFromSearch &&
             !presenter.manga.isLocal() &&
             presenter.manga.favorite
-        menu.findItem(R.id.action_share)?.isVisible = !presenter.isLockedFromSearch &&
-            !presenter.manga.isLocal()
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
@@ -1212,7 +1209,6 @@ class MangaDetailsController :
                         listOf(manga!!.id!!),
                     )
                 }
-            R.id.action_share -> prepareToShareManga()
             R.id.action_mark_all_as_read -> {
                 activity!!
                     .materialAlertDialog()
@@ -1267,7 +1263,7 @@ class MangaDetailsController :
         }
     }
 
-    private fun prepareToShareManga() {
+    override fun prepareToShareManga() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             presenter.shareManga()
         } else {
@@ -1613,8 +1609,8 @@ class MangaDetailsController :
                 router.backstack.getOrNull(router.backstackSize - 2)?.controller
         ) {
             is BrowseSourceController -> {
-                if (presenter.source is HttpSource) {
-                    router.handleBack()
+                if (presenter.source is CatalogueSource) {
+                    router.getOnBackPressedDispatcher()?.onBackPressed()
                     previousController.searchWithGenre(text)
                 }
             }

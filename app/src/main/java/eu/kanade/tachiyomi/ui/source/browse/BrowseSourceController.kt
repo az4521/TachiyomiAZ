@@ -657,7 +657,7 @@ open class BrowseSourceController(
     }
 
     /**
-     * Sets a new binding.progress item and reenables the scroll listener.
+     * Sets a new binding.progress item and re-enables the scroll listener.
      */
     private fun resetProgressItem() {
         progressItem = ProgressItem()
@@ -736,7 +736,21 @@ open class BrowseSourceController(
     private fun updatePopLatestIcons() {
         val allDefault = presenter.filtersMatchDefault() && presenter.query.isBlank()
         binding.latestGroup.isChecked = presenter.useLatest && allDefault
+        binding.latestGroup.setIconResource(
+            if (presenter.useLatest && allDefault) {
+                R.drawable.ic_new_releases_24dp
+            } else {
+                R.drawable.ic_new_releases_outline_24dp
+            },
+        )
         binding.popularGroup.isChecked = !presenter.useLatest && allDefault
+        binding.popularGroup.setIconResource(
+            if (!presenter.useLatest && allDefault) {
+                R.drawable.ic_heart_24dp
+            } else {
+                R.drawable.ic_heart_outline_24dp
+            },
+        )
         binding.filterGroup.isChecked = !allDefault
     }
 

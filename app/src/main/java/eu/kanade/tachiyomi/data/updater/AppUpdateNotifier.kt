@@ -90,7 +90,7 @@ internal class AppUpdateNotifier(
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                 }
             addAction(
-                R.drawable.ic_new_releases_24dp,
+                R.drawable.ic_new_releases_outline_24dp,
                 context.getString(R.string.release_page),
                 PendingIntent.getActivity(
                     context,

@@ -17,6 +17,8 @@
 
     <dimen name="fab_size">56dp</dimen>
     <dimen name="fab_margin">16dp</dimen>
+    <dimen name="coverMaxWidth">100dp</dimen>
+    <dimen name="coverMaxHeight">300dp</dimen>
 
     <!--Nav header-->
 

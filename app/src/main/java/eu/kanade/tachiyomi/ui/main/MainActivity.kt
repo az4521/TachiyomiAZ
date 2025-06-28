@@ -125,7 +125,6 @@ import eu.kanade.tachiyomi.util.system.launchUI
 import eu.kanade.tachiyomi.util.system.materialAlertDialog
 import eu.kanade.tachiyomi.util.system.prepareSideNavContext
 import eu.kanade.tachiyomi.util.system.rootWindowInsetsCompat
-import eu.kanade.tachiyomi.util.system.start
 import eu.kanade.tachiyomi.util.system.toast
 import eu.kanade.tachiyomi.util.view.BackHandlerControllerInterface
 import eu.kanade.tachiyomi.util.view.backgroundColor
@@ -966,7 +965,7 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
             if (show) {
                 ColorUtils.setAlphaComponent(binding.statusBar.backgroundColor ?: Color.TRANSPARENT, 0)
             } else {
-                val color = getResourceColor(android.R.attr.statusBarColor)
+                val color = getColor(R.color.status_bar)
                 ColorUtils.setAlphaComponent(binding.statusBar.backgroundColor ?: color, Color.alpha(color))
             }
     }
@@ -1631,7 +1630,7 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
                 MaterialMenuSheet.MenuSheetItem(
                     0,
                     textRes = R.string.whats_new_this_release,
-                    drawable = R.drawable.ic_new_releases_24dp,
+                    drawable = R.drawable.ic_new_releases_outline_24dp,
                 ),
                 MaterialMenuSheet.MenuSheetItem(
                     1,

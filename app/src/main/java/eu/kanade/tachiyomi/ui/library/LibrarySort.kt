@@ -15,7 +15,7 @@ enum class LibrarySort(
 ) {
     Title(0, R.string.title, R.drawable.ic_sort_by_alpha_24dp),
     LastRead(1, R.string.last_read, R.drawable.ic_recent_read_outline_24dp, 3),
-    LatestChapter(2, R.string.latest_chapter, R.drawable.ic_new_releases_24dp, 1),
+    LatestChapter(2, R.string.latest_chapter, R.drawable.ic_new_releases_outline_24dp, 1),
     Unread(3, R.string.unread, R.drawable.ic_eye_24dp, 2),
     TotalChapters(4, R.string.total_chapters, R.drawable.ic_sort_by_numeric_24dp),
     DateAdded(5, R.string.date_added, R.drawable.ic_heart_outline_24dp),
