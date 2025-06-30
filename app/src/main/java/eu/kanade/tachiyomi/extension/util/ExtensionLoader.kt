@@ -52,6 +52,7 @@ internal object ExtensionLoader {
             (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) PackageManager.GET_SIGNING_CERTIFICATES else 0)
 
     private const val PRIVATE_EXTENSION_EXTENSION = "ext"
+    private var trustSignatures = mutableSetOf<String>()
 
     private fun getPrivateExtensionDir(context: Context) = File(context.filesDir, "exts")
 
@@ -160,6 +161,17 @@ internal object ExtensionLoader {
         val extPkgs = getExtensionsPackages(context)
         // Load each extension concurrently and wait for completion
         return runBlocking {
+            val trustSigs =
+                extPkgs.mapNotNull { extInfo ->
+                    val pkgManager = context.packageManager
+                    val pkgInfo = extInfo.packageInfo
+                    val signatures = getSignatures(pkgInfo) ?: return@mapNotNull null
+                    if (isExtensionInstalledByApp(context, pkgInfo.packageName) || isTrusted(pkgInfo, signatures)) {
+                        return@mapNotNull signatures.lastOrNull()
+                    }
+                    return@mapNotNull null
+                }
+            trustSignatures.addAll(trustSigs)
             val deferred =
                 extPkgs.map {
                     async { loadExtension(context, it) }
@@ -336,7 +348,11 @@ internal object ExtensionLoader {
         if (signatures.isNullOrEmpty()) {
             Timber.w("Package $pkgName isn't signed")
             return LoadResult.Error
-        } else if (!isTrusted(pkgInfo, signatures)) {
+        } else if (isExtensionInstalledByApp(context, pkgName)) {
+            if (!trustSignatures.contains(signatures.last())) {
+                trustSignatures.add(signatures.last())
+            }
+        } else if (!isTrusted(pkgInfo, signatures) && signatures.any { !trustSignatures.contains(it) }) {
             val extension =
                 Extension.Untrusted(
                     extName,
