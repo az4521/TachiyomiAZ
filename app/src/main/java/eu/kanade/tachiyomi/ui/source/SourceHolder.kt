@@ -8,6 +8,7 @@ import eu.kanade.tachiyomi.databinding.SourceItemBinding
 import eu.kanade.tachiyomi.source.LocalSource
 import eu.kanade.tachiyomi.source.icon
 import eu.kanade.tachiyomi.ui.base.holder.BaseFlexibleViewHolder
+import eu.kanade.tachiyomi.util.system.cardColor
 import eu.kanade.tachiyomi.util.system.getResourceColor
 import eu.kanade.tachiyomi.util.view.compatToolTipText
 import eu.kanade.tachiyomi.util.view.makeContainerShape
@@ -19,6 +20,7 @@ class SourceHolder(
     val binding = SourceItemBinding.bind(view)
 
     init {
+        binding.sourceCard.setCardBackgroundColor(itemView.context.cardColor)
         binding.sourcePin.setOnClickListener {
             adapter.sourceListener.onPinClick(flexibleAdapterPosition)
         }

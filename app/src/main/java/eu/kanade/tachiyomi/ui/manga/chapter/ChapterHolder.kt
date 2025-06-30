@@ -18,6 +18,7 @@ import eu.kanade.tachiyomi.ui.manga.MangaDetailsAdapter
 import eu.kanade.tachiyomi.util.chapter.ChapterUtil
 import eu.kanade.tachiyomi.util.chapter.ChapterUtil.Companion.preferredChapterName
 import eu.kanade.tachiyomi.util.isLocal
+import eu.kanade.tachiyomi.util.system.cardColor
 import eu.kanade.tachiyomi.util.system.dpToPx
 import eu.kanade.tachiyomi.util.system.getResourceColor
 import eu.kanade.tachiyomi.util.view.makeContainerShape
@@ -31,6 +32,7 @@ class ChapterHolder(
     private var localSource = false
 
     init {
+        binding.chapterCard.setCardBackgroundColor(itemView.context.cardColor)
         binding.downloadButton.downloadButton.setOnLongClickListener {
             adapter.delegate.startDownloadRange(flexibleAdapterPosition)
             true
@@ -166,7 +168,7 @@ class ChapterHolder(
         adapter.delegate.accentColor()?.let {
             binding.startView.setCardBackgroundColor(it)
 
-            val color = binding.chapterCard.cardBackgroundColor.defaultColor
+            val color = binding.chapterCard.context.cardColor
             val bgArray = FloatArray(3)
             val accentArray = FloatArray(3)
             ColorUtils.colorToHSL(color, bgArray)

@@ -10,7 +10,6 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_gravity="center_vertical"
-    android:backgroundTint="@color/card_container"
     android:background="@drawable/transparent_item_selector">
 
     <View

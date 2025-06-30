@@ -20,7 +20,7 @@
     <dimen name="cover_max_width">100dp</dimen>
     <dimen name="cover_max_height">300dp</dimen>
     <dimen name="container_main_corner">12dp</dimen>
-    <dimen name="container_sub_corner">2dp</dimen>
+    <dimen name="container_sub_corner">3dp</dimen>
 
     <!--Nav header-->
 

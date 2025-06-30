@@ -24,7 +24,7 @@
     <color name="tachiyomi_primaryInverse">#0057CE</color>
 
     <!-- Application Colors -->
-    <color name="primaryVariantTachiyomi">#202125</color>
+    <color name="primaryVariantTachiyomi">#28282E</color>
     <color name="colorPrimaryInactive">@color/md_white_1000_76</color>
     <color name="onPrimaryTachiyomi">#071D39</color>
     <color name="primaryTachiyomi">#78bcff</color>
