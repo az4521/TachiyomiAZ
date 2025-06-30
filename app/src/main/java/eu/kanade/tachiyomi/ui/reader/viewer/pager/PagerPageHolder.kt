@@ -889,7 +889,11 @@ class PagerPageHolder(
 
     fun setProgress(progress: Int) {
         val scaledProgress = 85 * progress / 100 + 10
-        progressBar.progress = scaledProgress
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            progressBar.setProgress(scaledProgress, true)
+        } else {
+            progressBar.progress = scaledProgress
+        }
     }
 
     private fun setExtraPageBitmap(

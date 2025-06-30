@@ -3,21 +3,23 @@ package eu.kanade.tachiyomi.ui.reader.viewer.webtoon
 import android.annotation.SuppressLint
 import android.content.res.Resources
 import android.graphics.Color
+import android.os.Build
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
+import android.widget.FrameLayout.LayoutParams
 import androidx.core.view.isVisible
 import androidx.core.view.updatePaddingRelative
 import com.davemorrissey.labs.subscaleview.SubsamplingScaleImageView
+import com.google.android.material.progressindicator.CircularProgressIndicator
 import eu.kanade.tachiyomi.databinding.ReaderErrorBinding
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import eu.kanade.tachiyomi.ui.reader.viewer.ReaderErrorView
 import eu.kanade.tachiyomi.ui.reader.viewer.ReaderPageImageView
-import eu.kanade.tachiyomi.ui.reader.viewer.ReaderProgressBar
 import eu.kanade.tachiyomi.util.system.ImageUtil
 import eu.kanade.tachiyomi.util.system.dpToPx
 import eu.kanade.tachiyomi.util.system.launchIO
@@ -153,7 +155,13 @@ class WebtoonPageHolder(
         val page = page ?: return
         progressJob =
             scope.launch {
-                page.progressFlow.collectLatest { value -> progressBar.setProgress(value) }
+                page.progressFlow.collectLatest { value ->
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                        progressBar.setProgress(value, true)
+                    } else {
+                        progressBar.progress = value
+                    }
+                }
             }
     }
 
@@ -228,7 +236,6 @@ class WebtoonPageHolder(
     private suspend fun setImage() {
         progressContainer.isVisible = true
         progressBar.isVisible = true
-        progressBar.completeAndFadeOut()
         removeErrorLayout()
 
         val streamFn = page?.stream ?: return
@@ -311,17 +318,21 @@ class WebtoonPageHolder(
      * Creates a new progress bar.
      */
     @SuppressLint("PrivateResource")
-    private fun createProgressBar(): ReaderProgressBar {
+    private fun createProgressBar(): CircularProgressIndicator {
         progressContainer = FrameLayout(context)
         frame.addView(progressContainer, MATCH_PARENT, parentHeight)
 
         val progress =
-            ReaderProgressBar(context).apply {
+            CircularProgressIndicator(context).apply {
+                isIndeterminate = false
+                setWavelength(10.dpToPx)
+                progress = 10
+                waveAmplitude = 1.dpToPx
+                waveSpeed = 20
                 val size = 48.dpToPx
                 layoutParams =
-                    FrameLayout.LayoutParams(size, size).apply {
-                        gravity = Gravity.CENTER_HORIZONTAL
-                        setMargins(0, parentHeight / 4, 0, 0)
+                    LayoutParams(size, size).apply {
+                        gravity = Gravity.CENTER
                     }
             }
         progressContainer.addView(progress)
