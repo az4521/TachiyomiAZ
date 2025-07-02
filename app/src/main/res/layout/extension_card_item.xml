@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/ext_card"
+    style="@style/Widget.Tachiyomi.CardView.Container"
     android:layout_width="match_parent"
     android:layout_height="wrap_content">
 
@@ -9,12 +11,11 @@
         android:id="@+id/card"
         android:layout_width="match_parent"
         android:layout_height="64dp"
-        android:background="@drawable/list_item_selector">
+        android:background="@drawable/transparent_item_selector">
 
-        <ProgressBar
+        <com.google.android.material.progressindicator.LinearProgressIndicator
             android:id="@+id/install_progress"
             android:layout_width="0dp"
-            style="?android:attr/progressBarStyleHorizontal"
             android:progressBackgroundTint="?attr/background"
             android:progressTint="?attr/colorSecondary"
             android:layout_height="2dp"
@@ -23,6 +24,7 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             android:layout_marginStart="12dp"
+            android:layout_marginEnd="12dp"
             app:layout_constraintBottom_toBottomOf="parent"
             tools:progress="45"
             android:max="100"
@@ -33,17 +35,19 @@
             android:layout_width="0dp"
             android:layout_height="0dp"
             android:padding="12dp"
+            android:contentDescription="@string/source"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintDimensionRatio="h,1:1"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
-            tools:src="@mipmap/ic_launcher_round" />
+            tools:tint="?attr/colorError"
+            tools:src="@drawable/ic_app_untrusted_24dp" />
 
         <TextView
             android:id="@+id/ext_title"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="4dp"
+            android:layout_marginEnd="12dp"
             android:ellipsize="end"
             android:maxLines="1"
             android:textAppearance="?textAppearanceBodyMedium"
@@ -54,6 +58,18 @@
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintVertical_chainStyle="packed"
             tools:text="Batoto" />
+
+        <View
+            android:id="@+id/ext_divider"
+            android:layout_width="1dp"
+            android:layout_height="0dp"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            android:background="@color/divider"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="16dp"
+            app:layout_constraintStart_toEndOf="@id/ext_title"
+            />
 
         <TextView
             android:id="@+id/lang"
@@ -122,7 +138,7 @@
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
-            android:layout_marginEnd="16dp">
+            android:layout_marginEnd="8dp">
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/ext_button"
@@ -140,24 +156,23 @@
                 app:layout_constraintTop_toTopOf="parent"
                 tools:text="Details" />
 
-            <ImageButton
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/cancel_button"
                 android:layout_width="wrap_content"
+                style="@style/Widget.Material3Expressive.Button.IconButton.Standard"
                 android:layout_height="wrap_content"
                 app:layout_constraintWidth_max="wrap"
-                android:background="?selectableItemBackgroundBorderless"
                 android:contentDescription="@string/stop"
-                android:padding="12dp"
                 android:tooltipText="@string/stop"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintHorizontal_chainStyle="spread"
                 app:layout_constraintStart_toEndOf="@id/ext_button"
                 app:layout_constraintTop_toTopOf="parent"
-                app:srcCompat="@drawable/ic_close_24dp"
-                app:tint="?attr/colorSecondary" />
+                app:icon="@drawable/ic_close_24dp"
+                app:iconTint="?attr/colorSecondary" />
         </androidx.constraintlayout.widget.ConstraintLayout>
     </androidx.constraintlayout.widget.ConstraintLayout>
 
-</FrameLayout>
+</com.google.android.material.card.MaterialCardView>
 

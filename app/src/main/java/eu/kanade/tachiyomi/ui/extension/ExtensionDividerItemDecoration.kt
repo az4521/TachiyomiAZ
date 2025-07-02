@@ -5,13 +5,15 @@ import android.graphics.Canvas
 import android.graphics.Rect
 import android.graphics.drawable.Drawable
 import android.view.View
+import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.util.system.dpToPx
-import eu.kanade.tachiyomi.util.system.isLTR
+import eu.kanade.tachiyomi.util.system.getResourceColor
 
 class ExtensionDividerItemDecoration(
     context: Context,
 ) : androidx.recyclerview.widget.RecyclerView.ItemDecoration() {
     private val divider: Drawable
+    val padding: Int = 12.dpToPx
 
     init {
         val a = context.obtainStyledAttributes(intArrayOf(android.R.attr.listDivider))
@@ -31,15 +33,16 @@ class ExtensionDividerItemDecoration(
             if (holder is ExtensionHolder &&
                 parent.getChildViewHolder(parent.getChildAt(i + 1)) is ExtensionHolder
             ) {
-                val params = child.layoutParams as androidx.recyclerview.widget.RecyclerView.LayoutParams
+                val params =
+                    child.layoutParams as androidx.recyclerview.widget.RecyclerView.LayoutParams
                 val top = child.bottom + params.bottomMargin
-                val bottom = top + divider.intrinsicHeight
-                val left = parent.paddingStart + if (parent.context.resources.isLTR) 12.dpToPx else 0
-                val right =
-                    parent.width - parent.paddingEnd - if (!parent.context.resources.isLTR) 12.dpToPx else 0
+                val bottom = top + divider.intrinsicHeight + 1.dpToPx
+                val left = parent.paddingStart + padding
+                val right = parent.width - parent.paddingEnd - padding
 
                 divider.setBounds(left, top, right, bottom)
                 divider.draw(c)
+                c.drawColor(parent.context.getResourceColor(R.attr.background))
             }
         }
     }
@@ -50,6 +53,6 @@ class ExtensionDividerItemDecoration(
         parent: androidx.recyclerview.widget.RecyclerView,
         state: androidx.recyclerview.widget.RecyclerView.State,
     ) {
-        outRect.set(0, 0, 0, divider.intrinsicHeight)
+        outRect.set(0, 0, 0, divider.intrinsicHeight + 1.dpToPx)
     }
 }

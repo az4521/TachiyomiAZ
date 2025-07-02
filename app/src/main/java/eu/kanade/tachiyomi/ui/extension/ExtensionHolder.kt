@@ -1,6 +1,5 @@
 package eu.kanade.tachiyomi.ui.extension
 
-import android.animation.AnimatorInflater
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.view.View
@@ -20,8 +19,10 @@ import eu.kanade.tachiyomi.extension.model.InstalledExtensionsOrder
 import eu.kanade.tachiyomi.extension.util.ExtensionLoader
 import eu.kanade.tachiyomi.ui.base.holder.BaseFlexibleViewHolder
 import eu.kanade.tachiyomi.util.system.LocaleHelper
+import eu.kanade.tachiyomi.util.system.cardColor
 import eu.kanade.tachiyomi.util.system.getResourceColor
 import eu.kanade.tachiyomi.util.system.timeSpanFromNow
+import eu.kanade.tachiyomi.util.view.makeContainerShape
 import eu.kanade.tachiyomi.util.view.resetStrokeColor
 import java.util.Locale
 
@@ -38,6 +39,7 @@ class ExtensionHolder(
         binding.cancelButton.setOnClickListener {
             adapter.buttonClickListener.onCancelClick(flexibleAdapterPosition)
         }
+        binding.extCard.setCardBackgroundColor(itemView.context.cardColor)
     }
 
     fun bind(item: ExtensionItem) {
@@ -47,6 +49,7 @@ class ExtensionHolder(
 
         val infoText = mutableListOf(extension.versionName)
         binding.date.isVisible = false
+        binding.extDivider.isVisible = extension is Extension.Installed && extension.hasUpdate
         if (extension is Extension.Installed && !extension.hasUpdate) {
             when (InstalledExtensionsOrder.fromValue(adapter.installedSortOrder)) {
                 InstalledExtensionsOrder.RecentlyUpdated -> {
@@ -82,7 +85,7 @@ class ExtensionHolder(
         } else {
             binding.date.isVisible = false
         }
-        binding.lang.isVisible = binding.date.isGone
+        binding.lang.isVisible = binding.date.isGone && extension !is Extension.Untrusted
         binding.extTitle.text =
             if (infoText.size > 1) {
                 buildSpannedString {
@@ -110,12 +113,18 @@ class ExtensionHolder(
 
         binding.sourceImage.dispose()
 
-        if (extension is Extension.Available) {
-            binding.sourceImage.load(extension.iconUrl) {
-                target(CoverViewTarget(binding.sourceImage))
+        binding.sourceImage.imageTintList = null
+        when (extension) {
+            is Extension.Available ->
+                binding.sourceImage.load(extension.iconUrl) {
+                    target(CoverViewTarget(binding.sourceImage))
+                }
+            is Extension.Installed -> binding.sourceImage.load(extension.icon)
+            is Extension.Untrusted -> {
+                binding.sourceImage.imageTintList =
+                    ColorStateList.valueOf(itemView.context.getResourceColor(R.attr.colorError))
+                binding.sourceImage.setImageResource(R.drawable.ic_app_untrusted_24dp)
             }
-        } else if (extension is Extension.Installed) {
-            binding.sourceImage.load(extension.icon)
         }
         bindButton(item)
     }
@@ -156,7 +165,6 @@ class ExtensionHolder(
                 when {
                     extension.hasUpdate -> {
                         isActivated = true
-                        stateListAnimator = AnimatorInflater.loadStateListAnimator(context, R.animator.icon_btn_state_list_anim)
                         rippleColor = ColorStateList.valueOf(context.getColor(R.color.on_secondary_highlight))
                         setText(R.string.update)
                     }
@@ -172,4 +180,11 @@ class ExtensionHolder(
                 setText(if (adapter.installPrivately) R.string.add else R.string.install)
             }
         }
+
+    fun setCorners(
+        top: Boolean,
+        bottom: Boolean,
+    ) {
+        binding.extCard.shapeAppearanceModel = binding.extCard.makeContainerShape(top, bottom)
+    }
 }

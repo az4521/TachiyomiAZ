@@ -59,6 +59,10 @@ data class ExtensionItem(
         } else {
             holder.bindButton(this)
         }
+        val extAdapter = adapter as ExtensionAdapter
+        val setTop = extAdapter.getItem(position - 1) !is ExtensionItem
+        val setBottom = extAdapter.getItem(position + 1) !is ExtensionItem
+        holder.setCorners(setTop, setBottom)
     }
 
     override fun equals(other: Any?): Boolean {
