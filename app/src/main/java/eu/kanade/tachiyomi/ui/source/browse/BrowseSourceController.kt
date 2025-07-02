@@ -51,6 +51,7 @@ import eu.kanade.tachiyomi.util.view.applyBottomAnimatedInsets
 import eu.kanade.tachiyomi.util.view.fullAppBarHeight
 import eu.kanade.tachiyomi.util.view.inflate
 import eu.kanade.tachiyomi.util.view.isControllerVisible
+import eu.kanade.tachiyomi.util.view.previousController
 import eu.kanade.tachiyomi.util.view.requestFilePermissionsSafe
 import eu.kanade.tachiyomi.util.view.scrollViewWith
 import eu.kanade.tachiyomi.util.view.setOnQueryTextChangeListener
@@ -129,7 +130,7 @@ open class BrowseSourceController(
     private var lastPosition: Int = -1
 
     private val isBehindGlobalSearch: Boolean
-        get() = router.backstackSize >= 2 && router.backstack[router.backstackSize - 2].controller is GlobalSearchController
+        get() = previousController is GlobalSearchController
 
     init {
         setHasOptionsMenu(true)
@@ -435,51 +436,54 @@ open class BrowseSourceController(
      * If the genre name can't be found the filters,
      * the standard searchWithQuery search method is used instead.
      *
-     * @param genreName the name of the genre
+     * @param names the names of the genres/tags
+     * @param useContains if true checks if any of the filter names contains, rather than be an
+     * exact match
      */
-    fun searchWithGenre(
-        genreName: String,
+    fun searchGenres(
+        names: List<String>,
         useContains: Boolean = false,
     ) {
         presenter.sourceFilters = presenter.source.getFilterList()
-
+        val genreNames = names.map { it.split(":").last().trim() }
         var filterList: FilterList? = null
-
-        filter@ for (sourceFilter in presenter.sourceFilters) {
-            if (sourceFilter is Filter.Group<*>) {
-                for (filter in sourceFilter.state) {
-                    if (filter is Filter<*> &&
-                        if (useContains) {
-                            filter.name.contains(genreName, true)
-                        } else {
-                            filter.name.equals(genreName, true)
-                        }
-                    ) {
-                        when (filter) {
-                            is Filter.TriState -> filter.state = 1
-                            is Filter.CheckBox -> filter.state = true
-                            else -> break
-                        }
-                        filterList = presenter.sourceFilters
-                        break@filter
-                    }
-                }
-            } else if (sourceFilter is Filter.Select<*>) {
-                val index =
-                    sourceFilter.values
-                        .filterIsInstance<String>()
-                        .indexOfFirst {
+        genres@ for (genreName in genreNames) {
+            filter@ for (sourceFilter in presenter.sourceFilters) {
+                if (sourceFilter is Filter.Group<*>) {
+                    for (filter in sourceFilter.state) {
+                        if (filter is Filter<*> &&
                             if (useContains) {
-                                it.contains(genreName, true)
+                                filter.name.contains(genreName, true)
                             } else {
-                                it.equals(genreName, true)
+                                filter.name.equals(genreName, true)
                             }
+                        ) {
+                            when (filter) {
+                                is Filter.TriState -> filter.state = 1
+                                is Filter.CheckBox -> filter.state = true
+                                else -> break
+                            }
+                            filterList = presenter.sourceFilters
+                            break@filter
                         }
+                    }
+                } else if (sourceFilter is Filter.Select<*>) {
+                    val index =
+                        sourceFilter.values
+                            .filterIsInstance<String>()
+                            .indexOfFirst {
+                                if (useContains) {
+                                    it.contains(genreName, true)
+                                } else {
+                                    it.equals(genreName, true)
+                                }
+                            }
 
-                if (index != -1) {
-                    sourceFilter.state = index
-                    filterList = presenter.sourceFilters
-                    break
+                    if (index != -1) {
+                        sourceFilter.state = index
+                        filterList = presenter.sourceFilters
+                        break
+                    }
                 }
             }
         }
@@ -493,10 +497,12 @@ open class BrowseSourceController(
             presenter.restartPager("", filterList)
         } else {
             if (!useContains) {
-                searchWithGenre(genreName, true)
+                searchGenres(genreNames, true)
                 return
             }
-            searchWithQuery(genreName)
+            if (genreNames.size == 1) {
+                searchWithQuery(genreNames.first())
+            }
         }
         updatePopLatestIcons()
     }

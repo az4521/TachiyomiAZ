@@ -44,6 +44,7 @@ import eu.kanade.tachiyomi.util.view.RecyclerWindowInsetsListener
 import eu.kanade.tachiyomi.util.view.activityBinding
 import eu.kanade.tachiyomi.util.view.isControllerVisible
 import eu.kanade.tachiyomi.util.view.liftAppbarWith
+import eu.kanade.tachiyomi.util.view.previousController
 import eu.kanade.tachiyomi.util.view.setTextColorAlpha
 import eu.kanade.tachiyomi.util.view.withFadeTransaction
 import kotlinx.coroutines.CancellationException
@@ -589,7 +590,7 @@ class MigrationListController(
     override fun handleOnBackProgressed(backEvent: BackEventCompat) {
         super.handleOnBackProgressed(backEvent)
         if (router.backstackSize > 1 && isControllerVisible) {
-            router.backstack[router.backstackSize - 2].controller.view?.let { view2 ->
+            previousController?.view?.let { view2 ->
                 view2.alpha = 0f
                 view2.x = 0f
             }

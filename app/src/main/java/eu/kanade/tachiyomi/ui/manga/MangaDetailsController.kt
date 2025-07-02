@@ -33,6 +33,7 @@ import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.graphics.ColorUtils
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsCompat.Type.systemBars
+import androidx.core.view.children
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
 import androidx.core.view.updatePaddingRelative
@@ -45,6 +46,7 @@ import coil.request.ImageRequest
 import com.bluelinelabs.conductor.ControllerChangeHandler
 import com.bluelinelabs.conductor.ControllerChangeType
 import com.google.android.material.chip.Chip
+import com.google.android.material.chip.ChipGroup
 import com.google.android.material.snackbar.BaseTransientBottomBar
 import com.google.android.material.snackbar.Snackbar
 import eu.davidea.flexibleadapter.FlexibleAdapter
@@ -1603,22 +1605,30 @@ class MangaDetailsController :
         )
     }
 
-    fun sourceSearch(text: String) {
-        when (
-            val previousController =
-                router.backstack.getOrNull(router.backstackSize - 2)?.controller
-        ) {
+    fun localSearch(tags: List<String>) {
+        router.pushController(
+            FilteredLibraryController(
+                tags.joinToString(", "),
+                filterTags = tags.toTypedArray(),
+            ).withFadeTransaction(),
+        )
+    }
+
+    fun sourceSearch(text: String) = sourceSearch(listOf(text))
+
+    fun sourceSearch(tags: List<String>) {
+        when (val previousController = previousController) {
             is BrowseSourceController -> {
                 if (presenter.source is CatalogueSource) {
                     router.getOnBackPressedDispatcher()?.onBackPressed()
-                    previousController.searchWithGenre(text)
+                    previousController.searchGenres(tags)
                 }
             }
             else -> {
                 if (presenter.source is CatalogueSource) {
                     val controller = BrowseSourceController(presenter.source)
                     router.pushController(controller.withFadeTransaction())
-                    controller.searchWithGenre(text)
+                    controller.searchGenres(tags)
                 }
             }
         }
@@ -1670,6 +1680,18 @@ class MangaDetailsController :
         }
         floatingActionMode =
             view.startActionMode(actionModeCallback, android.view.ActionMode.TYPE_FLOATING)
+    }
+
+    fun showFloatingActionModeForAllTags() {
+        val chipGroup = getHeader()?.binding?.mangaGenresTags ?: return
+        finishFloatingActionMode()
+        val actionModeCallback = FloatingMangaDetailsAllActionModeCallback(chipGroup)
+        val chips = chipGroup.children.mapNotNull { it as? Chip }
+        chips.forEach {
+            it.isActivated = true
+        }
+        floatingActionMode =
+            chipGroup.startActionMode(actionModeCallback, android.view.ActionMode.TYPE_FLOATING)
     }
 
     override fun customActionMode(view: TextView): android.view.ActionMode.Callback =
@@ -2085,6 +2107,10 @@ class MangaDetailsController :
                         localSearch(subText, isTag)
                     }
                 }
+                R.id.action_select_all_tags -> {
+                    showFloatingActionModeForAllTags()
+                    return true
+                }
                 else -> return false
             }
             if (closeMode) {
@@ -2099,6 +2125,58 @@ class MangaDetailsController :
             }
             if (textView is Chip) {
                 textView.isActivated = false
+            }
+        }
+    }
+
+    inner class FloatingMangaDetailsAllActionModeCallback(
+        chipGroup: ChipGroup,
+    ) : android.view.ActionMode.Callback {
+        private val chips = chipGroup.children.mapNotNull { it as? Chip }
+
+        override fun onCreateActionMode(
+            mode: android.view.ActionMode?,
+            menu: Menu?,
+        ): Boolean {
+            mode?.menuInflater?.inflate(R.menu.manga_details_tag, menu)
+            menu?.findItem(R.id.action_copy)?.isVisible = true
+            menu?.findItem(R.id.action_global_search)?.isVisible = false
+            menu?.findItem(R.id.action_select_all_tags)?.isVisible = false
+            val sourceMenuItem = menu?.findItem(R.id.action_source_search)
+            sourceMenuItem?.isVisible = presenter.source is CatalogueSource
+            val context = view?.context ?: return false
+            sourceMenuItem?.title = context.getString(R.string.search_, presenter.source.name)
+            val localItem = menu?.findItem(R.id.action_local_search) ?: return true
+            localItem.isVisible = previousController !is FilteredLibraryController
+            val library = context.getString(R.string.library).lowercase(Locale.getDefault())
+            localItem.title = context.getString(R.string.search_, library)
+            return true
+        }
+
+        override fun onPrepareActionMode(
+            mode: android.view.ActionMode?,
+            menu: Menu?,
+        ): Boolean = false
+
+        override fun onActionItemClicked(
+            mode: android.view.ActionMode?,
+            item: MenuItem?,
+        ): Boolean {
+            val tags by lazy { chips.map { it.text.toString() }.toList() }
+            when (item?.itemId) {
+                R.id.action_copy -> copyContentToClipboard(tags.joinToString(", "), null)
+                R.id.action_local_search -> localSearch(tags)
+                R.id.action_source_search -> sourceSearch(tags)
+                else -> return false
+            }
+            mode?.finish()
+            return true
+        }
+
+        override fun onDestroyActionMode(mode: android.view.ActionMode?) {
+            floatingActionMode = null
+            chips.forEach {
+                it.isActivated = false
             }
         }
     }
