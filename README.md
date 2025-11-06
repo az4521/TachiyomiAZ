@@ -2,6 +2,13 @@
 https://discord.gg/tachiyomi  
 https://discord.gg/mihon
 
+## LEGAL NOTICE: 
+TachiyomiAZ™ is intended to be used for viewing EMAILS and FREE doujins only, I do not condone using this app to access pirated copyrighted material, and by installing TachiyomiAZ™ you agree not to use the application for this purpose. Installing any extensions designed to access anything but EMAIL and FREELY AVAILABLE FAN WORKS is strongly discouraged, cuz I don't wanna get sued. any mention of manga within the application, source code, or this readme is referring only to doujinshi manga.
+
+For legal purposes this is an EMAIL AND FREE DOUJINSHI READER APP, NOT TO BE USED TO ILLEGALLY ACCESS COPYRIGHTED MATERIAL
+
+plz don't sue me
+
 ## features
 - material design 1 (sidebar + hamburger)
 - Get Recommendations From MyAnimeList And Anilist
