@@ -1,7 +1,6 @@
 package eu.kanade.tachiyomi.data.download
 
 import android.content.Context
-import android.webkit.MimeTypeMap
 import com.hippo.unifile.UniFile
 import com.jakewharton.rxrelay.BehaviorRelay
 import com.jakewharton.rxrelay.PublishRelay
@@ -478,15 +477,8 @@ class Downloader(
         response: Response,
         file: UniFile
     ): String {
-        // Read content type if available.
-        val mime =
-            response.body.contentType()?.let { ct -> "${ct.type}/${ct.subtype}" }
-                // Else guess from the uri.
-                ?: context.contentResolver.getType(file.uri)
-                // Else read magic numbers.
-                ?: ImageUtil.findImageType { file.openInputStream() }?.mime
-
-        return MimeTypeMap.getSingleton().getExtensionFromMimeType(mime) ?: "jpg"
+        val mime = response.body.contentType()?.run { if (type == "image") "image/$subtype" else null }
+        return ImageUtil.getExtensionFromMimeType(mime) { file.openInputStream() }
     }
 
     /**

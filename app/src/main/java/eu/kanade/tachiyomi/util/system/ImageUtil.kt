@@ -7,6 +7,8 @@ import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import eu.kanade.tachiyomi.R
+import tachiyomi.decoder.Format
+import tachiyomi.decoder.ImageDecoder
 import java.io.InputStream
 import java.net.URLConnection
 import kotlin.math.abs
@@ -25,64 +27,47 @@ object ImageUtil {
         return contentType?.startsWith("image/") ?: false
     }
 
+    fun getExtensionFromMimeType(mime: String?, openStream: () -> InputStream): String {
+        val type = mime?.let { ImageType.values().find { it.mime == mime } } ?: findImageType(openStream)
+        return type?.extension ?: "jpg"
+    }
+
     fun findImageType(openStream: () -> InputStream): ImageType? {
         return openStream().use { findImageType(it) }
     }
 
     fun findImageType(stream: InputStream): ImageType? {
-        try {
-            val bytes = ByteArray(12)
-
-            val length =
-                if (stream.markSupported()) {
-                    stream.mark(bytes.size)
-                    stream.read(bytes, 0, bytes.size).also { stream.reset() }
-                } else {
-                    stream.read(bytes, 0, bytes.size)
-                }
-
-            if (length == -1) {
-                return null
+        return try {
+            when (getImageType(stream)?.format) {
+                Format.Avif -> ImageType.AVIF
+                Format.Gif -> ImageType.GIF
+                Format.Heif -> ImageType.HEIF
+                Format.Jpeg -> ImageType.JPEG
+                Format.Jxl -> ImageType.JXL
+                Format.Png -> ImageType.PNG
+                Format.Webp -> ImageType.WEBP
+                else -> null
             }
-
-            if (bytes.compareWith(charByteArrayOf(0xFF, 0xD8, 0xFF))) {
-                return ImageType.JPG
-            }
-            if (bytes.compareWith(charByteArrayOf(0x89, 0x50, 0x4E, 0x47))) {
-                return ImageType.PNG
-            }
-            if (bytes.compareWith("GIF8".toByteArray())) {
-                return ImageType.GIF
-            }
-            if (bytes.compareWith("RIFF".toByteArray())) {
-                return ImageType.WEBP
-            }
-            if (bytes.comparesWithAnyOf(
-                    listOf(
-                            charByteArrayOf(0xFF, 0x0A),
-                            charByteArrayOf(0x00, 0x00, 0x00, 0x0C, 0x4A, 0x58, 0x4C, 0x20, 0x0D, 0x0A, 0x87, 0x0A)
-                        )
-                )
-            ) {
-                return ImageType.JXL
-            }
-            if (bytes.compareWith("ftyp".toByteArray(), 4)) {
-                if (bytes.compareWith("avi".toByteArray(), 8)) {
-                    return ImageType.AVIF
-                } else if (bytes.getSlice(8, 4).comparesWithAnyOf(
-                        listOf(
-                                "hei".toByteArray(),
-                                "mif1".toByteArray(),
-                                "hev".toByteArray()
-                            )
-                    )
-                ) {
-                    return ImageType.HEIF
-                }
-            }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            null
         }
-        return null
+    }
+
+    private fun getImageType(stream: InputStream): tachiyomi.decoder.ImageType? {
+        val bytes = ByteArray(32)
+
+        val length = if (stream.markSupported()) {
+            stream.mark(bytes.size)
+            stream.read(bytes, 0, bytes.size).also { stream.reset() }
+        } else {
+            stream.read(bytes, 0, bytes.size)
+        }
+
+        if (length == -1) {
+            return null
+        }
+
+        return ImageDecoder.findType(bytes)
     }
 
     private fun ByteArray.comparesWithAnyOf(magics: List<ByteArray>): Boolean {
@@ -120,13 +105,13 @@ object ImageUtil {
     }
 
     enum class ImageType(val mime: String, val extension: String) {
-        JPG("image/jpeg", "jpg"),
-        PNG("image/png", "png"),
-        GIF("image/gif", "gif"),
-        WEBP("image/webp", "webp"),
-        HEIF("image/heif", "heif"),
         AVIF("image/avif", "avif"),
-        JXL("image/jxl", "jxl")
+        GIF("image/gif", "gif"),
+        HEIF("image/heif", "heif"),
+        JPEG("image/jpeg", "jpg"),
+        JXL("image/jxl", "jxl"),
+        PNG("image/png", "png"),
+        WEBP("image/webp", "webp")
     }
 
     // SY -->
