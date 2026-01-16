@@ -71,7 +71,7 @@ open class NetworkHelper(context: Context) {
         builder.build()
     }
 
-    //@Deprecated("Since extension-lib 1.5", ReplaceWith("client"))
+    @Deprecated("Since extension-lib 1.5", ReplaceWith("client"))
     open val cloudflareClient by lazy {
         legacyClient.newBuilder()
             .addInterceptor(UserAgentInterceptor())
