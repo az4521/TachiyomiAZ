@@ -52,7 +52,8 @@ class FullBackupRestore(
         // SY <--
 
         // Store source mapping for error messages
-        sourceMapping = backup.backupSources.map { it.sourceId to it.name }.toMap()
+        val backupMaps = backup.backupSources + backup.backupBrokenSources.map { it.toBackupSource() }
+        sourceMapping = backupMaps.associate { it.sourceId to it.name }
 
         // Restore individual manga, sort by merged source so that merged source manga go last and merged references get the proper ids
         backup.backupManga.forEach {
@@ -92,7 +93,7 @@ class FullBackupRestore(
         var manga = backupManga.getMangaImpl()
         val chapters = backupManga.getChaptersImpl()
         val categories = backupManga.categories
-        val history = backupManga.history
+        val history = backupManga.history + backupManga.brokenHistory.map { it.toBackupHistory() }
         val tracks = backupManga.getTrackingImpl()
         // SY -->
         val flatMetadata = backupManga.flatMetadata

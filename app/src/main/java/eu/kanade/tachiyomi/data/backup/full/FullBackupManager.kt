@@ -72,10 +72,10 @@ class FullBackupManager(context: Context) : AbstractBackupManager(context) {
 
             backup =
                 Backup(
-                    backupManga(databaseManga, flags),
-                    backupCategories(),
-                    backupExtensionInfo(databaseManga),
-                    backupSavedSearches()
+                    backupManga = backupManga(databaseManga, flags),
+                    backupCategories = backupCategories(),
+                    backupSources = backupExtensionInfo(databaseManga),
+                    backupSavedSearches = backupSavedSearches()
                 )
         }
 
