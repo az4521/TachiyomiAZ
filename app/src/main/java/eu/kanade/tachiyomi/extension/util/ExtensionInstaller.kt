@@ -16,6 +16,7 @@ import eu.kanade.tachiyomi.extension.installer.Installer
 import eu.kanade.tachiyomi.extension.model.Extension
 import eu.kanade.tachiyomi.extension.model.InstallStep
 import eu.kanade.tachiyomi.util.storage.getUriCompat
+import eu.kanade.tachiyomi.util.system.isPackageInstalled
 import rx.Observable
 import rx.android.schedulers.AndroidSchedulers
 import timber.log.Timber
@@ -169,12 +170,16 @@ internal class ExtensionInstaller(private val context: Context) {
      * @param pkgName The package name of the extension to uninstall
      */
     fun uninstallApk(pkgName: String) {
-        val packageUri = Uri.parse("package:$pkgName")
-        val intent =
-            Intent(Intent.ACTION_UNINSTALL_PACKAGE, packageUri)
-                .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (context.isPackageInstalled(pkgName)) {
+            val packageUri = Uri.parse("package:$pkgName")
 
-        context.startActivity(intent)
+            @Suppress("DEPRECATION")
+            val intent = Intent(Intent.ACTION_UNINSTALL_PACKAGE, packageUri)
+                .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(intent)
+        } else {
+            ExtensionInstallReceiver.notifyRemoved(context, pkgName)
+        }
     }
 
     /**
