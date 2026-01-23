@@ -2,15 +2,20 @@ package eu.kanade.tachiyomi.util
 
 import android.content.Context
 import android.net.Uri
+import android.os.Build
+import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.notification.NotificationReceiver
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.util.storage.getUriCompat
+import eu.kanade.tachiyomi.util.system.WebViewUtil
 import eu.kanade.tachiyomi.util.system.notificationBuilder
 import eu.kanade.tachiyomi.util.system.notificationManager
 import eu.kanade.tachiyomi.util.system.toast
 import java.io.File
 import java.io.IOException
+import java.time.OffsetDateTime
+import java.time.ZoneId
 
 class CrashLogUtil(private val context: Context) {
     private val notificationBuilder =
@@ -31,6 +36,20 @@ class CrashLogUtil(private val context: Context) {
         } catch (e: IOException) {
             context.toast("Failed to get logs")
         }
+    }
+
+    fun getDebugInfo(): String {
+        return """
+            App ID: ${BuildConfig.APPLICATION_ID}
+            App version: ${BuildConfig.VERSION_NAME} (${BuildConfig.COMMIT_SHA}, ${BuildConfig.VERSION_CODE}, ${BuildConfig.BUILD_TIME})
+            Android version: ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT}; build ${Build.DISPLAY})
+            Device brand: ${Build.BRAND}
+            Device manufacturer: ${Build.MANUFACTURER}
+            Device name: ${Build.DEVICE} (${Build.PRODUCT})
+            Device model: ${Build.MODEL}
+            WebView: ${WebViewUtil.getVersion(context)}
+            Current time: ${OffsetDateTime.now(ZoneId.systemDefault())}
+        """.trimIndent()
     }
 
     private fun showNotification(uri: Uri) {

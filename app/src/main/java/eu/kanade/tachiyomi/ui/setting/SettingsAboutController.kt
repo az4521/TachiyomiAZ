@@ -14,11 +14,13 @@ import eu.kanade.tachiyomi.data.updater.UpdateResult
 import eu.kanade.tachiyomi.data.updater.UpdaterService
 import eu.kanade.tachiyomi.ui.base.controller.DialogController
 import eu.kanade.tachiyomi.ui.main.ChangelogDialogController
+import eu.kanade.tachiyomi.util.CrashLogUtil
 import eu.kanade.tachiyomi.util.lang.launchNow
 import eu.kanade.tachiyomi.util.lang.toDateTimestampString
 import eu.kanade.tachiyomi.util.preference.onClick
 import eu.kanade.tachiyomi.util.preference.preference
 import eu.kanade.tachiyomi.util.preference.titleRes
+import eu.kanade.tachiyomi.util.system.copyToClipboard
 import eu.kanade.tachiyomi.util.system.toast
 import timber.log.Timber
 import java.text.DateFormat
@@ -67,17 +69,19 @@ class SettingsAboutController : SettingsController() {
                     } else {
                         BuildConfig.VERSION_NAME
                     }
-
-                if (isUpdaterEnabled) {
-                    onClick { checkVersion() }
+                onClick {
+                    ChangelogDialogController().showDialog(router)
                 }
             }
             preference {
                 titleRes = R.string.build_time
                 summary = getFormattedBuildTime()
-
-                onClick {
-                    ChangelogDialogController().showDialog(router)
+                onClick { copyVersionToClipboard() }
+            }
+            preference {
+                titleRes = R.string.check_for_updates
+                if (isUpdaterEnabled) {
+                    onClick { checkVersion() }
                 }
             }
             preference {
@@ -106,6 +110,16 @@ class SettingsAboutController : SettingsController() {
                 }
             }
         }
+
+    private fun copyVersionToClipboard() {
+        if (activity == null) return
+
+        applicationContext?.let { CrashLogUtil(it).getDebugInfo() }?.let {
+            activity?.copyToClipboard("Debug Info", it)
+        }
+
+        activity?.toast(R.string.copied_to_clipboard)
+    }
 
     /**
      * Checks version and shows a user prompt if an update is available.

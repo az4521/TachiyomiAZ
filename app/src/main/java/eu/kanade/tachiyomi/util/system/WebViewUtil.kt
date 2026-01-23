@@ -1,7 +1,9 @@
 package eu.kanade.tachiyomi.util.system
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
+import android.os.Build
 import android.webkit.CookieManager
 import android.webkit.WebSettings
 import android.webkit.WebView
@@ -26,12 +28,27 @@ object WebViewUtil {
 
         return context.packageManager.hasSystemFeature(PackageManager.FEATURE_WEBVIEW)
     }
+
+    @SuppressLint("WebViewApiAvailability")
+    fun getVersion(context: Context): String {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val webView = WebView.getCurrentWebViewPackage() ?: return "how did you get here?"
+
+            val pm = context.packageManager
+            val label = webView.applicationInfo!!.loadLabel(pm)
+            val version = webView.versionName
+            return "$label $version"
+        } else {
+            return getWebViewUA(WebView(context))
+        }
+    }
 }
 
 fun WebView.isOutdated(): Boolean {
     return getWebViewMajorVersion(this) < WebViewUtil.MINIMUM_WEBVIEW_VERSION
 }
 
+@SuppressLint("SetJavaScriptEnabled")
 fun WebView.setDefaultSettings() {
     with(settings) {
         javaScriptEnabled = true
@@ -62,4 +79,19 @@ private fun getWebViewMajorVersion(webview: WebView): Int {
     webview.settings.userAgentString = originalUA
 
     return webViewVersion
+}
+
+private fun getWebViewUA(webview: WebView): String {
+    val originalUA: String = webview.settings.userAgentString
+
+    // Next call to getUserAgentString() will get us the default
+    webview.settings.userAgentString = null
+
+    // Grab the default UA
+    val defaultUA = webview.settings.userAgentString
+
+    // Revert to original UA string
+    webview.settings.userAgentString = originalUA
+
+    return defaultUA
 }
