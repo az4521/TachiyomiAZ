@@ -38,6 +38,10 @@ jobs:
         with:
           arguments: assembleStandardRelease
 
+      - name: Setup Android SDK
+        run: |
+          ${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager "build-tools;29.0.3"
+
       - name: Sign Android release
         uses: r0adkll/sign-android-release@v1
         with:
