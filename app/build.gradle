@@ -32,7 +32,7 @@ ext {
 }
 
 android {
-    compileSdkVersion 33
+    compileSdkVersion 36
     namespace "eu.kanade.tachiyomi"
 
     defaultConfig {
@@ -248,7 +248,7 @@ dependencies {
     implementation 'androidx.sqlite:sqlite-ktx:2.1.0'
     implementation 'com.github.inorichi.storio:storio-common:8be19de@aar'
     implementation 'com.github.inorichi.storio:storio-sqlite:8be19de@aar'
-    implementation 'com.github.requery:sqlite-android:3.39.2'
+    implementation 'com.github.requery:sqlite-android:3.49.0'
 
     // Preferences
     implementation 'com.f2prateek.rx.preferences:rx-preferences:1.0.2'
