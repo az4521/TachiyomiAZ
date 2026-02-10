@@ -1,5 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <changelog bulletedList="true">
+    <changelogversion versionName="v8.8.3-AZ" changeDate="">
+        <changelogtext>massive speedup to network requests</changelogtext>
+        <changelogtext>internal update fixes a bunch of extensions</changelogtext>
+        <changelogtext>tachiaz backups are now compatible with other tachiyomi forks</changelogtext>
+        <changelogtext>fix some crashes</changelogtext>
+        <changelogtext>fix some issues with image loading on nh</changelogtext>
+    </changelogversion>
     <changelogversion versionName="v8.8.2-AZ" changeDate="">
         <changelogtext>fix exh</changelogtext>
         <changelogtext>remove user agent from nh</changelogtext>
