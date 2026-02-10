@@ -5,10 +5,10 @@ import java.text.SimpleDateFormat
 apply plugin: 'com.android.application'
 apply plugin: 'com.google.android.gms.oss-licenses-plugin'
 apply plugin: 'kotlin-android'
-apply plugin: 'kotlin-kapt'
 apply plugin: 'kotlinx-serialization'
 apply plugin: 'kotlin-parcelize'
 // Realm (EH)
+apply plugin: 'kotlin-kapt'
 apply plugin: 'realm-android'
 
 ext {
@@ -139,9 +139,9 @@ android {
 //    experimental = true
 //}
 
-kapt {
-    correctErrorTypes true
-}
+//kapt {
+//    correctErrorTypes true
+//}
 
 dependencies {
     //desugaring
@@ -394,7 +394,7 @@ dependencies {
 }
 
 buildscript {
-    ext.kotlin_version = '2.1.0'
+    ext.kotlin_version = '2.3.10'
     repositories {
         mavenCentral()
     }
