@@ -63,7 +63,7 @@ class ExtensionHolder(view: View, override val adapter: ExtensionAdapter) :
     @Suppress("ResourceType")
     fun bindButtons(item: ExtensionItem) =
         with(binding.extButton) {
-            setTextColor(context.getResourceColor(R.attr.colorAccent))
+            setTextColor(context.getResourceColor(androidx.appcompat.R.attr.colorAccent))
 
             val extension = item.extension
 
@@ -83,15 +83,15 @@ class ExtensionHolder(view: View, override val adapter: ExtensionAdapter) :
                                         context.getString(R.string.ext_update)
                                     }
                                     extension.isObsolete -> {
-                                        setTextColor(context.getResourceColor(R.attr.colorError))
+                                        setTextColor(context.getResourceColor(androidx.appcompat.R.attr.colorError))
                                         context.getString(R.string.ext_obsolete)
                                     }
                                     extension.isUnofficial -> {
-                                        setTextColor(context.getResourceColor(R.attr.colorError))
+                                        setTextColor(context.getResourceColor(androidx.appcompat.R.attr.colorError))
                                         context.getString(R.string.ext_unofficial)
                                     }
                                     extension.isRedundant -> {
-                                        setTextColor(context.getResourceColor(R.attr.colorError))
+                                        setTextColor(context.getResourceColor(androidx.appcompat.R.attr.colorError))
                                         context.getString(R.string.ext_redundant)
                                     }
                                     else -> {

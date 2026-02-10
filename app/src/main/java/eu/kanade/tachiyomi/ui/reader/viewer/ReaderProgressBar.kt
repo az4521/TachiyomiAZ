@@ -47,7 +47,7 @@ constructor(
      */
     private val paint =
         Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = context.getResourceColor(R.attr.colorAccent)
+            color = context.getResourceColor(androidx.appcompat.R.attr.colorAccent)
             isAntiAlias = true
             strokeCap = Paint.Cap.ROUND
             style = Paint.Style.STROKE

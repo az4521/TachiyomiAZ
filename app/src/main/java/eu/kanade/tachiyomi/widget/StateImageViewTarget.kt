@@ -45,7 +45,7 @@ class StateImageViewTarget(
         view.scaleType = errorScaleType
 
         val vector = VectorDrawableCompat.create(view.context.resources, errorDrawableRes, null)
-        vector?.setTint(view.context.getResourceColor(R.attr.colorOnBackground, 0.38f))
+        vector?.setTint(view.context.getResourceColor(com.google.android.material.R.attr.colorOnBackground, 0.38f))
         view.setImageDrawable(vector)
     }
 

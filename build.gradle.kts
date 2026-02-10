@@ -45,7 +45,7 @@ subprojects {
 buildscript {
     dependencies {
         classpath("com.github.ben-manes:gradle-versions-plugin:0.28.0")
-        classpath("com.google.gms:google-services:4.3.5")
+        classpath("com.google.gms:google-services:4.3.10")
         classpath("com.google.android.gms:oss-licenses-plugin:0.10.6")
         classpath(kotlin("serialization", version = "1.9.22"))
         // Realm (EH)
@@ -53,7 +53,7 @@ buildscript {
 
         // Firebase (EH)
         //classpath("io.fabric.tools:gradle:1.31.2")
-        classpath ("com.google.firebase:firebase-crashlytics-gradle:2.2.1")
+        classpath ("com.google.firebase:firebase-crashlytics-gradle:2.5.2")
 
     }
     repositories {

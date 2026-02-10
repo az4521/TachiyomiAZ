@@ -22,7 +22,7 @@ constructor(
     PreferenceCategory(
         context,
         attrs,
-        R.attr.switchPreferenceCompatStyle
+        androidx.preference.R.attr.switchPreferenceCompatStyle
     ),
     CompoundButton.OnCheckedChangeListener {
     private var mChecked = false
@@ -32,12 +32,12 @@ constructor(
     override fun onBindViewHolder(holder: PreferenceViewHolder) {
         super.onBindViewHolder(holder)
         val titleView = holder.findViewById(android.R.id.title) as TextView
-        titleView.setTextColor(context.getResourceColor(R.attr.colorAccent))
+        titleView.setTextColor(context.getResourceColor(androidx.appcompat.R.attr.colorAccent))
         syncSwitchView(holder)
     }
 
     private fun syncSwitchView(holder: PreferenceViewHolder) {
-        val switchView = holder.findViewById(R.id.switchWidget)
+        val switchView = holder.findViewById(androidx.preference.R.id.switchWidget)
         syncSwitchView(switchView)
     }
 

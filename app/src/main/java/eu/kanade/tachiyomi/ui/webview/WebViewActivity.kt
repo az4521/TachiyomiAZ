@@ -130,7 +130,7 @@ class WebViewActivity : BaseWebViewActivity() {
         backItem?.isEnabled = binding.webview.canGoBack()
         forwardItem?.isEnabled = binding.webview.canGoForward()
 
-        val iconTintColor = getResourceColor(R.attr.colorOnSurface)
+        val iconTintColor = getResourceColor(com.google.android.material.R.attr.colorOnSurface)
         val translucentIconTintColor = ColorUtils.setAlphaComponent(iconTintColor, 127)
         backItem?.icon?.setTint(if (binding.webview.canGoBack()) iconTintColor else translucentIconTintColor)
         forwardItem?.icon?.setTint(if (binding.webview.canGoForward()) iconTintColor else translucentIconTintColor)

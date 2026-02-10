@@ -29,6 +29,7 @@ import androidx.annotation.StringRes
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.hippo.unifile.UniFile
 import eu.kanade.tachiyomi.R
@@ -262,10 +263,10 @@ fun Context.isServiceRunning(serviceClass: Class<*>): Boolean {
  */
 fun Context.openInBrowser(url: String) {
     try {
-        val parsedUrl = Uri.parse(url)
+        val parsedUrl = url.toUri()
         val intent =
             CustomTabsIntent.Builder()
-                .setToolbarColor(getResourceColor(R.attr.colorPrimary))
+                .setToolbarColor(getResourceColor(androidx.appcompat.R.attr.colorPrimary))
                 .build()
         intent.launchUrl(this, parsedUrl)
     } catch (e: Exception) {

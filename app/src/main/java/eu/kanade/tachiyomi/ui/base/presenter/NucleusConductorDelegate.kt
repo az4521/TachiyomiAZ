@@ -28,11 +28,12 @@ class NucleusConductorDelegate<P : Presenter<*>>(private val factory: PresenterF
         bundle = presenterState
     }
 
-    @Suppress("UNCHECKED_CAST")
-    private fun <View> Presenter<View>.takeView(view: Any) = takeView(view as View)
+    // @Suppress("UNCHECKED_CAST")
+    // private fun <View> Presenter<View>.takeView(view: Any?) = takeView(view as View)
 
-    fun onTakeView(view: Any) {
-        presenter?.takeView(view)
+    fun onTakeView(view: Any?) {
+        @Suppress("UNCHECKED_CAST")
+        (presenter as? Presenter<Any?>)?.takeView(view)
     }
 
     fun onDropView() {

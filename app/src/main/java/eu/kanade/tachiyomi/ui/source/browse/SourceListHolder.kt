@@ -22,8 +22,8 @@ class SourceListHolder(private val view: View, adapter: FlexibleAdapter<*>) :
     SourceHolder<SourceListItemBinding>(view, adapter) {
     override val binding = SourceListItemBinding.bind(view)
 
-    private val favoriteColor = view.context.getResourceColor(R.attr.colorOnSurface, 0.38f)
-    private val unfavoriteColor = view.context.getResourceColor(R.attr.colorOnSurface)
+    private val favoriteColor = view.context.getResourceColor(com.google.android.material.R.attr.colorOnSurface, 0.38f)
+    private val unfavoriteColor = view.context.getResourceColor(com.google.android.material.R.attr.colorOnSurface)
 
     /**
      * Method called from [CatalogueAdapter.onBindViewHolder]. It updates the data for this

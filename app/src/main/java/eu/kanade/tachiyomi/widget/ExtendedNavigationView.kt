@@ -76,7 +76,7 @@ constructor(
                 resId: Int
             ): Drawable {
                 return VectorDrawableCompat.create(context.resources, resId, context.theme)!!.apply {
-                    setTint(context.getResourceColor(R.attr.colorAccent))
+                    setTint(context.getResourceColor(androidx.appcompat.R.attr.colorAccent))
                 }
             }
 

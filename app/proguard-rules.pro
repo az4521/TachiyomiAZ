@@ -130,6 +130,11 @@
 # OkHttp platform used only on JVM and when Conscrypt dependency is available.
 -dontwarn okhttp3.internal.platform.ConscryptPlatform
 
+# OkHttp GraalVM/SubstrateVM support
+-dontwarn com.oracle.svm.core.annotate.**
+-dontwarn org.graalvm.nativeimage.**
+-dontwarn java.lang.Module
+
 # === Okio: https://github.com/square/okio/tree/9b8545e7fa267c9d89753283990f24a35cd69cd6#proguard
 -dontwarn okio.**
 
@@ -295,3 +300,12 @@
 -keep class com.google.apphosting.api.ApiProxy {
   static *** getCurrentEnvironment (...);
 }
+
+# tinylog
+-dontwarn dalvik.system.VMStack
+-dontwarn java.lang.ProcessHandle
+-dontwarn java.lang.management.**
+-dontwarn sun.reflect.Reflection
+
+# SLF4J
+-dontwarn org.slf4j.impl.StaticLoggerBinder

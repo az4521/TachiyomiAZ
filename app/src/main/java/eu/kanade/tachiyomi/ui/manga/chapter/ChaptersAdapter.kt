@@ -19,11 +19,11 @@ class ChaptersAdapter(
 
     var items: List<ChapterItem> = emptyList()
 
-    val readColor = context.getResourceColor(R.attr.colorOnSurface, 0.38f)
-    val unreadColor = context.getResourceColor(R.attr.colorOnSurface)
+    val readColor = context.getResourceColor(com.google.android.material.R.attr.colorOnSurface, 0.38f)
+    val unreadColor = context.getResourceColor(com.google.android.material.R.attr.colorOnSurface)
     val menuItemListener: OnMenuItemClickListener = controller
 
-    val bookmarkedColor = context.getResourceColor(R.attr.colorAccent)
+    val bookmarkedColor = context.getResourceColor(androidx.appcompat.R.attr.colorAccent)
 
     val decimalFormat =
         DecimalFormat(

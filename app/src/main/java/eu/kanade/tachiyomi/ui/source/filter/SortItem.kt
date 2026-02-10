@@ -44,10 +44,10 @@ class SortItem(val name: String, val group: SortGroup) : AbstractSectionableItem
             when (filter.state) {
                 Filter.Sort.Selection(i, false) ->
                     VectorDrawableCompat.create(view.resources, R.drawable.ic_arrow_down_white_32dp, null)
-                        ?.apply { setTint(view.context.getResourceColor(R.attr.colorAccent)) }
+                        ?.apply { setTint(view.context.getResourceColor(androidx.appcompat.R.attr.colorAccent)) }
                 Filter.Sort.Selection(i, true) ->
                     VectorDrawableCompat.create(view.resources, R.drawable.ic_arrow_up_white_32dp, null)
-                        ?.apply { setTint(view.context.getResourceColor(R.attr.colorAccent)) }
+                        ?.apply { setTint(view.context.getResourceColor(androidx.appcompat.R.attr.colorAccent)) }
                 else -> ContextCompat.getDrawable(view.context, R.drawable.empty_drawable_32dp)
             }
 

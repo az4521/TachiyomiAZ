@@ -57,12 +57,12 @@ class MigrationProcessHolder(
             binding.migrationMenu.setVectorCompat(
                 R.drawable.ic_more_vert_24dp,
                 view.context
-                    .getResourceColor(R.attr.colorOnPrimary)
+                    .getResourceColor(com.google.android.material.R.attr.colorOnPrimary)
             )
             binding.skipManga.setVectorCompat(
                 R.drawable.ic_close_24dp,
                 view.context.getResourceColor(
-                    R
+                    com.google.android.material.R
                         .attr.colorOnPrimary
                 )
             )

@@ -216,7 +216,7 @@ class MigrationListController(bundle: Bundle? = null) :
                                                     } catch (e: Exception) {
                                                         return@async null
                                                     }
-                                                    manga.progress.send(validSources.size to processedSources.incrementAndGet())
+                                                    manga.progress.value = validSources.size to processedSources.incrementAndGet()
                                                     localManga to chapters.size
                                                 } else {
                                                     null
@@ -277,7 +277,7 @@ class MigrationListController(bundle: Bundle? = null) :
                                             null
                                         }
 
-                                    manga.progress.send(validSources.size to (index + 1))
+                                    manga.progress.value = validSources.size to (index + 1)
 
                                     if (searchResult != null) return@async searchResult
                                 }
@@ -531,7 +531,7 @@ class MigrationListController(bundle: Bundle? = null) :
 
         menuCopy.icon?.mutate()
         menuMigrate.icon?.mutate()
-        val tintColor = activity?.getResourceColor(R.attr.colorOnPrimary) ?: Color.WHITE
+        val tintColor = activity?.getResourceColor(com.google.android.material.R.attr.colorOnPrimary) ?: Color.WHITE
         val translucentWhite = ColorUtils.setAlphaComponent(tintColor, 127)
         menuCopy.icon?.setTint(if (allMangasDone) tintColor else translucentWhite)
         menuMigrate?.icon?.setTint(if (allMangasDone) tintColor else translucentWhite)

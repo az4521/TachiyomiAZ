@@ -12,7 +12,7 @@ import eu.kanade.tachiyomi.util.system.getResourceColor
  */
 class ExtensionAdapter(val controller: ExtensionController) :
     FlexibleAdapter<IFlexible<*>>(null, controller, true) {
-    val cardBackground = controller.activity!!.getResourceColor(R.attr.colorSurface)
+    val cardBackground = controller.activity!!.getResourceColor(com.google.android.material.R.attr.colorSurface)
 
     init {
         setDisplayHeadersAtStartUp(true)

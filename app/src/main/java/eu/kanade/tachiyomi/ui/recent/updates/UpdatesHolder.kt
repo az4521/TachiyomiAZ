@@ -25,8 +25,8 @@ class UpdatesHolder(private val view: View, private val adapter: UpdatesAdapter)
     BaseFlexibleViewHolder(view, adapter) {
     private val binding = UpdatesItemBinding.bind(view)
 
-    private var readColor = view.context.getResourceColor(R.attr.colorOnSurface, 0.38f)
-    private var unreadColor = view.context.getResourceColor(R.attr.colorOnSurface)
+    private var readColor = view.context.getResourceColor(com.google.android.material.R.attr.colorOnSurface, 0.38f)
+    private var unreadColor = view.context.getResourceColor(com.google.android.material.R.attr.colorOnSurface)
 
     /**
      * Currently bound item.

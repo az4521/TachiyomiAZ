@@ -7,7 +7,7 @@ import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.util.DeferredField
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.channels.ConflatedBroadcastChannel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlin.coroutines.CoroutineContext
 
 class MigratingManga(
@@ -19,7 +19,7 @@ class MigratingManga(
     val searchResult = DeferredField<Long?>()
 
     // <MAX, PROGRESS>
-    val progress = ConflatedBroadcastChannel(1 to 0)
+    val progress = MutableStateFlow(1 to 0)
 
     val migrationJob = parentContext + SupervisorJob() + Dispatchers.Default
 

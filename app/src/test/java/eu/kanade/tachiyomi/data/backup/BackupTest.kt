@@ -20,6 +20,7 @@ import eu.kanade.tachiyomi.data.database.models.MangaImpl
 import eu.kanade.tachiyomi.data.database.models.TrackImpl
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.source.online.HttpSource
+import exh.eh.EHentaiThrottleManager
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.Before
 import org.junit.Test
@@ -256,7 +257,7 @@ class BackupTest {
         `when`(source.fetchChapterList(manga)).thenReturn(Observable.just(chaptersRemote))
 
         // Call restoreChapterFetchObservable
-        val obs = legacyBackupManager.restoreChapterFetchObservable(source, manga, restoredChapters)
+        val obs = legacyBackupManager.restoreChapterFetchObservable(source, manga, restoredChapters, EHentaiThrottleManager())
         val testSubscriber = TestSubscriber<Pair<List<Chapter>, List<Chapter>>>()
         obs.subscribe(testSubscriber)
 

@@ -49,7 +49,7 @@ class SettingsTrackingController :
                 trackPreference(trackManager.aniList) {
                     val tabsIntent =
                         CustomTabsIntent.Builder()
-                            .setToolbarColor(context.getResourceColor(R.attr.colorPrimary))
+                            .setToolbarColor(context.getResourceColor(androidx.appcompat.R.attr.colorPrimary))
                             .build()
                     tabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY)
                     tabsIntent.launchUrl(activity!!, AnilistApi.authUrl())
@@ -62,7 +62,7 @@ class SettingsTrackingController :
                 trackPreference(trackManager.shikimori) {
                     val tabsIntent =
                         CustomTabsIntent.Builder()
-                            .setToolbarColor(context.getResourceColor(R.attr.colorPrimary))
+                            .setToolbarColor(context.getResourceColor(androidx.appcompat.R.attr.colorPrimary))
                             .build()
                     tabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY)
                     tabsIntent.launchUrl(activity!!, ShikimoriApi.authUrl())
@@ -70,7 +70,7 @@ class SettingsTrackingController :
                 trackPreference(trackManager.bangumi) {
                     val tabsIntent =
                         CustomTabsIntent.Builder()
-                            .setToolbarColor(context.getResourceColor(R.attr.colorPrimary))
+                            .setToolbarColor(context.getResourceColor(androidx.appcompat.R.attr.colorPrimary))
                             .build()
                     tabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY)
                     tabsIntent.launchUrl(activity!!, BangumiApi.authUrl())

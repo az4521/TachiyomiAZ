@@ -16,7 +16,7 @@ constructor(context: Context, attrs: AttributeSet? = null) :
     }
 
     private fun setColors() {
-        setProgressBackgroundColorSchemeColor(context.getResourceColor(R.attr.colorAccent))
+        setProgressBackgroundColorSchemeColor(context.getResourceColor(androidx.appcompat.R.attr.colorAccent))
         setColorSchemeColors(
             ContextCompat.getColor(context, R.color.md_white_1000),
             ContextCompat.getColor(context, R.color.md_white_1000),

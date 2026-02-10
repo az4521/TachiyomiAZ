@@ -60,7 +60,7 @@ abstract class SettingsController : PreferenceController() {
 
     private fun getThemedContext(): Context {
         val tv = TypedValue()
-        activity!!.theme.resolveAttribute(R.attr.preferenceTheme, tv, true)
+        activity!!.theme.resolveAttribute(androidx.preference.R.attr.preferenceTheme, tv, true)
         return ContextThemeWrapper(activity, tv.resourceId)
     }
 
