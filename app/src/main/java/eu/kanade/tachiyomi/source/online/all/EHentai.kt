@@ -694,19 +694,33 @@ class EHentai(
     override val client =
         network.client.newBuilder()
             // .cookieJar(CookieJar.NO_COOKIES)
-            .addInterceptor { chain ->
+            .addNetworkInterceptor { chain ->
+                // Keep only Cloudflare cookies from incoming cookies
                 val cfCookies = chain.request().header("Cookie")?.split("; ")
                     ?.filter {
-                        val name = it.split("=")[0].trim().lowercase()
+                        // Only accept cookie in form of name=value
+                        if (!it.contains("=")) return@filter false
+                        val name = it.substringBefore("=").trim().lowercase()
+                        // KMK <--
                         name.startsWith("cf") || name.startsWith("_cf") || name.startsWith("__cf")
-                    }?.associate { it.split("=")[0].trim() to it.split("=")[1].trim() }
+                    }
+                    // KMK -->
+                    ?.associate { it.substringBefore("=").trim() to it.substringAfter("=").trim() }
+                val newCookies = cookiesHeader(cfCookies ?: emptyMap())
+                // KMK <--
 
                 val newReq =
                     chain
                         .request()
                         .newBuilder()
                         .removeHeader("Cookie")
-                        .addHeader("Cookie", cookiesHeader(cfCookies ?: emptyMap()))
+                        // KMK -->
+                        .apply {
+                            if (newCookies.isNotBlank()) {
+                                addHeader("Cookie", newCookies)
+                            }
+                        }
+                        // KMK <--
                         .build()
 
                 chain.proceed(newReq)
