@@ -1,4 +1,6 @@
 import java.io.ByteArrayOutputStream
+import org.gradle.api.tasks.Copy
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     id(Plugins.androidApplication)
@@ -120,9 +122,12 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions {
-        jvmTarget = "17"
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(JvmTarget.JVM_17)
+        }
     }
+
     namespace = "eu.kanade.tachiyomi"
 }
 
@@ -279,7 +284,7 @@ dependencies {
     implementation("dev.rikka.shizuku:api:$shizukuVersion")
     implementation("dev.rikka.shizuku:provider:$shizukuVersion")
 
-    implementation(kotlin("stdlib", org.jetbrains.kotlin.config.KotlinCompilerVersion.VERSION))
+    implementation(kotlin("stdlib"))
 
     val coroutines = "1.10.2"
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutines")
