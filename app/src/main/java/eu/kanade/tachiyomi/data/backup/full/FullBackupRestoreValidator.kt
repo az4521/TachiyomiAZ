@@ -4,7 +4,7 @@ import android.content.Context
 import android.net.Uri
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.backup.AbstractBackupRestoreValidator
-import eu.kanade.tachiyomi.data.backup.full.models.BackupSerializer
+import eu.kanade.tachiyomi.data.backup.full.models.Backup
 import kotlinx.serialization.ExperimentalSerializationApi
 import okio.buffer
 import okio.gzip
@@ -25,7 +25,7 @@ class FullBackupRestoreValidator : AbstractBackupRestoreValidator() {
         val backupManager = FullBackupManager(context)
 
         val backupString = context.contentResolver.openInputStream(uri)!!.source().gzip().buffer().use { it.readByteArray() }
-        val backup = backupManager.parser.decodeFromByteArray(BackupSerializer, backupString)
+        val backup = backupManager.parser.decodeFromByteArray(Backup.serializer(), backupString)
 
         if (backup.backupManga.isEmpty()) {
             throw Exception(context.getString(R.string.invalid_backup_file_missing_manga))

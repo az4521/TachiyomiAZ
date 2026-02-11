@@ -8,12 +8,14 @@ import android.os.IBinder
 import android.os.PowerManager
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
+import com.elvishew.xlog.XLog
 import com.hippo.unifile.UniFile
 import eu.kanade.tachiyomi.data.backup.full.FullBackupManager
 import eu.kanade.tachiyomi.data.backup.legacy.LegacyBackupManager
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.util.system.acquireWakeLock
 import eu.kanade.tachiyomi.util.system.isServiceRunning
+import timber.log.Timber
 
 /**
  * Service for backing up library information to a JSON file.
@@ -122,6 +124,8 @@ class BackupCreateService : Service() {
             val unifile = UniFile.fromUri(this, backupFileUri)
             notifier.showBackupComplete(unifile)
         } catch (e: Exception) {
+            Timber.e(e)
+            XLog.e(e)
             notifier.showBackupError(e.message)
         }
 

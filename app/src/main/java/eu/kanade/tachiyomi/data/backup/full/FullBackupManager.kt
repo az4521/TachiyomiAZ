@@ -20,7 +20,6 @@ import eu.kanade.tachiyomi.data.backup.full.models.BackupFull
 import eu.kanade.tachiyomi.data.backup.full.models.BackupHistory
 import eu.kanade.tachiyomi.data.backup.full.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.full.models.BackupSavedSearch
-import eu.kanade.tachiyomi.data.backup.full.models.BackupSerializer
 import eu.kanade.tachiyomi.data.backup.full.models.BackupSource
 import eu.kanade.tachiyomi.data.backup.full.models.BackupTracking
 import eu.kanade.tachiyomi.data.database.models.Chapter
@@ -105,7 +104,7 @@ class FullBackupManager(context: Context) : AbstractBackupManager(context) {
                     )
                     ?: throw Exception("Couldn't create backup file")
 
-            val byteArray = parser.encodeToByteArray(BackupSerializer, backup!!)
+            val byteArray = parser.encodeToByteArray(Backup.serializer(), backup!!)
             file.openOutputStream().sink().gzip().buffer().use { it.write(byteArray) }
             return file.uri.toString()
         } catch (e: Exception) {
