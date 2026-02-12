@@ -698,7 +698,7 @@ class EHentai(
                 val cfCookies = chain.request().header("Cookie")?.split("; ")
                     ?.filter {
                         val name = it.split("=")[0].trim().lowercase()
-                        name.startsWith("cf") || name.startsWith("_cf") || name.startsWith("__cf")
+                        name in arrayOf("cf_clearance", "__cf_bm", "cf_chl_prog", "_cfuvid", "__cfruid", "__cflb", "cf_ob_info", "cf_use_ob", "__cfwaitingroom", "__cfseq", "cf_chl_rc_i", "cf_chl_rc_ni", "cf_chl_rc_m") || name.startsWith("cf_chl_seq_")
                     }?.associate { it.split("=")[0].trim() to it.split("=")[1].trim() }
 
                 val newReq =
