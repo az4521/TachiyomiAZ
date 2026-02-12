@@ -24,7 +24,7 @@ class EHConfigurator {
 
     private fun EHentai.requestWithCreds(sp: Int = 1) =
         Request.Builder()
-            .addHeader("Cookie", cookiesHeader(sp = sp))
+            .addHeader("Cookie", cookiesHeader(sp))
 
     private fun EHentai.execProfileActions(
         action: String,
