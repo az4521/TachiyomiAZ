@@ -30,7 +30,7 @@
                 android:id="@+id/btn_copy_crash"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:text="@string/copy"
+                android:text="@string/action_share"
                 android:visibility="visible"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintLeft_toLeftOf="@+id/crash_box"

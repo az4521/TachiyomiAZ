@@ -4,7 +4,7 @@ import android.annotation.SuppressLint
 import android.os.Bundle
 import eu.kanade.tachiyomi.databinding.CrashBinding
 import eu.kanade.tachiyomi.ui.base.activity.BaseActivity
-import eu.kanade.tachiyomi.util.system.copyToClipboard
+import eu.kanade.tachiyomi.util.CrashLogUtil
 
 class CrashActivity : BaseActivity<CrashBinding>() {
     @SuppressLint("SetTextI18n")
@@ -20,11 +20,9 @@ class CrashActivity : BaseActivity<CrashBinding>() {
         }
 
         setContentView(binding.root)
-        val exception = GlobalExceptionHandler.getThrowableFromIntent(intent).toString()
-        val version = GlobalExceptionHandler.getVersionFromIntent(intent)
-        val text = "$version\n\n$exception"
+        val exception = GlobalExceptionHandler.getThrowableFromIntent(intent)
 
-        binding.crashBox.setText(text)
-        binding.btnCopyCrash.setOnClickListener { this.copyToClipboard("Debug Info", text) }
+        binding.crashBox.setText(exception.toString())
+        binding.btnCopyCrash.setOnClickListener { CrashLogUtil(applicationContext).dumpLogs(exception) }
     }
 }

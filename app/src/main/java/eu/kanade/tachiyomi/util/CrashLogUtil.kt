@@ -7,32 +7,43 @@ import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.notification.NotificationReceiver
 import eu.kanade.tachiyomi.data.notification.Notifications
+import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.util.storage.getUriCompat
 import eu.kanade.tachiyomi.util.system.WebViewUtil
 import eu.kanade.tachiyomi.util.system.notificationBuilder
 import eu.kanade.tachiyomi.util.system.notificationManager
+import eu.kanade.tachiyomi.util.system.toShareIntent
 import eu.kanade.tachiyomi.util.system.toast
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 import java.io.File
 import java.io.IOException
 import java.time.OffsetDateTime
 import java.time.ZoneId
 
-class CrashLogUtil(private val context: Context) {
+class CrashLogUtil(
+    private val context: Context,
+    private val extensionManager: ExtensionManager = Injekt.get()
+) {
     private val notificationBuilder =
         context.notificationBuilder(Notifications.CHANNEL_CRASH_LOGS) {
             setSmallIcon(R.drawable.ic_tachi)
         }
 
-    fun dumpLogs() {
+    fun dumpLogs(exception: Throwable? = null) {
         try {
             val file = File(context.externalCacheDir, "tachiyomi_crash_logs.txt")
             if (file.exists()) {
                 file.delete()
             }
             file.createNewFile()
-            Runtime.getRuntime().exec("logcat *:E -d -f ${file.absolutePath}")
+            file.appendText(getDebugInfo() + "\n\n")
+            exception?.let { file.appendText("$it\n\n") }
 
-            showNotification(file.getUriCompat(context))
+            Runtime.getRuntime().exec("logcat *:E -d -f ${file.absolutePath}").waitFor()
+
+            val uri = file.getUriCompat(context)
+            context.startActivity(uri.toShareIntent(context, "text/plain"))
         } catch (e: IOException) {
             context.toast("Failed to get logs")
         }

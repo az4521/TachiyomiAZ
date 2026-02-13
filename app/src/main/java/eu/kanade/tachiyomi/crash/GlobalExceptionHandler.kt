@@ -13,8 +13,7 @@ import kotlinx.serialization.json.Json
 class GlobalExceptionHandler private constructor(
     private val applicationContext: Context,
     private val defaultHandler: Thread.UncaughtExceptionHandler,
-    private val activityToBeLaunched: Class<*>,
-    private val version: String
+    private val activityToBeLaunched: Class<*>
 ) : Thread.UncaughtExceptionHandler {
 
     object ThrowableSerializer : KSerializer<Throwable> {
@@ -41,7 +40,6 @@ class GlobalExceptionHandler private constructor(
     ) {
         val intent = Intent(applicationContext, activity).apply {
             putExtra(INTENT_EXTRA, Json.encodeToString(ThrowableSerializer, exception))
-            putExtra(INTENT_VERSION, version)
             addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
             addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
         }
@@ -50,18 +48,15 @@ class GlobalExceptionHandler private constructor(
 
     companion object {
         private const val INTENT_EXTRA = "Throwable"
-        private const val INTENT_VERSION = "Version"
 
         fun initialize(
             applicationContext: Context,
-            activityToBeLaunched: Class<*>,
-            version: String
+            activityToBeLaunched: Class<*>
         ) {
             val handler = GlobalExceptionHandler(
                 applicationContext,
                 Thread.getDefaultUncaughtExceptionHandler() as Thread.UncaughtExceptionHandler,
-                activityToBeLaunched,
-                version
+                activityToBeLaunched
             )
             Thread.setDefaultUncaughtExceptionHandler(handler)
         }
@@ -72,14 +67,6 @@ class GlobalExceptionHandler private constructor(
             } catch (e: Exception) {
                 // logcat(LogPriority.ERROR, e) { "Wasn't able to retrive throwable from intent" }
                 null
-            }
-        }
-
-        fun getVersionFromIntent(intent: Intent): String {
-            return try {
-                intent.getStringExtra(INTENT_VERSION)!!
-            } catch (e: Exception) {
-                ""
             }
         }
     }
