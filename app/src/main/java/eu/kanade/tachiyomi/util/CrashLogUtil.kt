@@ -32,7 +32,7 @@ class CrashLogUtil(
 
     fun dumpLogs(exception: Throwable? = null) {
         try {
-            val file = File(context.externalCacheDir, "tachiyomi_crash_logs.txt")
+            val file = File(context.externalCacheDir, "tachiyomiAZ_crash_logs.txt")
             if (file.exists()) {
                 file.delete()
             }
