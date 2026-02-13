@@ -36,6 +36,10 @@ object DebugFunctions {
     val sourceManager: SourceManager by injectLazy()
     val DownloadManager: DownloadManager by injectLazy()
 
+    fun crash() {
+        throw CrashButtonException()
+    }
+
     fun forceUpgradeMigration() {
         prefs.eh_lastVersionCode().set(0)
         EXHMigrations.upgrade(prefs)
@@ -271,4 +275,6 @@ object DebugFunctions {
                 .build()
         )
     }
+
+    class CrashButtonException() : RuntimeException("Crash Button Pressed!")
 }

@@ -68,6 +68,9 @@
             android:noHistory="true"
             android:theme="@android:style/Theme.NoDisplay" />
         <activity
+            android:name=".crash.CrashActivity"
+            android:exported="true"/>
+        <activity
             android:name=".ui.main.DeepLinkActivity"
             android:launchMode="singleTask"
             android:theme="@android:style/Theme.NoDisplay">

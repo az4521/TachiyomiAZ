@@ -50,7 +50,12 @@ class SettingsDebugController : SettingsController() {
                                 MaterialDialog(context)
                                     .customView(view = hView, scrollable = true)
                             } catch (t: Throwable) {
-                                view.text = "Function threw exception:\n\n${Log.getStackTraceString(t)}"
+                                if (t.cause is DebugFunctions.CrashButtonException) {
+                                    throw t
+                                } else {
+                                    view.text =
+                                        "Function threw exception:\n\n${Log.getStackTraceString(t)}\n\n$t"
+                                }
                                 MaterialDialog(context)
                                     .customView(view = hView, scrollable = true)
                             }.show()

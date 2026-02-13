@@ -28,8 +28,11 @@ import com.google.android.gms.security.ProviderInstaller
 import com.kizitonwose.time.days
 import com.ms_square.debugoverlay.DebugOverlay
 import com.ms_square.debugoverlay.modules.FpsModule
+import eu.kanade.tachiyomi.crash.CrashActivity
+import eu.kanade.tachiyomi.crash.GlobalExceptionHandler
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.ui.main.ForceCloseActivity
+import eu.kanade.tachiyomi.util.CrashLogUtil
 import eu.kanade.tachiyomi.util.system.LocaleHelper
 import eu.kanade.tachiyomi.util.system.WebViewUtil
 import eu.kanade.tachiyomi.util.system.toast
@@ -58,6 +61,8 @@ open class App : Application(), LifecycleObserver {
         super.onCreate()
         if (BuildConfig.DEBUG) Timber.plant(Timber.DebugTree())
         setupExhLogging() // EXH logging
+
+        GlobalExceptionHandler.initialize(applicationContext, CrashActivity::class.java, CrashLogUtil(applicationContext).getDebugInfo())
 
         workaroundAndroid7BrokenSSL()
 
