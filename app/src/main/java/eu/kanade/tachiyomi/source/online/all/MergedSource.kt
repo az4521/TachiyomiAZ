@@ -4,7 +4,6 @@ import android.util.Log
 import com.elvishew.xlog.XLog
 import com.github.salomonbrys.kotson.fromJson
 import com.google.gson.Gson
-import com.google.gson.annotations.SerializedName
 import eu.kanade.tachiyomi.data.database.DatabaseHelper
 import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.data.database.models.toMangaInfo
@@ -31,6 +30,8 @@ import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.rx2.asFlowable
 import kotlinx.coroutines.rx2.asSingle
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 import okhttp3.Response
 import rx.Observable
 import rx.schedulers.Schedulers
@@ -173,10 +174,11 @@ class MergedSource : HttpSource() {
 
     data class LoadedMangaSource(val source: Source, val manga: Manga)
 
+    @Serializable
     data class MangaSource(
-        @SerializedName("s")
+        @SerialName("s")
         val source: Long,
-        @SerializedName("u")
+        @SerialName("u")
         val url: String
     ) {
         suspend fun load(
@@ -189,8 +191,9 @@ class MergedSource : HttpSource() {
         }
     }
 
+    @Serializable
     data class MangaConfig(
-        @SerializedName("c")
+        @SerialName("c")
         val children: List<MangaSource>
     ) {
         fun load(
@@ -221,12 +224,13 @@ class MergedSource : HttpSource() {
         }
     }
 
+    @Serializable
     data class UrlConfig(
-        @SerializedName("s")
+        @SerialName("s")
         val source: Long,
-        @SerializedName("u")
+        @SerialName("u")
         val url: String,
-        @SerializedName("m")
+        @SerialName("m")
         val mangaUrl: String
     )
 

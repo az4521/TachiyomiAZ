@@ -1,11 +1,13 @@
 package eu.kanade.tachiyomi.data.download
 
 import android.content.Context
-import com.github.salomonbrys.kotson.fromJson
-import com.google.gson.Gson
+import androidx.core.content.edit
 import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.data.database.models.Manga
-import uy.kohesive.injekt.injectLazy
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 /**
  * Class used to keep a list of chapters for future deletion.
@@ -13,11 +15,6 @@ import uy.kohesive.injekt.injectLazy
  * @param context the application context.
  */
 class DownloadPendingDeleter(context: Context) {
-    /**
-     * Gson instance to encode and decode chapters.
-     */
-    private val gson by injectLazy<Gson>()
-
     /**
      * Preferences used to store the list of chapters to delete.
      */
@@ -55,7 +52,7 @@ class DownloadPendingDeleter(context: Context) {
                 val existingEntry = prefs.getString(manga.id!!.toString(), null)
                 if (existingEntry != null) {
                     // Existing entry found on preferences, decode json and add the new chapter
-                    val savedEntry = gson.fromJson<Entry>(existingEntry)
+                    val savedEntry = Json.decodeFromString<Entry>(existingEntry)
 
                     // Append new chapters
                     val newChapters = savedEntry.chapters.addUniqueById(chapters)
@@ -71,8 +68,8 @@ class DownloadPendingDeleter(context: Context) {
             }
 
         // Save current state
-        val json = gson.toJson(newEntry)
-        prefs.edit().putString(newEntry.manga.id.toString(), json).apply()
+        val json = Json.encodeToString(newEntry)
+        prefs.edit { putString(newEntry.manga.id.toString(), json) }
         lastAddedEntry = newEntry
     }
 
@@ -85,7 +82,7 @@ class DownloadPendingDeleter(context: Context) {
     @Synchronized
     fun getPendingChapters(): Map<Manga, List<Chapter>> {
         val entries = decodeAll()
-        prefs.edit().clear().apply()
+        prefs.edit { clear() }
         lastAddedEntry = null
 
         return entries.associate { entry ->
@@ -99,7 +96,7 @@ class DownloadPendingDeleter(context: Context) {
     private fun decodeAll(): List<Entry> {
         return prefs.all.values.mapNotNull { rawEntry ->
             try {
-                (rawEntry as? String)?.let { gson.fromJson<Entry>(it) }
+                (rawEntry as? String)?.let { Json.decodeFromString<Entry>(it) }
             } catch (e: Exception) {
                 null
             }
@@ -122,6 +119,7 @@ class DownloadPendingDeleter(context: Context) {
     /**
      * Class used to save an entry of chapters with their manga into preferences.
      */
+    @Serializable
     private data class Entry(
         val chapters: List<ChapterEntry>,
         val manga: MangaEntry
@@ -130,6 +128,7 @@ class DownloadPendingDeleter(context: Context) {
     /**
      * Class used to save an entry for a chapter into preferences.
      */
+    @Serializable
     private data class ChapterEntry(
         val id: Long,
         val url: String,
@@ -140,6 +139,7 @@ class DownloadPendingDeleter(context: Context) {
     /**
      * Class used to save an entry for a manga into preferences.
      */
+    @Serializable
     private data class MangaEntry(
         val id: Long,
         val url: String,
