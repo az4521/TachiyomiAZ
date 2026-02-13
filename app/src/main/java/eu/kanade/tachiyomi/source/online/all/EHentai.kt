@@ -47,7 +47,6 @@ import exh.util.ignore
 import exh.util.urlImportFetchSearchManga
 import kotlinx.coroutines.runBlocking
 import okhttp3.CacheControl
-import okhttp3.CookieJar
 import okhttp3.Headers
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -678,7 +677,7 @@ class EHentai(
         return cookies
     }
 
-    fun cookiesHeader(sp: Int = spPref().get()) = buildCookies(rawCookies(sp))
+    fun cookiesHeader(cfCookies: Map<String, String> = emptyMap(), sp: Int = spPref().get()) = buildCookies(rawCookies(sp) + cfCookies)
 
     // Headers
     override fun headersBuilder() = super.headersBuilder().add("Cookie", cookiesHeader())
@@ -694,14 +693,20 @@ class EHentai(
 
     override val client =
         network.client.newBuilder()
-            .cookieJar(CookieJar.NO_COOKIES)
+            // .cookieJar(CookieJar.NO_COOKIES)
             .addInterceptor { chain ->
+                val cfCookies = chain.request().header("Cookie")?.split("; ")
+                    ?.filter {
+                        val name = it.split("=")[0].trim().lowercase()
+                        name in arrayOf("cf_clearance", "__cf_bm", "cf_chl_prog", "_cfuvid", "__cfruid", "__cflb", "cf_ob_info", "cf_use_ob", "__cfwaitingroom", "__cfseq", "cf_chl_rc_i", "cf_chl_rc_ni", "cf_chl_rc_m") || name.startsWith("cf_chl_seq_")
+                    }?.associate { it.split("=")[0].trim() to it.split("=")[1].trim() }
+
                 val newReq =
                     chain
                         .request()
                         .newBuilder()
                         .removeHeader("Cookie")
-                        .addHeader("Cookie", cookiesHeader())
+                        .addHeader("Cookie", cookiesHeader(cfCookies ?: emptyMap()))
                         .build()
 
                 chain.proceed(newReq)
