@@ -15,6 +15,7 @@ import eu.kanade.tachiyomi.ui.reader.viewer.BaseViewer
 import eu.kanade.tachiyomi.util.view.gone
 import eu.kanade.tachiyomi.util.view.visible
 import timber.log.Timber
+import androidx.core.view.isGone
 
 /**
  * Implementation of a [BaseViewer] to display pages with a [ViewPager].
@@ -85,8 +86,8 @@ abstract class PagerViewer(val activity: ReaderActivity) : BaseViewer {
             val positionX = event.x
             val positionY = event.y
             when {
-                positionY < pager.height * 0.33f && config.tappingEnabled && !pager.isHorizontal() -> moveUp()
-                positionY > pager.height * 0.66f && config.tappingEnabled && !pager.isHorizontal() -> moveDown()
+                positionY < pager.height * 0.33f && config.tappingEnabled && !pager.isHorizontal -> moveUp()
+                positionY > pager.height * 0.66f && config.tappingEnabled && !pager.isHorizontal -> moveDown()
                 positionX < pager.width * 0.33f && config.tappingEnabled -> moveLeft()
                 positionX > pager.width * 0.66f && config.tappingEnabled -> moveRight()
                 else -> activity.toggleMenu()
@@ -213,10 +214,10 @@ abstract class PagerViewer(val activity: ReaderActivity) : BaseViewer {
         adapter.setChapters(chapters, forceTransition)
 
         // Layout the pager once a chapter is being set
-        if (pager.visibility == View.GONE) {
+        if (pager.isGone) {
             Timber.d("Pager first layout")
             val pages = chapters.currChapter.pages ?: return
-            moveToPage(pages[chapters.currChapter.requestedPage])
+            moveToPage(pages[chapters.currChapter.requestedPage.coerceIn(0, pages.lastIndex)])
             pager.visible()
         }
     }

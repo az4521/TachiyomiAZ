@@ -18,6 +18,7 @@ import rx.subscriptions.CompositeSubscription
 import timber.log.Timber
 import kotlin.math.max
 import kotlin.math.min
+import androidx.core.view.isGone
 
 /**
  * Implementation of a [BaseViewer] to display pages with a [RecyclerView].
@@ -222,10 +223,10 @@ class WebtoonViewer(
         val forceTransition = config.alwaysShowChapterTransition || currentPage is ChapterTransition
         adapter.setChapters(chapters, forceTransition)
 
-        if (recycler.visibility == View.GONE) {
+        if (recycler.isGone) {
             Timber.d("Recycler first layout")
             val pages = chapters.currChapter.pages ?: return
-            moveToPage(pages[chapters.currChapter.requestedPage])
+            moveToPage(pages[chapters.currChapter.requestedPage.coerceIn(0, pages.lastIndex)])
             recycler.visible()
         }
     }
