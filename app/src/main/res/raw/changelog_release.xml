@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <changelog bulletedList="true">
+    <changelogversion versionName="v8.8.5-AZ" changeDate="">
+        <changelogtext>fix a crash when exiting the reader</changelogtext>
+        <changelogtext>fix EH/EXH cookies issue</changelogtext>
+        <changelogtext>add a crash screen to make debugging easier</changelogtext>
+    </changelogversion>
     <changelogversion versionName="v8.8.4-AZ" changeDate="">
         <changelogtext>fix an issue with the backup system</changelogtext>
     </changelogversion>
