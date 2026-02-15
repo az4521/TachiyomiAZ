@@ -5,6 +5,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
+import androidx.core.view.isGone
 import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.WebtoonLayoutManager
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
@@ -18,7 +19,6 @@ import rx.subscriptions.CompositeSubscription
 import timber.log.Timber
 import kotlin.math.max
 import kotlin.math.min
-import androidx.core.view.isGone
 
 /**
  * Implementation of a [BaseViewer] to display pages with a [RecyclerView].
