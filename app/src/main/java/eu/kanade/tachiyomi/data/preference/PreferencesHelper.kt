@@ -406,4 +406,6 @@ class PreferencesHelper(val context: Context) {
     fun createLegacyBackup() = flowPrefs.getBoolean(Keys.createLegacyBackup, false)
 
     fun extensionRepos() = flowPrefs.getStringSet(Keys.extensionRepos, emptySet())
+
+    fun disallowNonAsciiFilenames() = flowPrefs.getBoolean(Keys.disallowNonAsciiFilenames, false)
 }

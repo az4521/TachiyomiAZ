@@ -10,6 +10,9 @@ import androidx.core.os.EnvironmentCompat
 import com.hippo.unifile.UniFile
 import eu.kanade.tachiyomi.util.lang.Hash
 import java.io.File
+import java.nio.ByteBuffer
+import java.nio.CharBuffer
+import java.nio.charset.CodingErrorAction
 
 object DiskUtil {
     fun hashKeyForDisk(key: String): String {
@@ -69,9 +72,9 @@ object DiskUtil {
         context: Context?
     ) {
         if (dir != null && dir.exists()) {
-            val nomedia = dir.findFile(".nomedia")
+            val nomedia = dir.findFile(NOMEDIA_FILE)
             if (nomedia == null) {
-                dir.createFile(".nomedia")
+                dir.createFile(NOMEDIA_FILE)
                 context?.let { scanMedia(it, dir.uri) }
             }
         }
@@ -105,22 +108,52 @@ object DiskUtil {
      * replacing any invalid characters with "_". This method doesn't allow hidden files (starting
      * with a dot), but you can manually add it later.
      */
-    fun buildValidFilename(origName: String): String {
+    fun buildValidFilename(
+        origName: String,
+        maxBytes: Int = MAX_FILE_NAME_BYTES,
+        disallowNonAscii: Boolean = false
+    ): String {
         val name = origName.trim('.', ' ')
         if (name.isEmpty()) {
             return "(invalid)"
         }
         val sb = StringBuilder(name.length)
         name.forEach { c ->
-            if (isValidFatFilenameChar(c)) {
+            if (disallowNonAscii && c >= 0x80.toChar()) {
+                sb.append(
+                    c.toString().toByteArray(Charsets.UTF_8).toHexString(
+                        HexFormat {
+                            upperCase = false
+                        }
+                    )
+                )
+            } else if (isValidFatFilenameChar(c)) {
                 sb.append(c)
             } else {
                 sb.append('_')
             }
         }
-        // Even though vfat allows 255 UCS-2 chars, we might eventually write to
-        // ext4 through a FUSE layer, so use that limit minus 15 reserved characters.
-        return sb.toString().take(240)
+        return truncateToLength(sb.toString(), maxBytes)
+    }
+
+    /**
+     * Truncate a string to a maximum length, while maintaining valid Unicode encoding.
+     */
+    fun truncateToLength(s: String, maxBytes: Int): String {
+        val charset = Charsets.UTF_8
+        val decoder = charset.newDecoder()
+        val sba = s.toByteArray(charset)
+        if (sba.size <= maxBytes) {
+            return s
+        }
+        // Ensure truncation by having byte buffer = maxBytes
+        val bb = ByteBuffer.wrap(sba, 0, maxBytes)
+        val cb = CharBuffer.allocate(maxBytes)
+        // Ignore an incomplete character
+        decoder.onMalformedInput(CodingErrorAction.IGNORE)
+        decoder.decode(bb, cb, true)
+        decoder.flush(cb)
+        return String(cb.array(), 0, cb.position())
     }
 
     /**
@@ -135,4 +168,10 @@ object DiskUtil {
             else -> true
         }
     }
+
+    // Even though vfat allows 255 UCS-2 chars, we might eventually write to
+    // ext4 through a FUSE layer, so use that limit minus 15 reserved characters.
+    const val MAX_FILE_NAME_BYTES = 240
+
+    const val NOMEDIA_FILE = ".nomedia"
 }

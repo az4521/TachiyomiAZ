@@ -517,7 +517,8 @@ class ReaderPresenter(
         val filenameSuffix = " - ${page.number}.${type.extension}"
         val filename =
             DiskUtil.buildValidFilename(
-                "${manga.title} - ${chapter.name}".takeBytes(MAX_FILE_NAME_BYTES - filenameSuffix.byteSize())
+                "${manga.title} - ${chapter.name}".takeBytes(MAX_FILE_NAME_BYTES - filenameSuffix.byteSize()),
+                disallowNonAscii = preferences.disallowNonAsciiFilenames().get()
             ) + filenameSuffix
 
         val destFile = File(directory, filename)

@@ -263,4 +263,6 @@ object PreferenceKeys {
     const val extensionRepos = "extension_repos"
 
     const val defaultUserAgent = "default_user_agent"
+
+    const val disallowNonAsciiFilenames = "disallow_non_ascii_filenames"
 }

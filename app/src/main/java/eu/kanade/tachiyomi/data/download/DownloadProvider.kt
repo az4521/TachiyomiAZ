@@ -1,7 +1,7 @@
 package eu.kanade.tachiyomi.data.download
 
 import android.content.Context
-import android.net.Uri
+import androidx.core.net.toUri
 import com.hippo.unifile.UniFile
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.Chapter
@@ -32,14 +32,14 @@ class DownloadProvider(private val context: Context) {
      */
     private var downloadsDir =
         preferences.downloadsDirectory().get().let {
-            val dir = UniFile.fromUri(context, Uri.parse(it))
+            val dir = UniFile.fromUri(context, it.toUri())
             DiskUtil.createNoMediaFile(dir, context)
             dir
         }
 
     init {
         preferences.downloadsDirectory().asFlow()
-            .onEach { downloadsDir = UniFile.fromUri(context, Uri.parse(it)) }
+            .onEach { downloadsDir = UniFile.fromUri(context, it.toUri()) }
             .launchIn(scope)
     }
 
@@ -57,7 +57,7 @@ class DownloadProvider(private val context: Context) {
             return downloadsDir
                 .createDirectory(getSourceDirName(source))
                 .createDirectory(getMangaDirName(manga))
-        } catch (e: NullPointerException) {
+        } catch (_: NullPointerException) {
             throw Exception(context.getString(R.string.invalid_download_dir))
         }
     }
@@ -129,7 +129,7 @@ class DownloadProvider(private val context: Context) {
      * @param source the source to query.
      */
     fun getSourceDirName(source: Source): String {
-        return source.toString()
+        return DiskUtil.buildValidFilename(source.toString(), disallowNonAscii = preferences.disallowNonAsciiFilenames().get())
     }
 
     /**
@@ -138,7 +138,7 @@ class DownloadProvider(private val context: Context) {
      * @param manga the manga to query.
      */
     fun getMangaDirName(manga: Manga): String {
-        return DiskUtil.buildValidFilename(manga.title)
+        return DiskUtil.buildValidFilename(manga.title, disallowNonAscii = preferences.disallowNonAsciiFilenames().get())
     }
 
     /**
@@ -151,7 +151,8 @@ class DownloadProvider(private val context: Context) {
             when {
                 chapter.scanlator != null -> "${chapter.scanlator}_${chapter.name}"
                 else -> chapter.name
-            }
+            },
+            disallowNonAscii = preferences.disallowNonAsciiFilenames().get()
         )
     }
 
