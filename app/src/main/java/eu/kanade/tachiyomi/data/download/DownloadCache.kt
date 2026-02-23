@@ -82,7 +82,9 @@ class DownloadCache(
 
         val sourceDir = rootDir.files[manga.source]
         if (sourceDir != null) {
-            val mangaDir = sourceDir.files[provider.getMangaDirName(manga)]
+            val mangaDir = provider.getValidMangaDirNames(manga).firstNotNullOfOrNull {
+                sourceDir.files[it]
+            }
             if (mangaDir != null) {
                 return provider.getValidChapterDirNames(chapter).any { it in mangaDir.files }
             }
