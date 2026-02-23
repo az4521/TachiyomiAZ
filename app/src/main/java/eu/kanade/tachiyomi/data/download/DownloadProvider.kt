@@ -68,7 +68,14 @@ class DownloadProvider(private val context: Context) {
      * @param source the source to query.
      */
     fun findSourceDir(source: Source): UniFile? {
-        return downloadsDir.findFile(getSourceDirName(source))
+        return getValidSourceDirNames(source).asSequence()
+            .mapNotNull { downloadsDir.findFile(it) }
+            .firstOrNull()
+    }
+
+    fun findSourceDirs(source: Source): List<UniFile?> {
+        return getValidSourceDirNames(source).asSequence()
+            .mapNotNull { downloadsDir.findFile(it) }.toList()
     }
 
     /**
@@ -81,8 +88,36 @@ class DownloadProvider(private val context: Context) {
         manga: Manga,
         source: Source
     ): UniFile? {
-        val sourceDir = findSourceDir(source)
-        return sourceDir?.findFile(getMangaDirName(manga))
+        val sourceDirs = findSourceDirs(source)
+        val mangaNames = getValidMangaDirNames(manga)
+
+        return mangaNames.asSequence()
+            .flatMap {
+                    manga ->
+                sourceDirs
+                    .mapNotNull {
+                            source ->
+                        source?.findFile(manga)
+                    }
+            }.firstOrNull()
+    }
+
+    fun findMangaDirs(
+        manga: Manga,
+        source: Source
+    ): List<UniFile?> {
+        val sourceDirs = findSourceDirs(source)
+        val mangaNames = getValidMangaDirNames(manga)
+
+        return mangaNames.asSequence()
+            .flatMap {
+                    manga ->
+                sourceDirs
+                    .mapNotNull {
+                            source ->
+                        source?.findFile(manga)
+                    }
+            }.toList()
     }
 
     /**
@@ -97,10 +132,18 @@ class DownloadProvider(private val context: Context) {
         manga: Manga,
         source: Source
     ): UniFile? {
-        val mangaDir = findMangaDir(manga, source)
-        return getValidChapterDirNames(chapter).asSequence()
-            .mapNotNull { mangaDir?.findFile(it) }
-            .firstOrNull()
+        val mangaDirs = findMangaDirs(manga, source)
+        val chapterNames = getValidChapterDirNames(chapter)
+
+        return chapterNames.asSequence()
+            .flatMap {
+                    chapter ->
+                mangaDirs
+                    .mapNotNull {
+                            manga ->
+                        manga?.findFile(chapter)
+                    }
+            }.firstOrNull()
     }
 
     /**
@@ -115,11 +158,8 @@ class DownloadProvider(private val context: Context) {
         manga: Manga,
         source: Source
     ): List<UniFile> {
-        val mangaDir = findMangaDir(manga, source) ?: return emptyList()
         return chapters.mapNotNull { chapter ->
-            getValidChapterDirNames(chapter).asSequence()
-                .mapNotNull { mangaDir.findFile(it) }
-                .firstOrNull()
+            findChapterDir(chapter, manga, source)
         }
     }
 
@@ -128,8 +168,15 @@ class DownloadProvider(private val context: Context) {
      *
      * @param source the source to query.
      */
-    fun getSourceDirName(source: Source): String {
-        return DiskUtil.buildValidFilename(source.toString(), disallowNonAscii = preferences.disallowNonAsciiFilenames().get())
+    fun getSourceDirName(source: Source, disallowNonAscii: Boolean = preferences.disallowNonAsciiFilenames().get()): String {
+        return DiskUtil.buildValidFilename(source.toString(), disallowNonAscii = disallowNonAscii)
+    }
+
+    fun getValidSourceDirNames(source: Source): List<String> {
+        return listOf(
+            getSourceDirName(source, true),
+            getSourceDirName(source, false)
+        )
     }
 
     /**
@@ -137,8 +184,15 @@ class DownloadProvider(private val context: Context) {
      *
      * @param manga the manga to query.
      */
-    fun getMangaDirName(manga: Manga): String {
-        return DiskUtil.buildValidFilename(manga.title, disallowNonAscii = preferences.disallowNonAsciiFilenames().get())
+    fun getMangaDirName(manga: Manga, disallowNonAscii: Boolean = preferences.disallowNonAsciiFilenames().get()): String {
+        return DiskUtil.buildValidFilename(manga.title, disallowNonAscii = disallowNonAscii)
+    }
+
+    fun getValidMangaDirNames(manga: Manga): List<String> {
+        return listOf(
+            getMangaDirName(manga, true),
+            getMangaDirName(manga, false)
+        )
     }
 
     /**
@@ -146,13 +200,13 @@ class DownloadProvider(private val context: Context) {
      *
      * @param chapter the chapter to query.
      */
-    fun getChapterDirName(chapter: Chapter): String {
+    fun getChapterDirName(chapter: Chapter, disallowNonAscii: Boolean = preferences.disallowNonAsciiFilenames().get()): String {
         return DiskUtil.buildValidFilename(
             when {
                 chapter.scanlator != null -> "${chapter.scanlator}_${chapter.name}"
                 else -> chapter.name
             },
-            disallowNonAscii = preferences.disallowNonAsciiFilenames().get()
+            disallowNonAscii = disallowNonAscii
         )
     }
 
@@ -163,7 +217,8 @@ class DownloadProvider(private val context: Context) {
      */
     fun getValidChapterDirNames(chapter: Chapter): List<String> {
         return listOf(
-            getChapterDirName(chapter),
+            getChapterDirName(chapter, true),
+            getChapterDirName(chapter, false),
             // Legacy chapter directory name used in v0.9.2 and before
             DiskUtil.buildValidFilename(chapter.name)
         )
