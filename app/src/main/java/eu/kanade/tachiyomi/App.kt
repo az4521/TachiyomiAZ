@@ -142,8 +142,6 @@ open class App : Application(), LifecycleObserver {
             // Override the value passed as X-Requested-With in WebView requests
             val stackTrace = Thread.currentThread().stackTrace
             val isChromiumCall = stackTrace.any { trace ->
-                trace.className.equals("org.chromium.base.BuildInfo", ignoreCase = true) &&
-                    setOf("getAll", "getPackageName", "<init>").any { trace.methodName.equals(it, ignoreCase = true) }
                 trace.className.lowercase() in setOf("org.chromium.base.buildinfo", "org.chromium.base.apkinfo") &&
                     trace.methodName.lowercase() in setOf("getall", "getpackagename", "<init>")
             }
