@@ -13,7 +13,8 @@ object WebViewUtil {
         Regex(""".*Chrome/(\d+)\..*""")
     }
 
-    const val SPOOF_PACKAGE_NAME = "com.android.chrome"
+    private const val SYSTEM_SETTINGS_PACKAGE = "com.android.settings"
+    private const val CHROME_PACKAGE = "com.android.chrome"
 
     const val MINIMUM_WEBVIEW_VERSION = 84
 
@@ -40,6 +41,16 @@ object WebViewUtil {
             return "$label $version"
         } else {
             return getWebViewUA(WebView(context))
+        }
+    }
+
+    fun spoofedPackageName(context: Context): String {
+        return try {
+            context.packageManager.getPackageInfo(CHROME_PACKAGE, PackageManager.GET_META_DATA)
+
+            CHROME_PACKAGE
+        } catch (_: PackageManager.NameNotFoundException) {
+            SYSTEM_SETTINGS_PACKAGE
         }
     }
 }
