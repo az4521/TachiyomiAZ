@@ -2,8 +2,6 @@ package eu.kanade.tachiyomi.source.online.all
 
 import android.util.Log
 import com.elvishew.xlog.XLog
-import com.github.salomonbrys.kotson.fromJson
-import com.google.gson.Gson
 import eu.kanade.tachiyomi.data.database.DatabaseHelper
 import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.data.database.models.toMangaInfo
@@ -32,6 +30,9 @@ import kotlinx.coroutines.rx2.asFlowable
 import kotlinx.coroutines.rx2.asSingle
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import okhttp3.Response
 import rx.Observable
 import rx.schedulers.Schedulers
@@ -42,7 +43,8 @@ import uy.kohesive.injekt.injectLazy
 class MergedSource : HttpSource() {
     private val db: DatabaseHelper by injectLazy()
     private val sourceManager: SourceManager by injectLazy()
-    private val gson: Gson by injectLazy()
+
+    private val json: Json by injectLazy()
 
     override val id: Long = MERGED_SOURCE_ID
 
@@ -161,15 +163,15 @@ class MergedSource : HttpSource() {
     }
 
     fun readMangaConfig(manga: SManga): MangaConfig {
-        return MangaConfig.readFromUrl(gson, manga.url)
+        return MangaConfig.readFromUrl(json, manga.url)
     }
 
     fun readUrlConfig(url: String): UrlConfig {
-        return gson.fromJson(url)
+        return json.decodeFromString(url)
     }
 
     fun writeUrlConfig(urlConfig: UrlConfig): String {
-        return gson.toJson(urlConfig)
+        return json.encodeToString(urlConfig)
     }
 
     data class LoadedMangaSource(val source: Source, val manga: Manga)
@@ -210,16 +212,16 @@ class MergedSource : HttpSource() {
             }
         }
 
-        fun writeAsUrl(gson: Gson): String {
-            return gson.toJson(this)
+        fun writeAsUrl(json: Json): String {
+            return json.encodeToString(this)
         }
 
         companion object {
             fun readFromUrl(
-                gson: Gson,
+                json: Json,
                 url: String
             ): MangaConfig {
-                return gson.fromJson(url)
+                return json.decodeFromString(url)
             }
         }
     }

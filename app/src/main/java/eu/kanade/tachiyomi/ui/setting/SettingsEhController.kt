@@ -12,8 +12,6 @@ import com.afollestad.materialdialogs.input.getInputField
 import com.afollestad.materialdialogs.input.input
 import com.bluelinelabs.conductor.RouterTransaction
 import com.bluelinelabs.conductor.changehandler.FadeChangeHandler
-import com.github.salomonbrys.kotson.fromJson
-import com.google.gson.Gson
 import com.kizitonwose.time.Interval
 import com.kizitonwose.time.days
 import com.kizitonwose.time.hours
@@ -58,6 +56,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
 import uy.kohesive.injekt.injectLazy
 import java.util.Date
 
@@ -66,7 +65,7 @@ import java.util.Date
  */
 
 class SettingsEhController : SettingsController() {
-    private val gson: Gson by injectLazy()
+    private val json: Json by injectLazy()
     private val db: DatabaseHelper by injectLazy()
 
     private fun Preference<*>.reconfigure(): Boolean {
@@ -616,7 +615,7 @@ class SettingsEhController : SettingsController() {
                                 try {
                                     val stats =
                                         preferences.eh_autoUpdateStats().get().nullIfBlank()?.let {
-                                            gson.fromJson<EHentaiUpdaterStats>(it)
+                                            json.decodeFromString<EHentaiUpdaterStats>(it)
                                         }
 
                                     val statsText =

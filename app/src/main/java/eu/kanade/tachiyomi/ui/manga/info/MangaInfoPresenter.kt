@@ -1,7 +1,6 @@
 package eu.kanade.tachiyomi.ui.manga.info
 
 import android.os.Bundle
-import com.google.gson.Gson
 import com.jakewharton.rxrelay.BehaviorRelay
 import com.jakewharton.rxrelay.PublishRelay
 import eu.kanade.tachiyomi.data.cache.CoverCache
@@ -24,6 +23,7 @@ import exh.MERGED_SOURCE_ID
 import exh.util.await
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
 import rx.Observable
 import rx.Subscription
 import rx.android.schedulers.AndroidSchedulers
@@ -47,7 +47,7 @@ class MangaInfoPresenter(
     private val db: DatabaseHelper = Injekt.get(),
     private val downloadManager: DownloadManager = Injekt.get(),
     private val coverCache: CoverCache = Injekt.get(),
-    private val gson: Gson = Injekt.get()
+    private val json: Json = Injekt.get()
 ) : BasePresenter<MangaInfoController>() {
     /**
      * Subscription to update the manga from the source.
@@ -211,7 +211,7 @@ class MangaInfoPresenter(
         val toInsert =
             if (originalManga.source == MERGED_SOURCE_ID) {
                 originalManga.apply {
-                    val originalChildren = MergedSource.MangaConfig.readFromUrl(gson, url).children
+                    val originalChildren = MergedSource.MangaConfig.readFromUrl(json, url).children
                     if (originalChildren.any { it.source == manga.source && it.url == manga.url }) {
                         throw IllegalArgumentException("This manga is already merged with the current manga!")
                     }
@@ -223,7 +223,7 @@ class MangaInfoPresenter(
                                     manga.source,
                                     manga.url
                                 )
-                        ).writeAsUrl(gson)
+                        ).writeAsUrl(json)
                 }
             } else {
                 val newMangaConfig =
@@ -239,7 +239,7 @@ class MangaInfoPresenter(
                             )
                         )
                     )
-                Manga.create(newMangaConfig.writeAsUrl(gson), originalManga.title, MERGED_SOURCE_ID).apply {
+                Manga.create(newMangaConfig.writeAsUrl(json), originalManga.title, MERGED_SOURCE_ID).apply {
                     copyFrom(originalManga)
                     favorite = true
                     last_update = originalManga.last_update

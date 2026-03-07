@@ -15,7 +15,6 @@ import android.view.ViewGroup
 import android.widget.Toast
 import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.elvishew.xlog.XLog
-import com.google.gson.Gson
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.Category
 import eu.kanade.tachiyomi.data.database.models.Manga
@@ -58,6 +57,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
 import reactivecircus.flowbinding.android.view.clicks
 import reactivecircus.flowbinding.android.view.longClicks
 import reactivecircus.flowbinding.swiperefreshlayout.refreshes
@@ -91,7 +91,7 @@ class MangaInfoController(private val fromSource: Boolean = false) :
 
     override val coroutineContext: CoroutineContext = Job() + Dispatchers.Main
 
-    private val gson: Gson by injectLazy()
+    private val json: Json by injectLazy()
 
     private val sourceManager: SourceManager by injectLazy()
     // EXH <--
@@ -337,7 +337,7 @@ class MangaInfoController(private val fromSource: Boolean = false) :
 
         // update full title TextView.
         binding.mangaFullTitle.text =
-            if (manga.title.isBlank()) {
+            if (manga.title.isNullOrBlank()) {
                 view.context.getString(R.string.unknown)
             } else {
                 manga.title
@@ -365,7 +365,7 @@ class MangaInfoController(private val fromSource: Boolean = false) :
             // EXH -->
         } else if (source.id == MERGED_SOURCE_ID) {
             binding.mangaSource.text =
-                MergedSource.MangaConfig.readFromUrl(gson, manga.url).children.map {
+                MergedSource.MangaConfig.readFromUrl(json, manga.url).children.map {
                     sourceManager.getOrStub(it.source).toString()
                 }.distinct().joinToString()
             // EXH <--

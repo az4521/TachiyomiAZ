@@ -3,7 +3,6 @@ package eu.kanade.tachiyomi.ui.migration.manga.process
 import android.view.View
 import android.widget.PopupMenu
 import com.bumptech.glide.load.engine.DiskCacheStrategy
-import com.google.gson.Gson
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.DatabaseHelper
 import eu.kanade.tachiyomi.data.database.models.Manga
@@ -26,6 +25,7 @@ import eu.kanade.tachiyomi.util.view.visible
 import exh.MERGED_SOURCE_ID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
 import uy.kohesive.injekt.injectLazy
 import java.text.DecimalFormat
 
@@ -36,7 +36,7 @@ class MigrationProcessHolder(
     private val db: DatabaseHelper by injectLazy()
     private val sourceManager: SourceManager by injectLazy()
     private var item: MigrationProcessItem? = null
-    private val gson: Gson by injectLazy()
+    private val json: Json by injectLazy()
 
     private val binding = MigrationProcessItemBinding.bind(view)
 
@@ -162,7 +162,7 @@ class MigrationProcessHolder(
         gradient.visible()
         mangaSourceLabel.text =
             if (source.id == MERGED_SOURCE_ID) {
-                MergedSource.MangaConfig.readFromUrl(gson, manga.url).children.map {
+                MergedSource.MangaConfig.readFromUrl(json, manga.url).children.map {
                     sourceManager.getOrStub(it.source).toString()
                 }.distinct().joinToString()
             } else {
