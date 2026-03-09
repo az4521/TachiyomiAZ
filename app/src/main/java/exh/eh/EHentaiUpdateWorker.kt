@@ -1,5 +1,6 @@
 package exh.eh
 
+import android.annotation.SuppressLint
 import android.app.job.JobInfo
 import android.app.job.JobParameters
 import android.app.job.JobScheduler
@@ -46,6 +47,7 @@ import uy.kohesive.injekt.injectLazy
 import java.util.ArrayList
 import kotlin.coroutines.CoroutineContext
 
+@SuppressLint("SpecifyJobSchedulerIdRange")
 class EHentaiUpdateWorker : JobService(), CoroutineScope {
     override val coroutineContext: CoroutineContext
         get() = Dispatchers.Default + Job()
