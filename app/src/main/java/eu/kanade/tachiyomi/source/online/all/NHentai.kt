@@ -7,6 +7,7 @@ import com.github.salomonbrys.kotson.nullArray
 import com.github.salomonbrys.kotson.nullLong
 import com.github.salomonbrys.kotson.nullObj
 import com.github.salomonbrys.kotson.nullString
+import com.github.salomonbrys.kotson.string
 import com.google.gson.JsonParser
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.network.GET
@@ -209,7 +210,7 @@ class NHentai(context: Context) : HttpSource(), LewdSource<NHentaiSearchMetadata
                     radix = 16
                 ).toChar().toString()
             }
-        val obj = JsonParser.parseString(json).asJsonObject
+        val obj = JsonParser.parseString(JsonParser.parseString(json).asJsonObject["body"].string).asJsonObject
 
         with(metadata) {
             nhId = obj["id"].asLong
@@ -356,7 +357,7 @@ class NHentai(context: Context) : HttpSource(), LewdSource<NHentaiSearchMetadata
     }
 
     companion object {
-        private val GALLERY_JSON_REGEX = Regex(".parse\\(\"(.*)\"\\);")
+        private val GALLERY_JSON_REGEX = Regex("data-url=\"/api/v2/galleries/.+>(.+)</script>")
         private val MEDIA_SERVER_REGEX = Regex("media_server\\s*:\\s*(\\d+)")
         private val UNICODE_ESCAPE_REGEX = Regex("\\\\u([0-9a-fA-F]{4})")
         private const val REVERSE_PARAM = "TEH_REVERSE"
