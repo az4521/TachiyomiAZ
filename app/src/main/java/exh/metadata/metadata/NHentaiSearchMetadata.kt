@@ -37,6 +37,10 @@ class NHentaiSearchMetadata : RaisedSearchMetadata() {
     var pageImageTypes: List<String> = emptyList()
     var thumbnailImageType: String? = null
 
+    var coverImagePath: String? = null
+    var pageImagePaths: List<String> = emptyList()
+    var thumbnailImagePath: String? = null
+
     var scanlator: String? = null
 
     override fun copyTo(manga: SManga) {
@@ -45,12 +49,24 @@ class NHentaiSearchMetadata : RaisedSearchMetadata() {
         if (mediaId != null) {
             val server = mediaServer ?: 1
             val hqThumbs = Injekt.get<PreferencesHelper>().eh_nh_useHighQualityThumbs().get()
-            typeToExtension(if (hqThumbs) coverImageType else thumbnailImageType)?.let {
-                manga.thumbnail_url = "https://t$server.nhentai.net/galleries/$mediaId/${if (hqThumbs) {
-                    "cover"
+            if (!coverImagePath.isNullOrEmpty() || !thumbnailImagePath.isNullOrEmpty()) {
+                manga.thumbnail_url = "https://t$server.nhentai.net/${
+                if (hqThumbs) {
+                    coverImagePath ?: thumbnailImagePath
                 } else {
-                    "thumb"
-                }}.$it"
+                    thumbnailImagePath ?: coverImagePath
+                }
+                }"
+            } else {
+                typeToExtension(if (hqThumbs) coverImageType else thumbnailImageType)?.let {
+                    manga.thumbnail_url = "https://t$server.nhentai.net/galleries/$mediaId/${
+                    if (hqThumbs) {
+                        "cover"
+                    } else {
+                        "thumb"
+                    }
+                    }.$it"
+                }
             }
         }
 
@@ -88,7 +104,7 @@ class NHentaiSearchMetadata : RaisedSearchMetadata() {
         val detailsDesc = StringBuilder()
         category?.let { detailsDesc += "Category: $it\n" }
         uploadDate?.let { detailsDesc += "Upload Date: ${EX_DATE_FORMAT.format(Date(it * 1000))}\n" }
-        pageImageTypes.size.let { detailsDesc += "Length: $it pages\n" }
+        maxOf(pageImageTypes.size, pageImagePaths.size).let { detailsDesc += "Length: $it pages\n" }
         favoritesCount?.let { detailsDesc += "Favorited: $it times\n" }
         scanlator?.nullIfBlank()?.let { detailsDesc += "Scanlator: $it\n" }
 

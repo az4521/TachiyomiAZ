@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.source.online.all
 
 import android.content.Context
 import android.net.Uri
+import androidx.core.net.toUri
 import com.github.salomonbrys.kotson.get
 import com.github.salomonbrys.kotson.nullArray
 import com.github.salomonbrys.kotson.nullLong
@@ -87,11 +88,11 @@ class NHentai(context: Context) : HttpSource(), LewdSource<NHentaiSearchMetadata
 
         val uri =
             if (query.isNotBlank()) {
-                Uri.parse("$baseUrl/search/").buildUpon().apply {
+                "$baseUrl/search/".toUri().buildUpon().apply {
                     appendQueryParameter("q", query + langFilterString)
                 }
             } else {
-                Uri.parse(baseUrl).buildUpon()
+                baseUrl.toUri().buildUpon()
             }
 
         val sortFilter =
@@ -205,11 +206,11 @@ class NHentai(context: Context) : HttpSource(), LewdSource<NHentaiSearchMetadata
         val strdata = input.body.string()
         val server = MEDIA_SERVER_REGEX.find(strdata)?.groupValues?.get(1)?.toInt() ?: 1
         val json =
-            GALLERY_JSON_REGEX.find(strdata)!!.groupValues[1].replace(UNICODE_ESCAPE_REGEX) {
+            GALLERY_JSON_REGEX.find(strdata)!!.groupValues[1]/*.replace(UNICODE_ESCAPE_REGEX) {
                 it.groupValues[1].toInt(
                     radix = 16
                 ).toChar().toString()
-            }
+            }*/
         val obj = JsonParser.parseString(JsonParser.parseString(json).asJsonObject["body"].string).asJsonObject
 
         with(metadata) {
@@ -229,15 +230,11 @@ class NHentai(context: Context) : HttpSource(), LewdSource<NHentaiSearchMetadata
                 englishTitle = title["english"].nullString
             }
 
-            obj["images"].nullObj?.let {
-                coverImageType = it["cover"]?.get("t").nullString
-                it["pages"].nullArray?.mapNotNull {
-                    it?.asJsonObject?.get("t").nullString
-                }?.let {
-                    pageImageTypes = it
-                }
-                thumbnailImageType = it["thumbnail"]?.get("t").nullString
-            }
+            thumbnailImagePath = obj["thumbnail"]["path"].nullString
+
+            coverImagePath = obj["cover"]["path"].nullString
+
+            pageImagePaths = obj["pages"].nullArray?.map { it["path"].string } ?: emptyList()
 
             scanlator = obj["scanlator"].nullString
 
@@ -278,10 +275,15 @@ class NHentai(context: Context) : HttpSource(), LewdSource<NHentaiSearchMetadata
         getOrLoadMetadata(chapter.mangaId, NHentaiSearchMetadata.nhUrlToId(chapter.url)).map { metadata ->
             if (metadata.mediaId == null) {
                 emptyList()
-            } else {
+            } else if (metadata.pageImageTypes.isNotEmpty()) {
                 metadata.pageImageTypes.mapIndexed { index, s ->
                     val imageUrl = imageUrlFromType(metadata.mediaId!!, metadata.mediaServer ?: 1, index + 1, s)
                     Page(index, imageUrl!!, imageUrl)
+                }
+            } else {
+                metadata.pageImagePaths.mapIndexed { index, s ->
+                    val imageUrl = imageUrlFromPath(metadata.mediaServer ?: 1, s)
+                    Page(index, imageUrl, imageUrl)
                 }
             }
         }.toObservable()
@@ -295,6 +297,13 @@ class NHentai(context: Context) : HttpSource(), LewdSource<NHentaiSearchMetadata
         t: String
     ) = NHentaiSearchMetadata.typeToExtension(t)?.let {
         "https://i$mediaServer.nhentai.net/galleries/$mediaId/$page.$it"
+    }
+
+    fun imageUrlFromPath(
+        mediaServer: Int,
+        path: String
+    ): String {
+        return "https://i$mediaServer.nhentai.net/$path"
     }
 
     override fun chapterListParse(response: Response): List<SChapter> {
@@ -357,7 +366,7 @@ class NHentai(context: Context) : HttpSource(), LewdSource<NHentaiSearchMetadata
     }
 
     companion object {
-        private val GALLERY_JSON_REGEX = Regex("data-url=\"/api/v2/galleries/.+>(.+)</script>")
+        private val GALLERY_JSON_REGEX = Regex("data-url=\"\\/api\\/v2\\/galleries\\/.+\">(\\{\".+\"\\})<\\/script>")
         private val MEDIA_SERVER_REGEX = Regex("media_server\\s*:\\s*(\\d+)")
         private val UNICODE_ESCAPE_REGEX = Regex("\\\\u([0-9a-fA-F]{4})")
         private const val REVERSE_PARAM = "TEH_REVERSE"
