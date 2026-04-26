@@ -18,6 +18,7 @@ import io.noties.markwon.Markwon
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.protobuf.ProtoBuf
 import uy.kohesive.injekt.api.InjektModule
 import uy.kohesive.injekt.api.InjektRegistrar
 import uy.kohesive.injekt.api.addSingleton
@@ -58,6 +59,8 @@ class AppModule(val app: Application) : InjektModule {
         addSingletonFactory { TrackManager(app) }
 
         addSingletonFactory { Gson() }
+
+        addSingletonFactory { ProtoBuf }
 
         addSingletonFactory { EHentaiUpdateHelper(app) }
 
