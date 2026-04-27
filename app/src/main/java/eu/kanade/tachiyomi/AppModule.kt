@@ -60,7 +60,7 @@ class AppModule(val app: Application) : InjektModule {
 
         addSingletonFactory { Gson() }
 
-        addSingletonFactory { ProtoBuf }
+        addSingletonFactory<ProtoBuf> { ProtoBuf }
 
         addSingletonFactory { EHentaiUpdateHelper(app) }
 
