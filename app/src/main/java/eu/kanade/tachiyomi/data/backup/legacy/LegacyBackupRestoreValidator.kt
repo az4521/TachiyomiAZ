@@ -2,12 +2,15 @@ package eu.kanade.tachiyomi.data.backup.legacy
 
 import android.content.Context
 import android.net.Uri
-import com.google.gson.JsonObject
-import com.google.gson.JsonParser
-import com.google.gson.stream.JsonReader
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.backup.AbstractBackupRestoreValidator
 import eu.kanade.tachiyomi.data.backup.legacy.models.Backup
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 class LegacyBackupRestoreValidator : AbstractBackupRestoreValidator() {
     /**
@@ -20,17 +23,18 @@ class LegacyBackupRestoreValidator : AbstractBackupRestoreValidator() {
         context: Context,
         uri: Uri
     ): Results {
-        val reader = JsonReader(context.contentResolver.openInputStream(uri)!!.bufferedReader())
-        val json = JsonParser.parseReader(reader).asJsonObject
+        val json = context.contentResolver.openInputStream(uri)!!.bufferedReader().use {
+            Json.parseToJsonElement(it.readText()).jsonObject
+        }
 
-        val version = json.get(Backup.VERSION)
-        val mangasJson = json.get(Backup.MANGAS)
+        val version = json[Backup.VERSION]
+        val mangasJson = json[Backup.MANGAS]
         if (version == null || mangasJson == null) {
             throw Exception(context.getString(R.string.invalid_backup_file_missing_data))
         }
 
-        val mangas = mangasJson.asJsonArray
-        if (mangas.size() == 0) {
+        val mangas = mangasJson.jsonArray
+        if (mangas.size == 0) {
             throw Exception(context.getString(R.string.invalid_backup_file_missing_manga))
         }
 
@@ -43,9 +47,9 @@ class LegacyBackupRestoreValidator : AbstractBackupRestoreValidator() {
 
         val trackers =
             mangas
-                .filter { it.asJsonObject.has("track") }
-                .flatMap { it.asJsonObject["track"].asJsonArray }
-                .map { it.asJsonObject["s"].asInt }
+                .filter { it.jsonObject.containsKey("track") }
+                .flatMap { it.jsonObject["track"]!!.jsonArray }
+                .map { it.jsonObject["s"]!!.jsonPrimitive.int }
                 .distinct()
         val missingTrackers =
             trackers
@@ -59,11 +63,11 @@ class LegacyBackupRestoreValidator : AbstractBackupRestoreValidator() {
 
     companion object {
         fun getSourceMapping(json: JsonObject): Map<Long, String> {
-            val extensionsMapping = json.get(Backup.EXTENSIONS) ?: return emptyMap()
+            val extensionsMapping = json[Backup.EXTENSIONS] ?: return emptyMap()
 
-            return extensionsMapping.asJsonArray
+            return extensionsMapping.jsonArray
                 .map {
-                    val items = it.asString.split(":")
+                    val items = it.jsonPrimitive.content.split(":")
                     items[0].toLong() to items[1]
                 }
                 .toMap()

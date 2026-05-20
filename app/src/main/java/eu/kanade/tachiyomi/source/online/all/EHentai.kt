@@ -3,15 +3,6 @@ package eu.kanade.tachiyomi.source.online.all
 import android.content.Context
 import android.net.Uri
 import com.elvishew.xlog.XLog
-import com.github.salomonbrys.kotson.array
-import com.github.salomonbrys.kotson.get
-import com.github.salomonbrys.kotson.int
-import com.github.salomonbrys.kotson.obj
-import com.github.salomonbrys.kotson.set
-import com.github.salomonbrys.kotson.string
-import com.google.gson.JsonArray
-import com.google.gson.JsonObject
-import com.google.gson.JsonParser
 import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.network.GET
@@ -46,6 +37,15 @@ import exh.util.UriGroup
 import exh.util.ignore
 import exh.util.urlImportFetchSearchManga
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 import okhttp3.CacheControl
 import okhttp3.Headers
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -885,31 +885,34 @@ class EHentai(
         val gallery = lastSplit.first()
         val pageToken = uri.pathSegments.elementAt(1)
 
-        val json = JsonObject()
-        json["method"] = "gtoken"
-        json["pagelist"] =
-            JsonArray().apply {
-                add(
-                    JsonArray().apply {
-                        add(gallery.toInt())
-                        add(pageToken)
-                        add(pageNum.toInt())
-                    }
-                )
-            }
+        val json = buildJsonObject {
+            put("method", "gtoken")
+            put(
+                "pagelist",
+                buildJsonArray {
+                    add(
+                        buildJsonArray {
+                            add(gallery.toInt())
+                            add(pageToken)
+                            add(pageNum.toInt())
+                        }
+                    )
+                }
+            )
+        }
 
         val outJson =
-            JsonParser.parseString(
+            Json.parseToJsonElement(
                 client.newCall(
                     Request.Builder()
                         .url(EH_API_BASE)
                         .post(json.toString().toRequestBody(JSON))
                         .build()
                 ).execute().body.string()
-            ).obj
+            ).jsonObject
 
-        val obj = outJson["tokenlist"].array.first()
-        return "${uri.scheme}://${uri.host}/g/${obj["gid"].int}/${obj["token"].string}/"
+        val obj = outJson["tokenlist"]!!.jsonArray.first().jsonObject
+        return "${uri.scheme}://${uri.host}/g/${obj["gid"]!!.jsonPrimitive.int}/${obj["token"]!!.jsonPrimitive.content}/"
     }
 
     companion object {

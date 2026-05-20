@@ -1,7 +1,6 @@
 package eu.kanade.tachiyomi
 
 import android.app.Application
-import com.google.gson.Gson
 import eu.kanade.tachiyomi.data.cache.ChapterCache
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.database.DatabaseHelper
@@ -57,8 +56,6 @@ class AppModule(val app: Application) : InjektModule {
         addSingletonFactory { DownloadManager(app) }
 
         addSingletonFactory { TrackManager(app) }
-
-        addSingletonFactory { Gson() }
 
         addSingletonFactory<ProtoBuf> { ProtoBuf }
 

@@ -5,7 +5,6 @@ import android.os.Build
 import com.elvishew.xlog.XLog
 import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.data.download.DownloadManager
-import eu.kanade.tachiyomi.data.preference.getOrDefault
 import eu.kanade.tachiyomi.source.LocalSource
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.online.HttpSource
@@ -63,7 +62,7 @@ class ChapterLoader(
                 if (!chapter.chapter.read /* --> EH */ ||
                     prefs
                         .eh_preserveReadingPosition()
-                        .getOrDefault() // <-- EH
+                        .get() // <-- EH
                 ) {
                     chapter.requestedPage = chapter.chapter.last_page_read
                 }

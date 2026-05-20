@@ -1,10 +1,11 @@
 package eu.kanade.tachiyomi.data.track.kitsu
 
-import com.google.gson.Gson
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.Json
 import okhttp3.Interceptor
 import okhttp3.Response
 
-class KitsuInterceptor(val kitsu: Kitsu, val gson: Gson) : Interceptor {
+class KitsuInterceptor(val kitsu: Kitsu, val json: Json) : Interceptor {
     /**
      * OAuth object used for authenticated requests.
      */
@@ -21,7 +22,7 @@ class KitsuInterceptor(val kitsu: Kitsu, val gson: Gson) : Interceptor {
         if (currAuth.isExpired()) {
             val response = chain.proceed(KitsuApi.refreshTokenRequest(refreshToken))
             if (response.isSuccessful) {
-                newAuth(gson.fromJson(response.body.string(), OAuth::class.java))
+                newAuth(json.decodeFromString<OAuth>(response.body.string()))
             } else {
                 response.close()
             }

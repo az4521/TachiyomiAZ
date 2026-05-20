@@ -1,11 +1,12 @@
 package eu.kanade.tachiyomi.data.track.bangumi
 
-import com.google.gson.Gson
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.Json
 import okhttp3.FormBody
 import okhttp3.Interceptor
 import okhttp3.Response
 
-class BangumiInterceptor(val bangumi: Bangumi, val gson: Gson) : Interceptor {
+class BangumiInterceptor(val bangumi: Bangumi, val json: Json) : Interceptor {
     /**
      * OAuth object used for authenticated requests.
      */
@@ -31,7 +32,7 @@ class BangumiInterceptor(val bangumi: Bangumi, val gson: Gson) : Interceptor {
         if (currAuth.isExpired()) {
             val response = chain.proceed(BangumiApi.refreshTokenRequest(currAuth.refresh_token!!))
             if (response.isSuccessful) {
-                newAuth(gson.fromJson(response.body.string(), OAuth::class.java))
+                newAuth(json.decodeFromString<OAuth>(response.body.string()))
             } else {
                 response.close()
             }

@@ -1,16 +1,5 @@
 package eu.kanade.tachiyomi.ui.source.browse
 
-import com.github.salomonbrys.kotson.array
-import com.github.salomonbrys.kotson.get
-import com.github.salomonbrys.kotson.jsonObject
-import com.github.salomonbrys.kotson.nullArray
-import com.github.salomonbrys.kotson.nullObj
-import com.github.salomonbrys.kotson.nullString
-import com.github.salomonbrys.kotson.obj
-import com.github.salomonbrys.kotson.string
-import com.google.gson.JsonArray
-import com.google.gson.JsonObject
-import com.google.gson.JsonParser
 import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.network.await
 import eu.kanade.tachiyomi.source.model.MangasPage
@@ -22,6 +11,15 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
@@ -74,19 +72,20 @@ class MyAnimeList() : API("https://api.jikan.moe/v3/") {
             if (body.isEmpty()) {
                 throw Exception("Null Response")
             }
-            val data = JsonParser.parseString(body).obj
+            val data = Json.parseToJsonElement(body).jsonObject
             val recommendations =
-                data["recommendations"].nullArray
+                (data["recommendations"] as? JsonArray)
                     ?: throw Exception("Unexpected response")
             val recs =
                 recommendations.map { rec ->
+                    val recObj = rec.jsonObject
                     Timber.tag("RECOMMENDATIONS")
-                        .d("MYANIMELIST > FOUND RECOMMENDATION > %s", rec["title"].string)
+                        .d("MYANIMELIST > FOUND RECOMMENDATION > %s", recObj["title"]!!.jsonPrimitive.content)
                     SMangaImpl().apply {
-                        this.title = rec["title"].string
-                        this.thumbnail_url = rec["image_url"].string
+                        this.title = recObj["title"]!!.jsonPrimitive.content
+                        this.thumbnail_url = recObj["image_url"]!!.jsonPrimitive.content
                         this.initialized = true
-                        this.url = rec["url"].string
+                        this.url = recObj["url"]!!.jsonPrimitive.content
                     }
                 }
             callback.invoke(recs, null)
@@ -126,15 +125,15 @@ class MyAnimeList() : API("https://api.jikan.moe/v3/") {
             if (body.isEmpty()) {
                 throw Exception("Null Response")
             }
-            val data = JsonParser.parseString(body).obj
-            val results = data["results"].nullArray ?: throw Exception("Unexpected response")
-            if (results.size() <= 0) {
+            val data = Json.parseToJsonElement(body).jsonObject
+            val results = (data["results"] as? JsonArray) ?: throw Exception("Unexpected response")
+            if (results.size <= 0) {
                 throw Exception("'$search' not found")
             }
-            val result = results.first().obj
+            val result = results.first().jsonObject
             Timber.tag("RECOMMENDATIONS")
-                .d("MYANIMELIST > FOUND TITLE > %s", result["title"].string)
-            val id = result["mal_id"].string
+                .d("MYANIMELIST > FOUND TITLE > %s", result["title"]!!.jsonPrimitive.content)
+            val id = result["mal_id"]!!.jsonPrimitive.content
             getRecsById(id, callback)
         }
     }
@@ -146,7 +145,7 @@ class Anilist() : API("https://graphql.anilist.co/") {
         search: String
     ): Int {
         return arr.count {
-            val synonym = it.string
+            val synonym = it.jsonPrimitive.content
             synonym.contains(search, true)
         }
     }
@@ -156,13 +155,13 @@ class Anilist() : API("https://graphql.anilist.co/") {
         language: String,
         search: String
     ): Boolean {
-        return obj["title"].obj[language].nullString?.contains(search, true) == true
+        return obj["title"]?.jsonObject?.get(language)?.let { (it as? JsonPrimitive)?.content }?.contains(search, true) == true
     }
 
     private fun getTitle(obj: JsonObject): String {
-        return obj["title"].obj["romaji"].nullString
-            ?: obj["title"].obj["english"].nullString
-            ?: obj["title"].obj["native"].string
+        return obj["title"]?.jsonObject?.get("romaji")?.let { (it as? JsonPrimitive)?.content }
+            ?: obj["title"]?.jsonObject?.get("english")?.let { (it as? JsonPrimitive)?.content }
+            ?: obj["title"]!!.jsonObject["native"]!!.jsonPrimitive.content
     }
 
     override fun getRecsBySearch(
@@ -202,12 +201,12 @@ class Anilist() : API("https://graphql.anilist.co/") {
             |}
             |
             """.trimMargin()
-        val variables = jsonObject("search" to search)
+        val variables = buildJsonObject { put("search", search) }
         val payload =
-            jsonObject(
-                "query" to query,
-                "variables" to variables
-            )
+            buildJsonObject {
+                put("query", query)
+                put("variables", variables)
+            }
         val payloadBody =
             payload.toString().toRequestBody("application/json; charset=utf-8".toMediaTypeOrNull())
         val request =
@@ -228,35 +227,35 @@ class Anilist() : API("https://graphql.anilist.co/") {
                 throw Exception("Null Response")
             }
             val data =
-                JsonParser.parseString(body).obj["data"].nullObj
+                Json.parseToJsonElement(body).jsonObject["data"]?.jsonObject
                     ?: throw Exception("Unexpected response")
-            val page = data["Page"].obj
-            val media = page["media"].array
-            if (media.size() <= 0) {
+            val page = data["Page"]!!.jsonObject
+            val media = page["media"]!!.jsonArray
+            if (media.size <= 0) {
                 throw Exception("'$search' not found")
             }
             val result =
                 media.sortedWith(
                     compareBy(
-                        { languageContains(it.obj, "romaji", search) },
-                        { languageContains(it.obj, "english", search) },
-                        { languageContains(it.obj, "native", search) },
-                        { countOccurrence(it.obj["synonyms"].array, search) > 0 }
+                        { languageContains(it.jsonObject, "romaji", search) },
+                        { languageContains(it.jsonObject, "english", search) },
+                        { languageContains(it.jsonObject, "native", search) },
+                        { countOccurrence(it.jsonObject["synonyms"]!!.jsonArray, search) > 0 }
                     )
-                ).last().obj
+                ).last().jsonObject
             Timber.tag("RECOMMENDATIONS")
                 .d("ANILIST > FOUND TITLE > %s", getTitle(result))
-            val recommendations = result["recommendations"].obj["edges"].array
+            val recommendations = result["recommendations"]!!.jsonObject["edges"]!!.jsonArray
             val recs =
                 recommendations.map {
-                    val rec = it["node"]["mediaRecommendation"].obj
+                    val rec = it.jsonObject["node"]!!.jsonObject["mediaRecommendation"]!!.jsonObject
                     Timber.tag("RECOMMENDATIONS")
                         .d("ANILIST: FOUND RECOMMENDATION: %s", getTitle(rec))
                     SMangaImpl().apply {
                         this.title = getTitle(rec)
-                        this.thumbnail_url = rec["coverImage"].obj["large"].string
+                        this.thumbnail_url = rec["coverImage"]!!.jsonObject["large"]!!.jsonPrimitive.content
                         this.initialized = true
-                        this.url = rec["siteUrl"].string
+                        this.url = rec["siteUrl"]!!.jsonPrimitive.content
                     }
                 }
             callback.invoke(recs, null)

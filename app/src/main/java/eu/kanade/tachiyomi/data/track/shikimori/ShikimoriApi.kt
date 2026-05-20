@@ -1,19 +1,22 @@
 package eu.kanade.tachiyomi.data.track.shikimori
 
 import android.net.Uri
-import com.github.salomonbrys.kotson.array
-import com.github.salomonbrys.kotson.jsonObject
-import com.github.salomonbrys.kotson.nullString
-import com.github.salomonbrys.kotson.obj
-import com.google.gson.Gson
-import com.google.gson.JsonObject
-import com.google.gson.JsonParser
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.POST
 import eu.kanade.tachiyomi.network.asObservableSuccess
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonObject
 import okhttp3.FormBody
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
@@ -23,7 +26,7 @@ import rx.Observable
 import uy.kohesive.injekt.injectLazy
 
 class ShikimoriApi(private val client: OkHttpClient, interceptor: ShikimoriInterceptor) {
-    private val gson: Gson by injectLazy()
+    private val json: Json by injectLazy()
     private val jsonime = "application/json; charset=utf-8".toMediaTypeOrNull()
     private val authClient = client.newBuilder().addInterceptor(interceptor).build()
 
@@ -31,18 +34,16 @@ class ShikimoriApi(private val client: OkHttpClient, interceptor: ShikimoriInter
         track: Track,
         user_id: String
     ): Observable<Track> {
-        val payload =
-            jsonObject(
-                "user_rate" to
-                    jsonObject(
-                        "user_id" to user_id,
-                        "target_id" to track.media_id,
-                        "target_type" to "Manga",
-                        "chapters" to track.last_chapter_read,
-                        "score" to track.score.toInt(),
-                        "status" to track.toShikimoriStatus()
-                    )
-            )
+        val payload = buildJsonObject {
+            putJsonObject("user_rate") {
+                put("user_id", user_id)
+                put("target_id", track.media_id)
+                put("target_type", "Manga")
+                put("chapters", track.last_chapter_read)
+                put("score", track.score.toInt())
+                put("status", track.toShikimoriStatus())
+            }
+        }
         val body = payload.toString().toRequestBody(jsonime)
         val request =
             Request.Builder()
@@ -80,22 +81,22 @@ class ShikimoriApi(private val client: OkHttpClient, interceptor: ShikimoriInter
                 if (responseBody.isEmpty()) {
                     throw Exception("Null Response")
                 }
-                val response = JsonParser.parseString(responseBody).array
-                response.map { jsonToSearch(it.obj) }
+                val response = Json.parseToJsonElement(responseBody).jsonArray
+                response.map { jsonToSearch(it.jsonObject) }
             }
     }
 
     private fun jsonToSearch(obj: JsonObject): TrackSearch {
         return TrackSearch.create(TrackManager.SHIKIMORI).apply {
-            media_id = obj["id"].asInt
-            title = obj["name"].asString
-            total_chapters = obj["chapters"].asInt
-            cover_url = baseUrl + obj["image"].obj["preview"].asString
+            media_id = obj["id"]!!.jsonPrimitive.int
+            title = obj["name"]!!.jsonPrimitive.content
+            total_chapters = obj["chapters"]!!.jsonPrimitive.int
+            cover_url = baseUrl + obj["image"]!!.jsonObject["preview"]!!.jsonPrimitive.content
             summary = ""
-            tracking_url = baseUrl + obj["url"].asString
-            publishing_status = obj["status"].asString
-            publishing_type = obj["kind"].asString
-            start_date = obj.get("aired_on").nullString.orEmpty()
+            tracking_url = baseUrl + obj["url"]!!.jsonPrimitive.content
+            publishing_status = obj["status"]!!.jsonPrimitive.content
+            publishing_type = obj["kind"]!!.jsonPrimitive.content
+            start_date = obj["aired_on"]?.jsonPrimitive?.content.orEmpty()
         }
     }
 
@@ -104,13 +105,13 @@ class ShikimoriApi(private val client: OkHttpClient, interceptor: ShikimoriInter
         mangas: JsonObject
     ): Track {
         return Track.create(TrackManager.SHIKIMORI).apply {
-            title = mangas["name"].asString
-            media_id = obj["id"].asInt
-            total_chapters = mangas["chapters"].asInt
-            last_chapter_read = obj["chapters"].asInt
-            score = (obj["score"].asInt).toFloat()
-            status = toTrackStatus(obj["status"].asString)
-            tracking_url = baseUrl + mangas["url"].asString
+            title = mangas["name"]!!.jsonPrimitive.content
+            media_id = obj["id"]!!.jsonPrimitive.int
+            total_chapters = mangas["chapters"]!!.jsonPrimitive.int
+            last_chapter_read = obj["chapters"]!!.jsonPrimitive.int
+            score = (obj["score"]!!.jsonPrimitive.int).toFloat()
+            status = toTrackStatus(obj["status"]!!.jsonPrimitive.content)
+            tracking_url = baseUrl + mangas["url"]!!.jsonPrimitive.content
         }
     }
 
@@ -143,7 +144,7 @@ class ShikimoriApi(private val client: OkHttpClient, interceptor: ShikimoriInter
             .asObservableSuccess()
             .map { netResponse ->
                 val responseBody = netResponse.body.string()
-                JsonParser.parseString(responseBody).obj
+                Json.parseToJsonElement(responseBody).jsonObject
             }.flatMap { mangas ->
                 authClient.newCall(request)
                     .asObservableSuccess()
@@ -152,13 +153,13 @@ class ShikimoriApi(private val client: OkHttpClient, interceptor: ShikimoriInter
                         if (responseBody.isEmpty()) {
                             throw Exception("Null Response")
                         }
-                        val response = JsonParser.parseString(responseBody).array
-                        if (response.size() > 1) {
+                        val response = Json.parseToJsonElement(responseBody).jsonArray
+                        if (response.size > 1) {
                             throw Exception("Too much mangas in response")
                         }
                         val entry =
                             response.map {
-                                jsonToTrack(it.obj, mangas)
+                                jsonToTrack(it.jsonObject, mangas)
                             }
                         entry.firstOrNull()
                     }
@@ -167,7 +168,7 @@ class ShikimoriApi(private val client: OkHttpClient, interceptor: ShikimoriInter
 
     fun getCurrentUser(): Int {
         val user = authClient.newCall(GET("$apiUrl/users/whoami")).execute().body.string()
-        return JsonParser.parseString(user).obj["id"].asInt
+        return Json.parseToJsonElement(user).jsonObject["id"]!!.jsonPrimitive.int
     }
 
     fun accessToken(code: String): Observable<OAuth> {
@@ -176,7 +177,7 @@ class ShikimoriApi(private val client: OkHttpClient, interceptor: ShikimoriInter
             if (responseBody.isEmpty()) {
                 throw Exception("Null Response")
             }
-            gson.fromJson(responseBody, OAuth::class.java)
+            json.decodeFromString<OAuth>(responseBody)
         }
     }
 

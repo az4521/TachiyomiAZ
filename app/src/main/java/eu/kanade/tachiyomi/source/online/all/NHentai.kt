@@ -3,13 +3,6 @@ package eu.kanade.tachiyomi.source.online.all
 import android.content.Context
 import android.net.Uri
 import androidx.core.net.toUri
-import com.github.salomonbrys.kotson.get
-import com.github.salomonbrys.kotson.nullArray
-import com.github.salomonbrys.kotson.nullLong
-import com.github.salomonbrys.kotson.nullObj
-import com.github.salomonbrys.kotson.nullString
-import com.github.salomonbrys.kotson.string
-import com.google.gson.JsonParser
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.asObservableSuccess
@@ -28,6 +21,14 @@ import exh.metadata.metadata.NHentaiSearchMetadata
 import exh.metadata.metadata.NHentaiSearchMetadata.Companion.TAG_TYPE_DEFAULT
 import exh.metadata.metadata.base.RaisedTag
 import exh.util.urlImportFetchSearchManga
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.long
+import kotlinx.serialization.json.longOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -211,36 +212,38 @@ class NHentai(context: Context) : HttpSource(), LewdSource<NHentaiSearchMetadata
                     radix = 16
                 ).toChar().toString()
             }*/
-        val obj = JsonParser.parseString(JsonParser.parseString(json).asJsonObject["body"].string).asJsonObject
+        val obj = Json.parseToJsonElement(
+            Json.parseToJsonElement(json).jsonObject["body"]!!.jsonPrimitive.content
+        ).jsonObject
 
         with(metadata) {
-            nhId = obj["id"].asLong
+            nhId = obj["id"]!!.jsonPrimitive.long
 
-            uploadDate = obj["upload_date"].nullLong
+            uploadDate = (obj["upload_date"] as? JsonPrimitive)?.longOrNull
 
-            favoritesCount = obj["num_favorites"].nullLong
+            favoritesCount = (obj["num_favorites"] as? JsonPrimitive)?.longOrNull
 
-            mediaId = obj["media_id"].nullString
+            mediaId = (obj["media_id"] as? JsonPrimitive)?.content
 
             mediaServer = server
 
-            obj["title"].nullObj?.let { title ->
-                japaneseTitle = title["japanese"].nullString
-                shortTitle = title["pretty"].nullString
-                englishTitle = title["english"].nullString
+            (obj["title"] as? JsonObject)?.let { title ->
+                japaneseTitle = (title["japanese"] as? JsonPrimitive)?.content
+                shortTitle = (title["pretty"] as? JsonPrimitive)?.content
+                englishTitle = (title["english"] as? JsonPrimitive)?.content
             }
 
-            thumbnailImagePath = obj["thumbnail"]["path"].nullString
+            thumbnailImagePath = (obj["thumbnail"] as? JsonObject)?.get("path")?.let { (it as? JsonPrimitive)?.content }
 
-            coverImagePath = obj["cover"]["path"].nullString
+            coverImagePath = (obj["cover"] as? JsonObject)?.get("path")?.let { (it as? JsonPrimitive)?.content }
 
-            pageImagePaths = obj["pages"].nullArray?.map { it["path"].string } ?: emptyList()
+            pageImagePaths = (obj["pages"] as? JsonArray)?.map { it.jsonObject["path"]!!.jsonPrimitive.content } ?: emptyList()
 
-            scanlator = obj["scanlator"].nullString
+            scanlator = (obj["scanlator"] as? JsonPrimitive)?.content
 
-            obj["tags"]?.asJsonArray?.map {
-                val asObj = it.asJsonObject
-                Pair(asObj["type"].nullString, asObj["name"].nullString)
+            (obj["tags"] as? JsonArray)?.map {
+                val asObj = it.jsonObject
+                Pair((asObj["type"] as? JsonPrimitive)?.content, (asObj["name"] as? JsonPrimitive)?.content)
             }?.apply {
                 tags.clear()
             }?.forEach {

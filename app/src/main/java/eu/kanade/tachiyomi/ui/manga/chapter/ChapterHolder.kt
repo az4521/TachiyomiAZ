@@ -9,7 +9,6 @@ import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
-import eu.kanade.tachiyomi.data.preference.getOrDefault
 import eu.kanade.tachiyomi.databinding.ChaptersItemBinding
 import eu.kanade.tachiyomi.ui.base.holder.BaseFlexibleViewHolder
 import uy.kohesive.injekt.injectLazy
@@ -59,7 +58,7 @@ class ChapterHolder(
             descriptions.add(adapter.dateFormat.format(Date(chapter.date_upload)))
         }
 
-        if ((!chapter.read /* --> EH */ || prefs.eh_preserveReadingPosition().getOrDefault()) /* <-- EH */ && chapter.last_page_read > 0) {
+        if ((!chapter.read /* --> EH */ || prefs.eh_preserveReadingPosition().get()) /* <-- EH */ && chapter.last_page_read > 0) {
             val lastPageRead =
                 SpannableString(itemView.context.getString(R.string.chapter_progress, chapter.last_page_read + 1)).apply {
                     setSpan(ForegroundColorSpan(adapter.readColor), 0, length, SpannableString.SPAN_EXCLUSIVE_EXCLUSIVE)
@@ -115,7 +114,7 @@ class ChapterHolder(
         if (!chapter.read && (
             chapter.last_page_read == 0 /* --> EH */ ||
                 prefs.eh_preserveReadingPosition()
-                    .getOrDefault()
+                    .get()
             ) // <-- EH
         ) {
             popup.menu.findItem(R.id.action_mark_as_unread).isVisible = false

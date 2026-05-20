@@ -4,7 +4,6 @@ import android.content.Context
 import android.os.Environment
 import androidx.core.content.edit
 import androidx.preference.PreferenceManager
-import com.f2prateek.rx.preferences.RxSharedPreferences
 import com.tfcporciuncula.flow.FlowSharedPreferences
 import com.tfcporciuncula.flow.Preference
 import eu.kanade.tachiyomi.R
@@ -20,11 +19,8 @@ import java.io.File
 import java.text.DateFormat
 import java.text.SimpleDateFormat
 import java.util.Locale
-import com.f2prateek.rx.preferences.Preference as RxPreference
 import eu.kanade.tachiyomi.data.preference.PreferenceKeys as Keys
 import eu.kanade.tachiyomi.data.preference.PreferenceValues as Values
-
-fun <T> RxPreference<T>.getOrDefault(): T = get() ?: defaultValue()!!
 
 @OptIn(ExperimentalCoroutinesApi::class)
 fun <T> Preference<T>.asImmediateFlow(block: (value: T) -> Unit): Flow<T> {
@@ -36,7 +32,6 @@ fun <T> Preference<T>.asImmediateFlow(block: (value: T) -> Unit): Flow<T> {
 @OptIn(ExperimentalCoroutinesApi::class)
 class PreferencesHelper(val context: Context) {
     private val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-    private val rxPrefs = RxSharedPreferences.create(prefs)
     val flowPrefs = FlowSharedPreferences(prefs)
 
     private val defaultDownloadsDir =
@@ -357,7 +352,7 @@ class PreferencesHelper(val context: Context) {
 
     fun eh_cacheSize() = flowPrefs.getString(Keys.eh_cacheSize, "75")
 
-    fun eh_preserveReadingPosition() = rxPrefs.getBoolean(Keys.eh_preserveReadingPosition, false)
+    fun eh_preserveReadingPosition() = flowPrefs.getBoolean(Keys.eh_preserveReadingPosition, false)
 
     fun eh_autoSolveCaptchas() = flowPrefs.getBoolean(Keys.eh_autoSolveCaptchas, false)
 

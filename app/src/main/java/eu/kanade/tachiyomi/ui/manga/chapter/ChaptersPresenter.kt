@@ -11,7 +11,6 @@ import eu.kanade.tachiyomi.data.database.models.toMangaInfo
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
-import eu.kanade.tachiyomi.data.preference.getOrDefault
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.model.toSChapter
 import eu.kanade.tachiyomi.ui.base.presenter.BasePresenter
@@ -314,7 +313,7 @@ class ChaptersPresenter(
                 if (!read /* --> EH */ &&
                     !preferences
                         .eh_preserveReadingPosition()
-                        .getOrDefault() // <-- EH
+                        .get() // <-- EH
                 ) {
                     chapter.last_page_read = 0
                 }

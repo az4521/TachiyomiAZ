@@ -1,21 +1,23 @@
 package eu.kanade.tachiyomi.data.track.kitsu
 
-import com.github.salomonbrys.kotson.array
-import com.github.salomonbrys.kotson.get
-import com.github.salomonbrys.kotson.int
-import com.github.salomonbrys.kotson.jsonObject
-import com.github.salomonbrys.kotson.obj
-import com.github.salomonbrys.kotson.string
-import com.google.gson.GsonBuilder
-import com.google.gson.JsonObject
+import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.network.POST
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonObject
 import okhttp3.FormBody
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.adapter.rxjava.RxJavaCallAdapterFactory
-import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.Body
 import retrofit2.http.Field
 import retrofit2.http.FormUrlEncoded
@@ -31,11 +33,13 @@ import rx.Observable
 class KitsuApi(private val client: OkHttpClient, interceptor: KitsuInterceptor) {
     private val authClient = client.newBuilder().addInterceptor(interceptor).build()
 
+    private val json = Json { ignoreUnknownKeys = true }
+
     private val rest =
         Retrofit.Builder()
             .baseUrl(baseUrl)
             .client(authClient)
-            .addConverterFactory(GsonConverterFactory.create(GsonBuilder().serializeNulls().create()))
+            .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
             .addCallAdapterFactory(RxJavaCallAdapterFactory.create())
             .build()
             .create(Rest::class.java)
@@ -44,7 +48,7 @@ class KitsuApi(private val client: OkHttpClient, interceptor: KitsuInterceptor) 
         Retrofit.Builder()
             .baseUrl(algoliaKeyUrl)
             .client(authClient)
-            .addConverterFactory(GsonConverterFactory.create())
+            .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
             .addCallAdapterFactory(RxJavaCallAdapterFactory.create())
             .build()
             .create(SearchKeyRest::class.java)
@@ -53,7 +57,7 @@ class KitsuApi(private val client: OkHttpClient, interceptor: KitsuInterceptor) 
         Retrofit.Builder()
             .baseUrl(algoliaUrl)
             .client(client)
-            .addConverterFactory(GsonConverterFactory.create())
+            .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
             .addCallAdapterFactory(RxJavaCallAdapterFactory.create())
             .build()
             .create(AgoliaSearchRest::class.java)
@@ -64,38 +68,31 @@ class KitsuApi(private val client: OkHttpClient, interceptor: KitsuInterceptor) 
     ): Observable<Track> {
         return Observable.defer {
             // @formatter:off
-            val data =
-                jsonObject(
-                    "type" to "libraryEntries",
-                    "attributes" to
-                        jsonObject(
-                            "status" to track.toKitsuStatus(),
-                            "progress" to track.last_chapter_read
-                        ),
-                    "relationships" to
-                        jsonObject(
-                            "user" to
-                                jsonObject(
-                                    "data" to
-                                        jsonObject(
-                                            "id" to userId,
-                                            "type" to "users"
-                                        )
-                                ),
-                            "media" to
-                                jsonObject(
-                                    "data" to
-                                        jsonObject(
-                                            "id" to track.media_id,
-                                            "type" to "manga"
-                                        )
-                                )
-                        )
-                )
+            val data = buildJsonObject {
+                put("type", "libraryEntries")
+                putJsonObject("attributes") {
+                    put("status", track.toKitsuStatus())
+                    put("progress", track.last_chapter_read)
+                }
+                putJsonObject("relationships") {
+                    putJsonObject("user") {
+                        putJsonObject("data") {
+                            put("id", userId)
+                            put("type", "users")
+                        }
+                    }
+                    putJsonObject("media") {
+                        putJsonObject("data") {
+                            put("id", track.media_id)
+                            put("type", "manga")
+                        }
+                    }
+                }
+            }
 
-            rest.addLibManga(jsonObject("data" to data))
+            rest.addLibManga(buildJsonObject { put("data", data) })
                 .map { json ->
-                    track.media_id = json["data"]["id"].int
+                    track.media_id = json["data"]!!.jsonObject["id"]!!.jsonPrimitive.int
                     track
                 }
         }
@@ -104,20 +101,18 @@ class KitsuApi(private val client: OkHttpClient, interceptor: KitsuInterceptor) 
     fun updateLibManga(track: Track): Observable<Track> {
         return Observable.defer {
             // @formatter:off
-            val data =
-                jsonObject(
-                    "type" to "libraryEntries",
-                    "id" to track.media_id,
-                    "attributes" to
-                        jsonObject(
-                            "status" to track.toKitsuStatus(),
-                            "progress" to track.last_chapter_read,
-                            "ratingTwenty" to track.toKitsuScore()
-                        )
-                )
+            val data = buildJsonObject {
+                put("type", "libraryEntries")
+                put("id", track.media_id)
+                putJsonObject("attributes") {
+                    put("status", track.toKitsuStatus())
+                    put("progress", track.last_chapter_read)
+                    put("ratingTwenty", track.toKitsuScore())
+                }
+            }
             // @formatter:on
 
-            rest.updateLibManga(track.media_id, jsonObject("data" to data))
+            rest.updateLibManga(track.media_id, buildJsonObject { put("data", data) })
                 .map { track }
         }
     }
@@ -125,7 +120,7 @@ class KitsuApi(private val client: OkHttpClient, interceptor: KitsuInterceptor) 
     fun search(query: String): Observable<List<TrackSearch>> {
         return searchRest
             .getKey().map { json ->
-                json["media"].asJsonObject["key"].string
+                json["media"]!!.jsonObject["key"]!!.jsonPrimitive.content
             }.flatMap { key ->
                 algoliaSearch(key, query)
             }
@@ -135,12 +130,12 @@ class KitsuApi(private val client: OkHttpClient, interceptor: KitsuInterceptor) 
         key: String,
         query: String
     ): Observable<List<TrackSearch>> {
-        val jsonObject = jsonObject("params" to "query=$query$algoliaFilter")
+        val jsonObject = buildJsonObject { put("params", "query=$query$algoliaFilter") }
         return algoliaRest
             .getSearchQuery(algoliaAppId, key, jsonObject)
             .map { json ->
-                val data = json["hits"].array
-                data.map { KitsuSearchManga(it.obj) }
+                val data = json["hits"]!!.jsonArray
+                data.map { KitsuSearchManga(it.jsonObject) }
                     .filter { it.subType != "novel" }
                     .map { it.toTrack() }
             }
@@ -152,10 +147,10 @@ class KitsuApi(private val client: OkHttpClient, interceptor: KitsuInterceptor) 
     ): Observable<Track?> {
         return rest.findLibManga(track.media_id, userId)
             .map { json ->
-                val data = json["data"].array
-                if (data.size() > 0) {
-                    val manga = json["included"].array[0].obj
-                    KitsuLibManga(data[0].obj, manga).toTrack()
+                val data = json["data"]!!.jsonArray
+                if (data.size > 0) {
+                    val manga = json["included"]!!.jsonArray[0].jsonObject
+                    KitsuLibManga(data[0].jsonObject, manga).toTrack()
                 } else {
                     null
                 }
@@ -165,10 +160,10 @@ class KitsuApi(private val client: OkHttpClient, interceptor: KitsuInterceptor) 
     fun getLibManga(track: Track): Observable<Track> {
         return rest.getLibManga(track.media_id)
             .map { json ->
-                val data = json["data"].array
-                if (data.size() > 0) {
-                    val manga = json["included"].array[0].obj
-                    KitsuLibManga(data[0].obj, manga).toTrack()
+                val data = json["data"]!!.jsonArray
+                if (data.size > 0) {
+                    val manga = json["included"]!!.jsonArray[0].jsonObject
+                    KitsuLibManga(data[0].jsonObject, manga).toTrack()
                 } else {
                     throw Exception("Could not find manga")
                 }
@@ -182,7 +177,7 @@ class KitsuApi(private val client: OkHttpClient, interceptor: KitsuInterceptor) 
         return Retrofit.Builder()
             .baseUrl(loginUrl)
             .client(client)
-            .addConverterFactory(GsonConverterFactory.create())
+            .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
             .addCallAdapterFactory(RxJavaCallAdapterFactory.create())
             .build()
             .create(LoginRest::class.java)
@@ -190,7 +185,7 @@ class KitsuApi(private val client: OkHttpClient, interceptor: KitsuInterceptor) 
     }
 
     fun getCurrentUser(): Observable<String> {
-        return rest.getCurrentUser().map { it["data"].array[0]["id"].string }
+        return rest.getCurrentUser().map { it["data"]!!.jsonArray[0].jsonObject["id"]!!.jsonPrimitive.content }
     }
 
     private interface Rest {

@@ -1,7 +1,7 @@
 package exh.log
 
 import com.elvishew.xlog.XLog
-import com.google.gson.Gson
+import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 
@@ -11,7 +11,7 @@ fun OkHttpClient.Builder.maybeInjectEHLogger(): OkHttpClient.Builder {
             object : HttpLoggingInterceptor.Logger {
                 override fun log(message: String) {
                     try {
-                        Gson().fromJson(message, Any::class.java)
+                        Json.parseToJsonElement(message)
                         XLog.tag("||EH-NETWORK-JSON").nst().json(message)
                     } catch (ex: Exception) {
                         XLog.tag("||EH-NETWORK").nb().nst().d(message)
