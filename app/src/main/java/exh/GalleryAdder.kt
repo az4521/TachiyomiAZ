@@ -4,10 +4,7 @@ import android.net.Uri
 import com.elvishew.xlog.XLog
 import eu.kanade.tachiyomi.data.database.DatabaseHelper
 import eu.kanade.tachiyomi.data.database.models.Manga
-import eu.kanade.tachiyomi.data.database.models.toMangaInfo
 import eu.kanade.tachiyomi.source.SourceManager
-import eu.kanade.tachiyomi.source.model.toSChapter
-import eu.kanade.tachiyomi.source.model.toSManga
 import eu.kanade.tachiyomi.source.online.UrlImportableSource
 import eu.kanade.tachiyomi.source.online.all.EHentai
 import eu.kanade.tachiyomi.util.chapter.syncChaptersWithSource
@@ -100,7 +97,7 @@ class GalleryAdder {
             }
 
             // Fetch and copy details
-            val newManga = runAsObservable({ source.getMangaDetails(manga.toMangaInfo()).toSManga() }).toBlocking().first()
+            val newManga = runAsObservable({ source.getMangaDetails(manga) }).toBlocking().first()
             manga.copyFrom(newManga)
             manga.initialized = true
 
@@ -117,7 +114,7 @@ class GalleryAdder {
                     if (source is EHentai) {
                         source.fetchChapterList(manga, throttleFunc)
                     } else {
-                        runAsObservable({ source.getChapterList(manga.toMangaInfo()).map { it.toSChapter() } })
+                        runAsObservable({ source.getChapterList(manga) })
                     }
                 chapterListObs.map {
                     syncChaptersWithSource(db, it, manga, source)

@@ -6,6 +6,7 @@ import eu.kanade.tachiyomi.network.AndroidCookieJar
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.network.asObservableSuccess
+import eu.kanade.tachiyomi.network.awaitSuccess
 import eu.kanade.tachiyomi.network.newCachelessCallWithProgress
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.model.FilterList
@@ -13,6 +14,7 @@ import eu.kanade.tachiyomi.source.model.MangasPage
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
+import eu.kanade.tachiyomi.util.lang.awaitSingle
 import exh.log.maybeInjectEHLogger
 import exh.patch.injectPatches
 import exh.source.DelegatedHttpSource
@@ -113,11 +115,16 @@ abstract class HttpSource : CatalogueSource {
     override fun toString() = "$name (${lang.uppercase(Locale.ENGLISH)})"
 
     /**
-     * Returns an observable containing a page with a list of manga. Normally it's not needed to
-     * override this method.
+     * Get a page with a list of manga. Normally it's not needed to override this method.
      *
      * @param page the page number to retrieve.
      */
+    @Suppress("DEPRECATION")
+    override suspend fun getPopularManga(page: Int): MangasPage {
+        return fetchPopularManga(page).awaitSingle()
+    }
+
+    @Deprecated("Use the non-RxJava API instead", ReplaceWith("getPopularManga"))
     override fun fetchPopularManga(page: Int): Observable<MangasPage> {
         return client.newCall(popularMangaRequest(page))
             .asObservableSuccess()
@@ -141,13 +148,22 @@ abstract class HttpSource : CatalogueSource {
     protected abstract fun popularMangaParse(response: Response): MangasPage
 
     /**
-     * Returns an observable containing a page with a list of manga. Normally it's not needed to
-     * override this method.
+     * Get a page with a list of manga. Normally it's not needed to override this method.
      *
      * @param page the page number to retrieve.
      * @param query the search query.
      * @param filters the list of filters to apply.
      */
+    @Suppress("DEPRECATION")
+    override suspend fun getSearchManga(
+        page: Int,
+        query: String,
+        filters: FilterList
+    ): MangasPage {
+        return fetchSearchManga(page, query, filters).awaitSingle()
+    }
+
+    @Deprecated("Use the non-RxJava API instead", ReplaceWith("getSearchManga"))
     override fun fetchSearchManga(
         page: Int,
         query: String,
@@ -181,10 +197,16 @@ abstract class HttpSource : CatalogueSource {
     protected abstract fun searchMangaParse(response: Response): MangasPage
 
     /**
-     * Returns an observable containing a page with a list of latest manga updates.
+     * Get a page with a list of latest manga updates.
      *
      * @param page the page number to retrieve.
      */
+    @Suppress("DEPRECATION")
+    override suspend fun getLatestUpdates(page: Int): MangasPage {
+        return fetchLatestUpdates(page).awaitSingle()
+    }
+
+    @Deprecated("Use the non-RxJava API instead", ReplaceWith("getLatestUpdates"))
     override fun fetchLatestUpdates(page: Int): Observable<MangasPage> {
         return client.newCall(latestUpdatesRequest(page))
             .asObservableSuccess()
@@ -208,11 +230,16 @@ abstract class HttpSource : CatalogueSource {
     protected abstract fun latestUpdatesParse(response: Response): MangasPage
 
     /**
-     * Returns an observable with the updated details for a manga. Normally it's not needed to
-     * override this method.
+     * Get the updated details for a manga. Normally it's not needed to override this method.
      *
-     * @param manga the manga to be updated.
+     * @param manga the manga to update.
      */
+    @Suppress("DEPRECATION")
+    override suspend fun getMangaDetails(manga: SManga): SManga {
+        return fetchMangaDetails(manga).awaitSingle()
+    }
+
+    @Deprecated("Use the non-RxJava API instead", ReplaceWith("getMangaDetails"))
     override fun fetchMangaDetails(manga: SManga): Observable<SManga> {
         return client.newCall(mangaDetailsRequest(manga))
             .asObservableSuccess()
@@ -239,11 +266,20 @@ abstract class HttpSource : CatalogueSource {
     protected abstract fun mangaDetailsParse(response: Response): SManga
 
     /**
-     * Returns an observable with the updated chapter list for a manga. Normally it's not needed to
-     * override this method.  If a manga is licensed an empty chapter list observable is returned
+     * Get all the available chapters for a manga. Normally it's not needed to override this method.
      *
-     * @param manga the manga to look for chapters.
+     * @param manga the manga to update.
+     * @throws LicensedMangaChaptersException if the manga is licensed and chapters are unavailable.
      */
+    @Suppress("DEPRECATION")
+    override suspend fun getChapterList(manga: SManga): List<SChapter> {
+        if (manga.status == SManga.LICENSED) {
+            throw LicensedMangaChaptersException()
+        }
+        return fetchChapterList(manga).awaitSingle()
+    }
+
+    @Deprecated("Use the non-RxJava API instead", ReplaceWith("getChapterList"))
     override fun fetchChapterList(manga: SManga): Observable<List<SChapter>> {
         return if (manga.status != SManga.LICENSED) {
             client.newCall(chapterListRequest(manga))
@@ -252,7 +288,7 @@ abstract class HttpSource : CatalogueSource {
                     chapterListParse(response)
                 }
         } else {
-            Observable.error(Exception("Licensed - No chapters to show"))
+            Observable.error(LicensedMangaChaptersException())
         }
     }
 
@@ -274,10 +310,16 @@ abstract class HttpSource : CatalogueSource {
     protected abstract fun chapterListParse(response: Response): List<SChapter>
 
     /**
-     * Returns an observable with the page list for a chapter.
+     * Get the page list for a chapter.
      *
      * @param chapter the chapter whose page list has to be fetched.
      */
+    @Suppress("DEPRECATION")
+    override suspend fun getPageList(chapter: SChapter): List<Page> {
+        return fetchPageList(chapter).awaitSingle()
+    }
+
+    @Deprecated("Use the non-RxJava API instead", ReplaceWith("getPageList"))
     override fun fetchPageList(chapter: SChapter): Observable<List<Page>> {
         return client.newCall(pageListRequest(chapter))
             .asObservableSuccess()
@@ -304,11 +346,17 @@ abstract class HttpSource : CatalogueSource {
     protected abstract fun pageListParse(response: Response): List<Page>
 
     /**
-     * Returns an observable with the page containing the source url of the image. If there's any
-     * error, it will return null instead of throwing an exception.
+     * Get the page containing the source url of the image.
      *
+     * @since extensions-lib 1.5
      * @param page the page whose source image has to be fetched.
      */
+    @Suppress("DEPRECATION")
+    open suspend fun getImageUrl(page: Page): String {
+        return fetchImageUrl(page).awaitSingle()
+    }
+
+    @Deprecated("Use the non-RxJava API instead", ReplaceWith("getImageUrl"))
     open fun fetchImageUrl(page: Page): Observable<String> {
         return client.newCall(imageUrlRequest(page))
             .asObservableSuccess()
@@ -333,10 +381,17 @@ abstract class HttpSource : CatalogueSource {
     protected abstract fun imageUrlParse(response: Response): String
 
     /**
-     * Returns an observable with the response of the source image.
+     * Get the response of the source image. Typically does not need to be overridden.
      *
+     * @since extensions-lib 1.5
      * @param page the page whose source image has to be downloaded.
      */
+    open suspend fun getImage(page: Page): Response {
+        return client.newCachelessCallWithProgress(imageRequest(page), page)
+            .awaitSuccess()
+    }
+
+    @Deprecated("Use the non-RxJava API instead", ReplaceWith("getImage"))
     open fun fetchImage(page: Page): Observable<Response> {
         return client.newCachelessCallWithProgress(imageRequest(page), page)
             .asObservableSuccess()

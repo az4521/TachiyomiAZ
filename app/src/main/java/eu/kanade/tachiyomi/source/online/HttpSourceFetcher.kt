@@ -4,7 +4,8 @@ import com.elvishew.xlog.XLog
 import eu.kanade.tachiyomi.source.model.Page
 import rx.Observable
 
-fun HttpSource.getImageUrl(page: Page): Observable<Page> {
+@Suppress("DEPRECATION")
+fun HttpSource.fetchImageUrlWithStatus(page: Page): Observable<Page> {
     page.status = Page.LOAD_PAGE
     return fetchImageUrl(page)
         .doOnError { page.status = Page.ERROR }
@@ -35,5 +36,5 @@ fun HttpSource.fetchAllImageUrlsFromPageList(pages: List<Page>): Observable<Page
 fun HttpSource.fetchRemainingImageUrlsFromPageList(pages: List<Page>): Observable<Page> {
     return Observable.from(pages)
         .filter { it.imageUrl.isNullOrEmpty() }
-        .concatMap { getImageUrl(it) }
+        .concatMap { fetchImageUrlWithStatus(it) }
 }

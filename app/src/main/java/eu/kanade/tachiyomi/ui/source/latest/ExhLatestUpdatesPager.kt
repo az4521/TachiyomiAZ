@@ -3,14 +3,13 @@ package eu.kanade.tachiyomi.ui.source.latest
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.model.MangasPage
 import eu.kanade.tachiyomi.ui.source.browse.Pager
-import eu.kanade.tachiyomi.util.lang.awaitSingle
 
 /**
  * ExhLatestUpdatesPager inherited from the Exh Pager.
  */
 class ExhLatestUpdatesPager(val source: CatalogueSource) : Pager() {
     override suspend fun requestNextPage() {
-        val mangasPage = source.fetchLatestUpdates(currentPage).awaitSingle()
+        val mangasPage = source.getLatestUpdates(currentPage)
         onPageReceived(mangasPage)
     }
 

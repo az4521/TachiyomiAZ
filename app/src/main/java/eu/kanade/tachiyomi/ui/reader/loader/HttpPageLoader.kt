@@ -10,6 +10,7 @@ import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import eu.kanade.tachiyomi.ui.reader.viewer.pager.PagerPageHolder
 import eu.kanade.tachiyomi.util.lang.plusAssign
+import eu.kanade.tachiyomi.util.lang.runAsObservable
 import eu.kanade.tachiyomi.util.system.ImageUtil
 import exh.EH_SOURCE_ID
 import exh.EXH_SOURCE_ID
@@ -108,7 +109,7 @@ class HttpPageLoader(
      */
     override fun getPages(): Observable<List<ReaderPage>> {
         return Observable.fromCallable { chapterCache.getPageListFromCache(chapter.chapter) }
-            .onErrorResumeNext { source.fetchPageList(chapter.chapter) }
+            .onErrorResumeNext { runAsObservable({ source.getPageList(chapter.chapter) }) }
             .map { pages ->
                 val rp =
                     pages.mapIndexed { index, page ->
@@ -239,13 +240,14 @@ class HttpPageLoader(
      */
     private fun HttpSource.fetchImageFromCacheThenNet(page: ReaderPage): Observable<ReaderPage> {
         return if (page.imageUrl.isNullOrEmpty()) {
-            getImageUrl(page).flatMap { getCachedImage(it) }
+            fetchPageImageUrl(page).flatMap { getCachedImage(it) }
         } else {
             getCachedImage(page)
         }
     }
 
-    private fun HttpSource.getImageUrl(page: ReaderPage): Observable<ReaderPage> {
+    @Suppress("DEPRECATION")
+    private fun HttpSource.fetchPageImageUrl(page: ReaderPage): Observable<ReaderPage> {
         page.status = Page.LOAD_PAGE
         return fetchImageUrl(page)
             .doOnError { page.status = Page.ERROR }

@@ -7,12 +7,10 @@ import eu.kanade.tachiyomi.data.cache.ChapterCache
 import eu.kanade.tachiyomi.data.database.DatabaseHelper
 import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.data.database.models.Manga
-import eu.kanade.tachiyomi.data.database.models.toMangaInfo
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.source.Source
-import eu.kanade.tachiyomi.source.model.toSChapter
 import eu.kanade.tachiyomi.ui.base.presenter.BasePresenter
 import eu.kanade.tachiyomi.util.chapter.syncChaptersWithSource
 import eu.kanade.tachiyomi.util.isLocal
@@ -203,10 +201,7 @@ class ChaptersPresenter(
         if (!fetchChaptersSubscription.isNullOrUnsubscribed()) return
         fetchChaptersSubscription =
             Observable.defer {
-                runAsObservable({
-                    source.getChapterList(manga.toMangaInfo())
-                        .map { it.toSChapter() }
-                })
+                runAsObservable({ source.getChapterList(manga) })
             }
                 .subscribeOn(Schedulers.io())
                 .map { syncChaptersWithSource(db, it, manga, source) }

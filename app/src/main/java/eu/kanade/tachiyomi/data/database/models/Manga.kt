@@ -1,7 +1,6 @@
 package eu.kanade.tachiyomi.data.database.models
 
 import eu.kanade.tachiyomi.source.model.SManga
-import tachiyomi.source.model.MangaInfo
 
 interface Manga : SManga {
     var id: Long?
@@ -107,15 +106,15 @@ interface Manga : SManga {
     }
 }
 
-fun Manga.toMangaInfo(): MangaInfo {
-    return MangaInfo(
-        artist = this.artist ?: "",
-        author = this.author ?: "",
-        cover = this.thumbnail_url ?: "",
-        description = this.description ?: "",
-        genres = this.getGenres() ?: emptyList(),
-        key = this.url,
-        status = this.status,
-        title = this.title
-    )
+fun Manga.toSManga(): SManga = SManga.create().also {
+    it.url = url
+    it.title = title
+    it.artist = artist
+    it.author = author
+    it.description = description
+    it.genre = genre
+    it.status = status
+    it.thumbnail_url = thumbnail_url
+    it.update_strategy = update_strategy
+    it.initialized = initialized
 }

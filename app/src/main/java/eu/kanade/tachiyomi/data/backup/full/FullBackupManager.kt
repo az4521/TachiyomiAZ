@@ -27,9 +27,7 @@ import eu.kanade.tachiyomi.data.database.models.History
 import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.data.database.models.MangaCategory
 import eu.kanade.tachiyomi.data.database.models.Track
-import eu.kanade.tachiyomi.data.database.models.toMangaInfo
 import eu.kanade.tachiyomi.source.Source
-import eu.kanade.tachiyomi.source.model.toSManga
 import eu.kanade.tachiyomi.source.online.LewdSource
 import eu.kanade.tachiyomi.util.lang.runAsObservable
 import exh.metadata.metadata.base.getFlatMetadataForManga
@@ -256,8 +254,8 @@ class FullBackupManager(context: Context) : AbstractBackupManager(context) {
     ): Observable<Manga> {
         return if (online && source != null) {
             return runAsObservable({
-                val networkManga = source.getMangaDetails(manga.toMangaInfo())
-                manga.copyFrom(networkManga.toSManga())
+                val networkManga = source.getMangaDetails(manga)
+                manga.copyFrom(networkManga)
                 manga.favorite = manga.favorite
                 manga.initialized = true
                 manga.id = insertManga(manga)

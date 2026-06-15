@@ -18,15 +18,12 @@ import com.bluelinelabs.conductor.changehandler.FadeChangeHandler
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.DatabaseHelper
 import eu.kanade.tachiyomi.data.database.models.Manga
-import eu.kanade.tachiyomi.data.database.models.toMangaInfo
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.databinding.MigrationListControllerBinding
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.source.model.SChapter
-import eu.kanade.tachiyomi.source.model.toSChapter
-import eu.kanade.tachiyomi.source.model.toSManga
 import eu.kanade.tachiyomi.ui.base.controller.BaseController
 import eu.kanade.tachiyomi.ui.base.controller.withFadeTransaction
 import eu.kanade.tachiyomi.ui.manga.MangaController
@@ -201,7 +198,7 @@ class MigrationListController(bundle: Bundle? = null) :
                                                         )
                                                     val chapters =
                                                         runAsObservable(
-                                                            { source.getChapterList(localManga.toMangaInfo()).map { it.toSChapter() } }
+                                                            { source.getChapterList(localManga) }
                                                         ).toSingle()
                                                             .await(
                                                                 Schedulers.io()
@@ -256,7 +253,7 @@ class MigrationListController(bundle: Bundle? = null) :
                                                 val chapters =
                                                     try {
                                                         runAsObservable(
-                                                            { source.getChapterList(localManga.toMangaInfo()).map { it.toSChapter() } }
+                                                            { source.getChapterList(localManga) }
                                                         ).toSingle()
                                                             .await(Schedulers.io())
                                                     } catch (e: java.lang.Exception) {
@@ -293,7 +290,7 @@ class MigrationListController(bundle: Bundle? = null) :
                 if (result != null && result.thumbnail_url == null) {
                     try {
                         val newManga =
-                            runAsObservable({ sourceManager.getOrStub(result.source).getMangaDetails(result.toMangaInfo()).toSManga() })
+                            runAsObservable({ sourceManager.getOrStub(result.source).getMangaDetails(result) })
                                 .toSingle().await()
                         result.copyFrom(newManga)
 
@@ -409,7 +406,7 @@ class MigrationListController(bundle: Bundle? = null) :
                     val localManga = smartSearchEngine.networkToLocalManga(manga, source.id)
                     try {
                         val chapters =
-                            runAsObservable({ source.getChapterList(localManga.toMangaInfo()).map { it.toSChapter() } }).toSingle().await(
+                            runAsObservable({ source.getChapterList(localManga) }).toSingle().await(
                                 Schedulers.io()
                             )
                         syncChaptersWithSource(db, chapters, localManga, source)
@@ -423,7 +420,7 @@ class MigrationListController(bundle: Bundle? = null) :
                 try {
                     val newManga =
                         runAsObservable(
-                            { sourceManager.getOrStub(result.source).getMangaDetails(result.toMangaInfo()).toSManga() }
+                            { sourceManager.getOrStub(result.source).getMangaDetails(result) }
                         ).toSingle()
                             .await()
                     result.copyFrom(newManga)

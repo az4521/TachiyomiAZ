@@ -12,7 +12,6 @@ import eu.kanade.tachiyomi.data.database.models.Category
 import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.data.database.models.LibraryManga
 import eu.kanade.tachiyomi.data.database.models.Manga
-import eu.kanade.tachiyomi.data.database.models.toMangaInfo
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.DownloadService
 import eu.kanade.tachiyomi.data.library.LibraryUpdateRanker.rankingScheme
@@ -23,8 +22,6 @@ import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.model.UpdateStrategy
-import eu.kanade.tachiyomi.source.model.toSChapter
-import eu.kanade.tachiyomi.source.model.toSManga
 import eu.kanade.tachiyomi.util.chapter.syncChaptersWithSource
 import eu.kanade.tachiyomi.util.lang.runAsObservable
 import eu.kanade.tachiyomi.util.prepUpdateCover
@@ -369,8 +366,7 @@ class LibraryUpdateService(
         if (preferences.autoUpdateMetadata()) {
             runAsObservable({
                 try {
-                    val updatedManga = source.getMangaDetails(manga.toMangaInfo())
-                    val sManga = updatedManga.toSManga()
+                    val sManga = source.getMangaDetails(manga)
                     // Avoid "losing" existing cover
                     if (!sManga.thumbnail_url.isNullOrEmpty()) {
                         manga.prepUpdateCover(coverCache, sManga, false)
@@ -390,10 +386,7 @@ class LibraryUpdateService(
                 .subscribe()
         }
 
-        return runAsObservable({
-            source.getChapterList(manga.toMangaInfo())
-                .map { it.toSChapter() }
-        })
+        return runAsObservable({ source.getChapterList(manga) })
             .map { syncChaptersWithSource(db, it, manga, source) }
     }
 
@@ -409,7 +402,7 @@ class LibraryUpdateService(
                 val source = sourceManager.get(manga.source)
 
                 // Update manga details metadata in the background
-                runAsObservable({ source?.getMangaDetails(manga.toMangaInfo())?.toSManga() })
+                runAsObservable({ source?.getMangaDetails(manga) })
                     .map { updatedManga ->
                         // Avoid "losing" existing cover
                         if (!updatedManga!!.thumbnail_url.isNullOrEmpty()) {
@@ -442,8 +435,7 @@ class LibraryUpdateService(
                         ?: return@flatMap Observable.empty<LibraryManga>()
 
                 runAsObservable({
-                    val networkManga = source.getMangaDetails(manga.toMangaInfo())
-                    val sManga = networkManga.toSManga()
+                    val sManga = source.getMangaDetails(manga)
                     manga.prepUpdateCover(coverCache, sManga, true)
                     sManga.thumbnail_url?.let {
                         manga.thumbnail_url = it

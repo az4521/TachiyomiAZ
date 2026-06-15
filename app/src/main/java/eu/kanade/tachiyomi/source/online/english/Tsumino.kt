@@ -27,12 +27,13 @@ class Tsumino(delegate: HttpSource) :
     override val lang = "en"
 
     // Support direct URL importing
+    @Suppress("DEPRECATION")
     override fun fetchSearchManga(
         page: Int,
         query: String,
         filters: FilterList
     ) = urlImportFetchSearchManga(query) {
-        super.fetchSearchManga(page, query, filters)
+        super<DelegatedHttpSource>.fetchSearchManga(page, query, filters)
     }
 
     override fun mapUrlToMangaUrl(uri: Uri): String? {

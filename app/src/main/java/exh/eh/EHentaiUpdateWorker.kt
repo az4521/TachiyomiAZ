@@ -40,7 +40,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import rx.schedulers.Schedulers
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
@@ -267,11 +266,11 @@ class EHentaiUpdateWorker : JobService(), CoroutineScope {
                 ?: throw GalleryNotUpdatedException(false, IllegalStateException("Missing EH-based source (${manga.source})!"))
 
         try {
-            val updatedManga = source.fetchMangaDetails(manga).toSingle().await(Schedulers.io())
+            val updatedManga = source.getMangaDetails(manga)
             manga.copyFrom(updatedManga)
             db.insertManga(manga).asRxSingle().await()
 
-            val newChapters = source.fetchChapterList(manga).toSingle().await(Schedulers.io())
+            val newChapters = source.getChapterList(manga)
             val (new, _) = syncChaptersWithSource(db, newChapters, manga, source) // Not suspending, but does block, maybe fix this?
             return new to db.getChapters(manga).await()
         } catch (t: Throwable) {

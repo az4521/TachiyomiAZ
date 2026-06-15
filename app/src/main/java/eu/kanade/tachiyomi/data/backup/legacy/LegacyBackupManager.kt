@@ -32,11 +32,9 @@ import eu.kanade.tachiyomi.data.database.models.MangaCategory
 import eu.kanade.tachiyomi.data.database.models.MangaImpl
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.database.models.TrackImpl
-import eu.kanade.tachiyomi.data.database.models.toMangaInfo
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.source.LocalSource
 import eu.kanade.tachiyomi.source.Source
-import eu.kanade.tachiyomi.source.model.toSManga
 import eu.kanade.tachiyomi.util.lang.runAsObservable
 import exh.savedsearches.JsonSavedSearch
 import kotlinx.serialization.decodeFromString
@@ -358,8 +356,8 @@ class LegacyBackupManager(context: Context, version: Int = CURRENT_VERSION) : Ab
         manga: Manga
     ): Observable<Manga> {
         return runAsObservable({
-            val networkManga = source.getMangaDetails(manga.toMangaInfo())
-            manga.copyFrom(networkManga.toSManga())
+            val networkManga = source.getMangaDetails(manga)
+            manga.copyFrom(networkManga)
             manga.favorite = true
             manga.initialized = true
             manga.id = insertManga(manga)

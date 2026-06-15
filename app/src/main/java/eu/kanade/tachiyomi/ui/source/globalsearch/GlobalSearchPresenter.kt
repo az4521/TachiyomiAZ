@@ -3,7 +3,6 @@ package eu.kanade.tachiyomi.ui.source.globalsearch
 import android.os.Bundle
 import eu.kanade.tachiyomi.data.database.DatabaseHelper
 import eu.kanade.tachiyomi.data.database.models.Manga
-import eu.kanade.tachiyomi.data.database.models.toMangaInfo
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.source.CatalogueSource
@@ -12,7 +11,6 @@ import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.MangasPage
 import eu.kanade.tachiyomi.source.model.SManga
-import eu.kanade.tachiyomi.source.model.toSManga
 import eu.kanade.tachiyomi.ui.base.presenter.BasePresenter
 import eu.kanade.tachiyomi.ui.source.browse.BrowseSourcePresenter
 import eu.kanade.tachiyomi.util.lang.runAsObservable
@@ -183,7 +181,7 @@ open class GlobalSearchPresenter(
             Observable.from(sources)
                 .flatMap(
                     { source ->
-                        Observable.defer { source.fetchSearchManga(1, query, FilterList()) }
+                        Observable.defer { runAsObservable({ source.getSearchManga(1, query, FilterList()) }) }
                             .subscribeOn(Schedulers.io())
                             .onErrorReturn { MangasPage(emptyList(), false) } // Ignore timeouts or other exceptions
                             .map { it.mangas.take(10) } // Get at most 10 manga from search result.
@@ -272,8 +270,8 @@ open class GlobalSearchPresenter(
         source: Source
     ): Observable<Manga> {
         return runAsObservable({
-            val networkManga = source.getMangaDetails(manga.toMangaInfo())
-            manga.copyFrom(networkManga.toSManga())
+            val networkManga = source.getMangaDetails(manga)
+            manga.copyFrom(networkManga)
             manga.initialized = true
             db.insertManga(manga).executeAsBlocking()
             manga

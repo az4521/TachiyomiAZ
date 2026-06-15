@@ -5,13 +5,11 @@ import com.jakewharton.rxrelay.BehaviorRelay
 import eu.kanade.tachiyomi.data.database.DatabaseHelper
 import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.data.database.models.MangaCategory
-import eu.kanade.tachiyomi.data.database.models.toMangaInfo
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.source.LocalSource
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.source.model.SChapter
-import eu.kanade.tachiyomi.source.model.toSChapter
 import eu.kanade.tachiyomi.ui.base.presenter.BasePresenter
 import eu.kanade.tachiyomi.util.chapter.syncChaptersWithSource
 import eu.kanade.tachiyomi.util.lang.combineLatest
@@ -92,10 +90,7 @@ class MigrationPresenter(
         state = state.copy(isReplacingManga = true)
 
         Observable.defer {
-            runAsObservable({
-                source.getChapterList(manga.toMangaInfo())
-                    .map { it.toSChapter() }
-            })
+            runAsObservable({ source.getChapterList(manga) })
         }
             .onErrorReturn { emptyList() }
             .doOnNext { it -> migrateMangaInternal(source, it, prevManga, manga, replace) }

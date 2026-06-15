@@ -19,6 +19,7 @@ import eu.kanade.tachiyomi.util.lang.RetryWithDelay
 import eu.kanade.tachiyomi.util.lang.launchNow
 import eu.kanade.tachiyomi.util.lang.launchUI
 import eu.kanade.tachiyomi.util.lang.plusAssign
+import eu.kanade.tachiyomi.util.lang.runAsObservable
 import eu.kanade.tachiyomi.util.storage.DiskUtil
 import eu.kanade.tachiyomi.util.storage.saveTo
 import eu.kanade.tachiyomi.util.system.ImageUtil
@@ -293,7 +294,7 @@ class Downloader(
             val pageListObservable =
                 if (download.pages == null) {
                     // Pull page list from network and add them to download object
-                    download.source.fetchPageList(download.chapter)
+                    runAsObservable({ download.source.getPageList(download.chapter) })
                         .doOnNext { pages ->
                             if (pages.isEmpty()) {
                                 throw Exception(context.getString(R.string.page_list_empty_error))
@@ -408,7 +409,7 @@ class Downloader(
         return /* SY --> If the source is E-Hentai request a new page if null */ Observable.just(Unit)
             .flatMap {
                 if (page.imageUrl == null && source.isEhBasedSource()) {
-                    source.fetchImageUrl(page)
+                    runAsObservable({ source.getImageUrl(page) })
                 } else {
                     Observable.just(null)
                 }
@@ -417,7 +418,7 @@ class Downloader(
                 if (imageUrl != null) page.imageUrl = imageUrl
             }
             .flatMap {
-                source.fetchImage(page)
+                runAsObservable({ source.getImage(page) })
             }
             // SY <--
             .map { response ->

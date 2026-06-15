@@ -4,38 +4,29 @@ import android.util.Log
 import com.elvishew.xlog.XLog
 import eu.kanade.tachiyomi.data.database.DatabaseHelper
 import eu.kanade.tachiyomi.data.database.models.Manga
-import eu.kanade.tachiyomi.data.database.models.toMangaInfo
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
-import eu.kanade.tachiyomi.source.model.toSChapter
 import eu.kanade.tachiyomi.source.online.HttpSource
-import eu.kanade.tachiyomi.util.lang.runAsObservable
 import exh.MERGED_SOURCE_ID
-import exh.util.await
-import hu.akarnokd.rxjava.interop.RxJavaInterop
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.asFlow
-import kotlinx.coroutines.flow.buffer
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
-import kotlinx.coroutines.rx2.asFlowable
-import kotlinx.coroutines.rx2.asSingle
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import okhttp3.Response
-import rx.Observable
-import rx.schedulers.Schedulers
 import uy.kohesive.injekt.injectLazy
 
 // TODO LocalSource compatibility
@@ -66,76 +57,66 @@ class MergedSource : HttpSource() {
 
     override fun latestUpdatesParse(response: Response) = throw UnsupportedOperationException()
 
-    override fun fetchMangaDetails(manga: SManga): Observable<SManga> {
-        return RxJavaInterop.toV1Observable(
-            readMangaConfig(manga).load(db, sourceManager).take(1).map { loaded ->
-                SManga.create().apply {
-                    this.copyFrom(loaded.manga)
-                    url = manga.url
-                }
-            }.asFlowable()
-        )
+    override suspend fun getMangaDetails(manga: SManga): SManga {
+        val loaded = readMangaConfig(manga).load(db, sourceManager).first()
+        return SManga.create().apply {
+            this.copyFrom(loaded.manga)
+            url = manga.url
+        }
     }
 
-    override fun fetchChapterList(manga: SManga): Observable<List<SChapter>> {
-        return RxJavaInterop.toV1Single(
-            GlobalScope.async(Dispatchers.IO) {
-                val loadedMangas = readMangaConfig(manga).load(db, sourceManager).buffer()
-                loadedMangas.map { loadedManga ->
-                    async(Dispatchers.IO) {
-                        runAsObservable(
-                            { loadedManga.source.getChapterList(loadedManga.manga.toMangaInfo()).map { it.toSChapter() } }
-                        ).map {
-                                chapterList ->
-                            chapterList.map { chapter ->
-                                chapter.apply {
-                                    url = writeUrlConfig(UrlConfig(loadedManga.source.id, url, loadedManga.manga.url))
-                                }
+    override suspend fun getChapterList(manga: SManga): List<SChapter> = withContext(Dispatchers.IO) {
+        coroutineScope {
+            readMangaConfig(manga).load(db, sourceManager)
+                .toList()
+                .map { loadedManga ->
+                    async {
+                        loadedManga.source.getChapterList(loadedManga.manga).map { chapter ->
+                            chapter.apply {
+                                url = writeUrlConfig(UrlConfig(loadedManga.source.id, url, loadedManga.manga.url))
                             }
-                        }.toSingle().await(Schedulers.io())
+                        }
                     }
-                }.buffer().map { it.await() }.toList().flatten()
-            }.asSingle(Dispatchers.IO)
-        ).toObservable()
+                }
+                .map { it.await() }
+                .flatten()
+        }
     }
 
     override fun mangaDetailsParse(response: Response) = throw UnsupportedOperationException()
 
     override fun chapterListParse(response: Response) = throw UnsupportedOperationException()
 
-    override fun fetchPageList(chapter: SChapter): Observable<List<Page>> {
+    override suspend fun getPageList(chapter: SChapter): List<Page> {
         val config = readUrlConfig(chapter.url)
         val source = sourceManager.getOrStub(config.source)
-        return source.fetchPageList(
+        val pages = source.getPageList(
             SChapter.create().apply {
                 copyFrom(chapter)
                 url = config.url
             }
-        ).map { pages ->
-            pages.map { page ->
-                page.copyWithUrl(writeUrlConfig(UrlConfig(config.source, page.url, config.mangaUrl)))
-            }
+        )
+        return pages.map { page ->
+            page.copyWithUrl(writeUrlConfig(UrlConfig(config.source, page.url, config.mangaUrl)))
         }
     }
 
-    override fun fetchImageUrl(page: Page): Observable<String> {
+    override suspend fun getImageUrl(page: Page): String {
         val config = readUrlConfig(page.url)
-        val source =
-            sourceManager.getOrStub(config.source) as? HttpSource
-                ?: throw UnsupportedOperationException("This source does not support this operation!")
-        return source.fetchImageUrl(page.copyWithUrl(config.url))
+        val source = sourceManager.getOrStub(config.source) as? HttpSource
+            ?: throw UnsupportedOperationException("This source does not support this operation!")
+        return source.getImageUrl(page.copyWithUrl(config.url))
     }
 
     override fun pageListParse(response: Response) = throw UnsupportedOperationException()
 
     override fun imageUrlParse(response: Response) = throw UnsupportedOperationException()
 
-    override fun fetchImage(page: Page): Observable<Response> {
+    override suspend fun getImage(page: Page): Response {
         val config = readUrlConfig(page.url)
-        val source =
-            sourceManager.getOrStub(config.source) as? HttpSource
-                ?: throw UnsupportedOperationException("This source does not support this operation!")
-        return source.fetchImage(page.copyWithUrl(config.url))
+        val source = sourceManager.getOrStub(config.source) as? HttpSource
+            ?: throw UnsupportedOperationException("This source does not support this operation!")
+        return source.getImage(page.copyWithUrl(config.url))
     }
 
     override fun prepareNewChapter(

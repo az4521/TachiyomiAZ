@@ -10,7 +10,6 @@ import eu.kanade.tachiyomi.data.database.models.Category
 import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.data.database.models.MangaCategory
-import eu.kanade.tachiyomi.data.database.models.toMangaInfo
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.source.LocalSource
@@ -18,7 +17,6 @@ import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
-import eu.kanade.tachiyomi.source.model.toSChapter
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.ui.base.presenter.BasePresenter
 import eu.kanade.tachiyomi.ui.migration.MigrationFlags
@@ -496,7 +494,7 @@ class LibraryPresenter(
 
         // state = state.copy(isReplacingManga = true)
 
-        Observable.defer { runAsObservable({ source.getChapterList(manga.toMangaInfo()).map { it.toSChapter() } }) }
+        Observable.defer { runAsObservable({ source.getChapterList(manga) }) }
             .onErrorReturn { emptyList() }
             .doOnNext { migrateMangaInternal(source, it, prevManga, manga, replace) }
             .onErrorReturn { emptyList() }

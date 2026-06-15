@@ -34,12 +34,13 @@ class HentaiCafe(delegate: HttpSource) :
     override val metaClass = HentaiCafeSearchMetadata::class
 
     // Support direct URL importing
+    @Suppress("DEPRECATION")
     override fun fetchSearchManga(
         page: Int,
         query: String,
         filters: FilterList
     ) = urlImportFetchSearchManga(query) {
-        super.fetchSearchManga(page, query, filters)
+        super<DelegatedHttpSource>.fetchSearchManga(page, query, filters)
     }
 
     override fun fetchMangaDetails(manga: SManga): Observable<SManga> {

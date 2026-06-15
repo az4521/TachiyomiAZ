@@ -91,19 +91,11 @@ object DebugFunctions {
 
             for (manga in allManga) {
                 throttleManager.throttle()
-                if (manga.source == EH_SOURCE_ID) {
-                    eh.fetchMangaDetails(manga).map { networkManga ->
-                        manga.copyFrom(networkManga)
-                        manga.initialized = true
-                        db.insertManga(manga).executeAsBlocking()
-                    }
-                } else if (manga.source == EXH_SOURCE_ID) {
-                    ex.fetchMangaDetails(manga).map { networkManga ->
-                        manga.copyFrom(networkManga)
-                        manga.initialized = true
-                        db.insertManga(manga).executeAsBlocking()
-                    }
-                }
+                val source = if (manga.source == EH_SOURCE_ID) eh else ex
+                val networkManga = source.getMangaDetails(manga)
+                manga.copyFrom(networkManga)
+                manga.initialized = true
+                db.insertManga(manga).executeAsBlocking()
             }
         }
     }

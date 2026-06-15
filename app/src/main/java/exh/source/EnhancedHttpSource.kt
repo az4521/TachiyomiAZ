@@ -132,73 +132,43 @@ class EnhancedHttpSource(
      */
     override fun toString() = source().toString()
 
-    /**
-     * Returns an observable containing a page with a list of manga. Normally it's not needed to
-     * override this method.
-     *
-     * @param page the page number to retrieve.
-     */
+    @Suppress("DEPRECATION")
+    @Deprecated("Use the non-RxJava API instead", ReplaceWith("getPopularManga"))
     override fun fetchPopularManga(page: Int) = source().fetchPopularManga(page)
 
-    /**
-     * Returns an observable containing a page with a list of manga. Normally it's not needed to
-     * override this method.
-     *
-     * @param page the page number to retrieve.
-     * @param query the search query.
-     * @param filters the list of filters to apply.
-     */
+    override suspend fun getPopularManga(page: Int) = source().getPopularManga(page)
+
+    @Suppress("DEPRECATION")
+    @Deprecated("Use the non-RxJava API instead", ReplaceWith("getSearchManga"))
     override fun fetchSearchManga(
         page: Int,
         query: String,
         filters: FilterList
     ) = source().fetchSearchManga(page, query, filters)
 
-    /**
-     * Returns an observable containing a page with a list of latest manga updates.
-     *
-     * @param page the page number to retrieve.
-     */
+    override suspend fun getSearchManga(
+        page: Int,
+        query: String,
+        filters: FilterList
+    ) = source().getSearchManga(page, query, filters)
+
+    @Suppress("DEPRECATION")
+    @Deprecated("Use the non-RxJava API instead", ReplaceWith("getLatestUpdates"))
     override fun fetchLatestUpdates(page: Int) = source().fetchLatestUpdates(page)
 
-    /**
-     * Returns an observable with the updated details for a manga. Normally it's not needed to
-     * override this method.
-     *
-     * @param manga the manga to be updated.
-     */
-    override fun fetchMangaDetails(manga: SManga) = source().fetchMangaDetails(manga)
+    override suspend fun getLatestUpdates(page: Int) = source().getLatestUpdates(page)
 
-    /**
-     * Returns the request for the details of a manga. Override only if it's needed to change the
-     * url, send different headers or request method like POST.
-     *
-     * @param manga the manga to be updated.
-     */
+    override suspend fun getMangaDetails(manga: SManga) = source().getMangaDetails(manga)
+
     override fun mangaDetailsRequest(manga: SManga) = source().mangaDetailsRequest(manga)
 
-    /**
-     * Returns an observable with the updated chapter list for a manga. Normally it's not needed to
-     * override this method.  If a manga is licensed an empty chapter list observable is returned
-     *
-     * @param manga the manga to look for chapters.
-     */
-    override fun fetchChapterList(manga: SManga) = source().fetchChapterList(manga)
+    override suspend fun getChapterList(manga: SManga) = source().getChapterList(manga)
 
-    /**
-     * Returns an observable with the page list for a chapter.
-     *
-     * @param chapter the chapter whose page list has to be fetched.
-     */
-    override fun fetchPageList(chapter: SChapter) = source().fetchPageList(chapter)
+    override suspend fun getPageList(chapter: SChapter) = source().getPageList(chapter)
 
-    /**
-     * Returns an observable with the page containing the source url of the image. If there's any
-     * error, it will return null instead of throwing an exception.
-     *
-     * @param page the page whose source image has to be fetched.
-     */
-    override fun fetchImageUrl(page: Page) = source().fetchImageUrl(page)
+    override suspend fun getImageUrl(page: Page) = source().getImageUrl(page)
+
+    override suspend fun getImage(page: Page) = source().getImage(page)
 
     /**
      * Called before inserting a new chapter into database. Use it if you need to override chapter
