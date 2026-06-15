@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.data.database.models
 
 import eu.kanade.tachiyomi.source.model.UpdateStrategy
+import kotlinx.serialization.json.JsonObject
 
 open class MangaImpl : Manga {
     override var id: Long? = null
@@ -38,6 +39,8 @@ open class MangaImpl : Manga {
     override var cover_last_modified: Long = 0
 
     override var update_strategy: UpdateStrategy = UpdateStrategy.ALWAYS_UPDATE
+
+    override var memo: JsonObject = JsonObject(emptyMap())
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true

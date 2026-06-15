@@ -143,6 +143,8 @@ abstract class DelegatedHttpSource(val delegate: HttpSource) : HttpSource() {
     /**
      * Called before inserting a new chapter into database.
      */
+    @Suppress("DEPRECATION")
+    @Deprecated("All modifications should be done when constructing the chapter")
     override fun prepareNewChapter(
         chapter: SChapter,
         manga: SManga

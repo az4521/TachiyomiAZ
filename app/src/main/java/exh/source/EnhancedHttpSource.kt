@@ -177,6 +177,8 @@ class EnhancedHttpSource(
      * @param chapter the chapter to be added.
      * @param manga the manga of the chapter.
      */
+    @Suppress("DEPRECATION")
+    @Deprecated("All modifications should be done when constructing the chapter")
     override fun prepareNewChapter(
         chapter: SChapter,
         manga: SManga

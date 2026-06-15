@@ -64,6 +64,7 @@ fun syncChaptersWithSource(
         } else {
             // this forces metadata update for the main viewable things in the chapter list
             if (source is HttpSource) {
+                @Suppress("DEPRECATION")
                 source.prepareNewChapter(sourceChapter, manga)
             }
 
@@ -85,6 +86,7 @@ fun syncChaptersWithSource(
     // Recognize number for new chapters.
     toAdd.forEach {
         if (source is HttpSource) {
+            @Suppress("DEPRECATION")
             source.prepareNewChapter(it, manga)
         }
         ChapterRecognition.parseChapterNumber(it, manga)

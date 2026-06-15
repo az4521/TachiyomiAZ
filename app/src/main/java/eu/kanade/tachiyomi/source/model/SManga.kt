@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.source.model
 
+import kotlinx.serialization.json.JsonObject
 import java.io.Serializable
 
 interface SManga : Serializable {
@@ -7,21 +8,86 @@ interface SManga : Serializable {
 
     var title: String
 
+    /**
+     * Alternative titles for the manga (official translations, romanizations, etc.).
+     *
+     * @since tachiyomix 1.6
+     */
+    var altTitles: List<String>
+        get() = emptyList()
+        set(_) {}
+
     var artist: String?
 
     var author: String?
+
+    /**
+     * URL of the manga's banner image, typically a wide image shown in headers. May be null.
+     *
+     * @since tachiyomix 1.6
+     */
+    var banner: String?
+        get() = null
+        set(_) {}
 
     var description: String?
 
     var genre: String?
 
+    /**
+     * Manga genres in list form. Bridges to [genre] (comma separated) so existing storage and
+     * sources that only set [genre] keep working.
+     *
+     * @since tachiyomix 1.6
+     */
+    var genres: List<String>
+        get() = genre?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() }.orEmpty()
+        set(value) { genre = value.joinToString(", ").ifBlank { null } }
+
     var status: Int
+
+    /**
+     * Age or content rating for the manga. Defaults to [ContentRating.SAFE].
+     *
+     * @since tachiyomix 1.6
+     */
+    var contentRating: ContentRating
+        get() = ContentRating.SAFE
+        set(_) {}
+
+    /**
+     * Source-provided rating score as a percentile (0-100), or null if unavailable.
+     *
+     * @since tachiyomix 1.6
+     */
+    var score: Int?
+        get() = null
+        set(_) {}
+
+    /**
+     * Preferred reading mode provided by the source, or null if the source mixes modes.
+     *
+     * @since tachiyomix 1.6
+     */
+    var readingMode: ReadingMode?
+        get() = null
+        set(_) {}
 
     var thumbnail_url: String?
 
     var update_strategy: UpdateStrategy
 
     var initialized: Boolean
+
+    /**
+     * Extra metadata associated with the manga. Not visible to users; intended for
+     * internal or source-specific purposes (apps may use namespaced keys like "mihon.*").
+     *
+     * @since tachiyomix 1.6
+     */
+    var memo: JsonObject
+        get() = JsonObject(emptyMap())
+        set(_) {}
 
     fun copyFrom(other: SManga) {
         // EXH -->
@@ -46,9 +112,27 @@ interface SManga : Serializable {
             genre = other.genre
         }
 
+        if (other.altTitles.isNotEmpty()) {
+            altTitles = other.altTitles
+        }
+
+        if (other.banner != null) {
+            banner = other.banner
+        }
+
         if (other.thumbnail_url != null) {
             thumbnail_url = other.thumbnail_url
         }
+
+        if (other.score != null) {
+            score = other.score
+        }
+
+        if (other.readingMode != null) {
+            readingMode = other.readingMode
+        }
+
+        contentRating = other.contentRating
 
         status = other.status
 
@@ -57,6 +141,18 @@ interface SManga : Serializable {
         if (!initialized) {
             initialized = other.initialized
         }
+    }
+
+    enum class ContentRating {
+        SAFE,
+        SUGGESTIVE,
+        ADULT
+    }
+
+    enum class ReadingMode {
+        RIGHT_TO_LEFT,
+        LEFT_TO_RIGHT,
+        LONG_STRIP
     }
 
     companion object {

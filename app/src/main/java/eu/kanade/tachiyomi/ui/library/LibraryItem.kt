@@ -140,7 +140,7 @@ class LibraryItem(val manga: LibraryManga, private val libraryDisplayMode: Prefe
     }
 
     private fun ehContainsGenre(constraint: String): Boolean {
-        val genres = manga.getGenres()
+        val genres = manga.genres
         val raisedTags =
             if (source?.isNamespaceSource() == true) {
                 manga.getRaisedTags(genres)

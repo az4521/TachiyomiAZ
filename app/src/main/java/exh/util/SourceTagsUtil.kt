@@ -63,7 +63,7 @@ class SourceTagsUtil {
     }
 
     companion object {
-        fun Manga.getRaisedTags(genres: List<String>? = null): List<RaisedTag>? = (genres ?: this.getGenres())?.map { parseTag(it) }
+        fun Manga.getRaisedTags(genres: List<String>? = null): List<RaisedTag>? = (genres ?: this.genres).map { parseTag(it) }
 
         fun parseTag(tag: String) =
             RaisedTag(

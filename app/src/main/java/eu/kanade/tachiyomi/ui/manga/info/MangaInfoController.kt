@@ -390,7 +390,7 @@ class MangaInfoController(private val fromSource: Boolean = false) :
 
         // Update genres list
         if (!manga.genre.isNullOrBlank()) {
-            binding.mangaGenresTags.setChipsExtended(manga.getGenres(), this::performSearch, this::performGlobalSearch, manga.source)
+            binding.mangaGenresTags.setChipsExtended(manga.genres, this::performSearch, this::performGlobalSearch, manga.source)
         }
 
         binding.mangaSummary.text =

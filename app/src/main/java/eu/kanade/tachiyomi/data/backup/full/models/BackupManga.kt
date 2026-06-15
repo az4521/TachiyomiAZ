@@ -81,7 +81,7 @@ data class BackupManga(
                 artist = manga.artist,
                 author = manga.author,
                 description = manga.description,
-                genre = manga.getGenres() ?: emptyList(),
+                genre = manga.genres,
                 status = manga.status,
                 thumbnailUrl = manga.thumbnail_url,
                 favorite = manga.favorite,

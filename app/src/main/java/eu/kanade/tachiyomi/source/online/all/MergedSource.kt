@@ -119,6 +119,8 @@ class MergedSource : HttpSource() {
         return source.getImage(page.copyWithUrl(config.url))
     }
 
+    @Suppress("DEPRECATION")
+    @Deprecated("All modifications should be done when constructing the chapter")
     override fun prepareNewChapter(
         chapter: SChapter,
         manga: SManga
