@@ -5,6 +5,7 @@ import eu.kanade.tachiyomi.source.model.MangasPage
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
+import eu.kanade.tachiyomi.source.model.SMangaUpdate
 import eu.kanade.tachiyomi.source.online.HttpSource
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -123,6 +124,16 @@ abstract class DelegatedHttpSource(val delegate: HttpSource) : HttpSource() {
     override suspend fun getChapterList(manga: SManga): List<SChapter> {
         ensureDelegateCompatible()
         return delegate.getChapterList(manga)
+    }
+
+    override suspend fun getMangaUpdate(
+        manga: SManga,
+        chapters: List<SChapter>,
+        fetchDetails: Boolean,
+        fetchChapters: Boolean
+    ): SMangaUpdate {
+        ensureDelegateCompatible()
+        return delegate.getMangaUpdate(manga, chapters, fetchDetails, fetchChapters)
     }
 
     override suspend fun getPageList(chapter: SChapter): List<Page> {

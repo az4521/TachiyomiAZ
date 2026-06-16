@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.data.backup.full.models
 
+import eu.kanade.tachiyomi.data.database.memoColumnAdapter
 import eu.kanade.tachiyomi.data.database.models.ChapterImpl
 import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.data.database.models.MangaImpl
@@ -39,6 +40,8 @@ data class BackupManga(
     @ProtoNumber(102) var brokenHistory: List<BrokenBackupHistory> = emptyList(),
     @ProtoNumber(104) var history: List<BackupHistory> = emptyList(),
     @ProtoNumber(105) var updateStrategy: UpdateStrategy = UpdateStrategy.ALWAYS_UPDATE,
+    // memo holds the manga's extra JSON metadata serialized as text (extlib 1.6)
+    @ProtoNumber(112) var memo: String = "",
     // SY specific values
     @ProtoNumber(601) var flatMetadata: BackupFlatMetadata? = null
 ) {
@@ -58,6 +61,7 @@ data class BackupManga(
             viewer = this@BackupManga.viewer
             chapter_flags = this@BackupManga.chapterFlags
             update_strategy = this@BackupManga.updateStrategy
+            memo = memoColumnAdapter.decode(this@BackupManga.memo)
         }
     }
 
@@ -89,7 +93,8 @@ data class BackupManga(
                 dateAdded = manga.date_added,
                 viewer = manga.viewer,
                 chapterFlags = manga.chapter_flags,
-                updateStrategy = manga.update_strategy
+                updateStrategy = manga.update_strategy,
+                memo = memoColumnAdapter.encode(manga.memo)
             )
         }
     }

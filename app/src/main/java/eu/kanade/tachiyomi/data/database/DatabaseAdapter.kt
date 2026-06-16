@@ -1,6 +1,9 @@
 package eu.kanade.tachiyomi.data.database
 
 import eu.kanade.tachiyomi.source.model.UpdateStrategy
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonObject
 import java.util.Date
 
 val dateAdapter =
@@ -30,6 +33,26 @@ val updateStrategyAdapter =
         override fun decode(databaseValue: Int): UpdateStrategy = enumValues.getOrElse(databaseValue) { UpdateStrategy.ALWAYS_UPDATE }
 
         override fun encode(value: UpdateStrategy): Int = value.ordinal
+    }
+
+private val memoJson = Json { ignoreUnknownKeys = true }
+
+/**
+ * Stores a [JsonObject] memo as its serialized JSON text. An empty object is stored as an
+ * empty string so existing rows (migrated with a default of '') decode cleanly.
+ */
+val memoColumnAdapter =
+    object : ColumnAdapter<JsonObject, String> {
+        override fun decode(databaseValue: String): JsonObject =
+            if (databaseValue.isBlank()) {
+                JsonObject(emptyMap())
+            } else {
+                runCatching { memoJson.parseToJsonElement(databaseValue).jsonObject }
+                    .getOrDefault(JsonObject(emptyMap()))
+            }
+
+        override fun encode(value: JsonObject): String =
+            if (value.isEmpty()) "" else memoJson.encodeToString(JsonObject.serializer(), value)
     }
 
 interface ColumnAdapter<T : Any, S> {

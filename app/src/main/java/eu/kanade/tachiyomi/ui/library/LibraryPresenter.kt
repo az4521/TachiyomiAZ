@@ -494,7 +494,7 @@ class LibraryPresenter(
 
         // state = state.copy(isReplacingManga = true)
 
-        Observable.defer { runAsObservable({ source.getChapterList(manga) }) }
+        Observable.defer { runAsObservable({ source.getMangaUpdate(manga, emptyList(), fetchDetails = false, fetchChapters = true).chapters }) }
             .onErrorReturn { emptyList() }
             .doOnNext { migrateMangaInternal(source, it, prevManga, manga, replace) }
             .onErrorReturn { emptyList() }

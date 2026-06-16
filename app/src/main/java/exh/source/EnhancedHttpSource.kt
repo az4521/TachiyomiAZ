@@ -164,6 +164,13 @@ class EnhancedHttpSource(
 
     override suspend fun getChapterList(manga: SManga) = source().getChapterList(manga)
 
+    override suspend fun getMangaUpdate(
+        manga: SManga,
+        chapters: List<SChapter>,
+        fetchDetails: Boolean,
+        fetchChapters: Boolean
+    ) = source().getMangaUpdate(manga, chapters, fetchDetails, fetchChapters)
+
     override suspend fun getPageList(chapter: SChapter) = source().getPageList(chapter)
 
     override suspend fun getImageUrl(page: Page) = source().getImageUrl(page)

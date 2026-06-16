@@ -92,7 +92,7 @@ object DebugFunctions {
             for (manga in allManga) {
                 throttleManager.throttle()
                 val source = if (manga.source == EH_SOURCE_ID) eh else ex
-                val networkManga = source.getMangaDetails(manga)
+                val networkManga = source.getMangaUpdate(manga, emptyList(), fetchDetails = true, fetchChapters = false).manga
                 manga.copyFrom(networkManga)
                 manga.initialized = true
                 db.insertManga(manga).executeAsBlocking()

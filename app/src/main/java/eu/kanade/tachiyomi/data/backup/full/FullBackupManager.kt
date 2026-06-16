@@ -254,7 +254,7 @@ class FullBackupManager(context: Context) : AbstractBackupManager(context) {
     ): Observable<Manga> {
         return if (online && source != null) {
             return runAsObservable({
-                val networkManga = source.getMangaDetails(manga)
+                val networkManga = source.getMangaUpdate(manga, emptyList(), fetchDetails = true, fetchChapters = false).manga
                 manga.copyFrom(networkManga)
                 manga.favorite = manga.favorite
                 manga.initialized = true

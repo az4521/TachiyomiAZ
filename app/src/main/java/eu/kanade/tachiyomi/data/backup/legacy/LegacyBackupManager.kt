@@ -356,7 +356,7 @@ class LegacyBackupManager(context: Context, version: Int = CURRENT_VERSION) : Ab
         manga: Manga
     ): Observable<Manga> {
         return runAsObservable({
-            val networkManga = source.getMangaDetails(manga)
+            val networkManga = source.getMangaUpdate(manga, emptyList(), fetchDetails = true, fetchChapters = false).manga
             manga.copyFrom(networkManga)
             manga.favorite = true
             manga.initialized = true

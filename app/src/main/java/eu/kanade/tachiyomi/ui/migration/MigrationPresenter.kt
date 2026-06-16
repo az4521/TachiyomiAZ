@@ -90,7 +90,7 @@ class MigrationPresenter(
         state = state.copy(isReplacingManga = true)
 
         Observable.defer {
-            runAsObservable({ source.getChapterList(manga) })
+            runAsObservable({ source.getMangaUpdate(manga, emptyList(), fetchDetails = false, fetchChapters = true).chapters })
         }
             .onErrorReturn { emptyList() }
             .doOnNext { it -> migrateMangaInternal(source, it, prevManga, manga, replace) }

@@ -266,11 +266,11 @@ class EHentaiUpdateWorker : JobService(), CoroutineScope {
                 ?: throw GalleryNotUpdatedException(false, IllegalStateException("Missing EH-based source (${manga.source})!"))
 
         try {
-            val updatedManga = source.getMangaDetails(manga)
+            val updatedManga = source.getMangaUpdate(manga, emptyList(), fetchDetails = true, fetchChapters = false).manga
             manga.copyFrom(updatedManga)
             db.insertManga(manga).asRxSingle().await()
 
-            val newChapters = source.getChapterList(manga)
+            val newChapters = source.getMangaUpdate(manga, emptyList(), fetchDetails = false, fetchChapters = true).chapters
             val (new, _) = syncChaptersWithSource(db, newChapters, manga, source) // Not suspending, but does block, maybe fix this?
             return new to db.getChapters(manga).await()
         } catch (t: Throwable) {

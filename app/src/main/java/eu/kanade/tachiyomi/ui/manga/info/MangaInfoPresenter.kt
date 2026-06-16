@@ -87,7 +87,7 @@ class MangaInfoPresenter(
         fetchMangaSubscription =
             Observable.defer {
                 runAsObservable({
-                    val sManga = source.getMangaDetails(manga)
+                    val sManga = source.getMangaUpdate(manga, emptyList(), fetchDetails = true, fetchChapters = false).manga
                     manga.prepUpdateCover(coverCache, sManga, manualFetch)
                     manga.copyFrom(sManga)
                     manga.initialized = true

@@ -43,6 +43,8 @@ object MangaTable {
 
     const val COL_UPDATE_STRATEGY = "update_strategy"
 
+    const val COL_MEMO = "memo"
+
     val createTableQuery: String
         get() =
             """CREATE TABLE $TABLE(
@@ -63,7 +65,8 @@ object MangaTable {
             $COL_CHAPTER_FLAGS INTEGER NOT NULL,
             $COL_COVER_LAST_MODIFIED LONG NOT NULL,
             $COL_DATE_ADDED LONG NOT NULL,
-            $COL_UPDATE_STRATEGY INTEGER NOT NULL DEFAULT 0
+            $COL_UPDATE_STRATEGY INTEGER NOT NULL DEFAULT 0,
+            $COL_MEMO TEXT NOT NULL DEFAULT ''
             )"""
 
     val createUrlIndexQuery: String
@@ -93,4 +96,7 @@ object MangaTable {
 
     val addUpdateStrategy: String
         get() = "ALTER TABLE $TABLE ADD COLUMN $COL_UPDATE_STRATEGY INTEGER NOT NULL DEFAULT 0"
+
+    val addMemo: String
+        get() = "ALTER TABLE $TABLE ADD COLUMN $COL_MEMO TEXT NOT NULL DEFAULT ''"
 }

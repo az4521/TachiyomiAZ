@@ -9,6 +9,7 @@ import com.pushtorefresh.storio.sqlite.operations.put.DefaultPutResolver
 import com.pushtorefresh.storio.sqlite.queries.DeleteQuery
 import com.pushtorefresh.storio.sqlite.queries.InsertQuery
 import com.pushtorefresh.storio.sqlite.queries.UpdateQuery
+import eu.kanade.tachiyomi.data.database.memoColumnAdapter
 import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.data.database.models.ChapterImpl
 import eu.kanade.tachiyomi.data.database.tables.ChapterTable.COL_BOOKMARK
@@ -18,6 +19,7 @@ import eu.kanade.tachiyomi.data.database.tables.ChapterTable.COL_DATE_UPLOAD
 import eu.kanade.tachiyomi.data.database.tables.ChapterTable.COL_ID
 import eu.kanade.tachiyomi.data.database.tables.ChapterTable.COL_LAST_PAGE_READ
 import eu.kanade.tachiyomi.data.database.tables.ChapterTable.COL_MANGA_ID
+import eu.kanade.tachiyomi.data.database.tables.ChapterTable.COL_MEMO
 import eu.kanade.tachiyomi.data.database.tables.ChapterTable.COL_NAME
 import eu.kanade.tachiyomi.data.database.tables.ChapterTable.COL_READ
 import eu.kanade.tachiyomi.data.database.tables.ChapterTable.COL_SCANLATOR
@@ -45,7 +47,7 @@ class ChapterPutResolver : DefaultPutResolver<Chapter>() {
             .build()
 
     override fun mapToContentValues(obj: Chapter) =
-        ContentValues(11).apply {
+        ContentValues(13).apply {
             put(COL_ID, obj.id)
             put(COL_MANGA_ID, obj.manga_id)
             put(COL_URL, obj.url)
@@ -58,6 +60,7 @@ class ChapterPutResolver : DefaultPutResolver<Chapter>() {
             put(COL_LAST_PAGE_READ, obj.last_page_read)
             put(COL_CHAPTER_NUMBER, obj.chapter_number)
             put(COL_SOURCE_ORDER, obj.source_order)
+            put(COL_MEMO, memoColumnAdapter.encode(obj.memo))
         }
 }
 
@@ -76,6 +79,7 @@ class ChapterGetResolver : DefaultGetResolver<Chapter>() {
             last_page_read = cursor.getInt(cursor.getColumnIndex(COL_LAST_PAGE_READ))
             chapter_number = cursor.getFloat(cursor.getColumnIndex(COL_CHAPTER_NUMBER))
             source_order = cursor.getInt(cursor.getColumnIndex(COL_SOURCE_ORDER))
+            memo = memoColumnAdapter.decode(cursor.getString(cursor.getColumnIndex(COL_MEMO)).orEmpty())
         }
 }
 

@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.data.backup.full.models
 
+import eu.kanade.tachiyomi.data.database.memoColumnAdapter
 import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.data.database.models.ChapterImpl
 import kotlinx.serialization.ExperimentalSerializationApi
@@ -22,7 +23,9 @@ data class BackupChapter(
     @ProtoNumber(8) var dateUpload: Long = 0,
     // chapterNumber is called number is 1.x
     @ProtoNumber(9) var chapterNumber: Float = 0F,
-    @ProtoNumber(10) var sourceOrder: Int = 0
+    @ProtoNumber(10) var sourceOrder: Int = 0,
+    // memo holds the chapter's extra JSON metadata serialized as text (extlib 1.6)
+    @ProtoNumber(13) var memo: String = ""
 ) {
     fun toChapterImpl(): ChapterImpl {
         return ChapterImpl().apply {
@@ -36,6 +39,7 @@ data class BackupChapter(
             date_fetch = this@BackupChapter.dateFetch
             date_upload = this@BackupChapter.dateUpload
             source_order = this@BackupChapter.sourceOrder
+            memo = memoColumnAdapter.decode(this@BackupChapter.memo)
         }
     }
 
@@ -51,7 +55,8 @@ data class BackupChapter(
                 lastPageRead = chapter.last_page_read,
                 dateFetch = chapter.date_fetch,
                 dateUpload = chapter.date_upload,
-                sourceOrder = chapter.source_order
+                sourceOrder = chapter.source_order,
+                memo = memoColumnAdapter.encode(chapter.memo)
             )
         }
     }

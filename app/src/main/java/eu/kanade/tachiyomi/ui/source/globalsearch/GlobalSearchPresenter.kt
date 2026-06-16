@@ -270,7 +270,7 @@ open class GlobalSearchPresenter(
         source: Source
     ): Observable<Manga> {
         return runAsObservable({
-            val networkManga = source.getMangaDetails(manga)
+            val networkManga = source.getMangaUpdate(manga, emptyList(), fetchDetails = true, fetchChapters = false).manga
             manga.copyFrom(networkManga)
             manga.initialized = true
             db.insertManga(manga).executeAsBlocking()

@@ -71,7 +71,7 @@ class MergedSource : HttpSource() {
                 .toList()
                 .map { loadedManga ->
                     async {
-                        loadedManga.source.getChapterList(loadedManga.manga).map { chapter ->
+                        loadedManga.source.getMangaUpdate(loadedManga.manga, emptyList(), fetchDetails = false, fetchChapters = true).chapters.map { chapter ->
                             chapter.apply {
                                 url = writeUrlConfig(UrlConfig(loadedManga.source.id, url, loadedManga.manga.url))
                             }

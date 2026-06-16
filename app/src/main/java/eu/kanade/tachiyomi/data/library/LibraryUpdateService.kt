@@ -366,7 +366,7 @@ class LibraryUpdateService(
         if (preferences.autoUpdateMetadata()) {
             runAsObservable({
                 try {
-                    val sManga = source.getMangaDetails(manga)
+                    val sManga = source.getMangaUpdate(manga, emptyList(), fetchDetails = true, fetchChapters = false).manga
                     // Avoid "losing" existing cover
                     if (!sManga.thumbnail_url.isNullOrEmpty()) {
                         manga.prepUpdateCover(coverCache, sManga, false)
@@ -386,7 +386,7 @@ class LibraryUpdateService(
                 .subscribe()
         }
 
-        return runAsObservable({ source.getChapterList(manga) })
+        return runAsObservable({ source.getMangaUpdate(manga, emptyList(), fetchDetails = false, fetchChapters = true).chapters })
             .map { syncChaptersWithSource(db, it, manga, source) }
     }
 
@@ -402,7 +402,7 @@ class LibraryUpdateService(
                 val source = sourceManager.get(manga.source)
 
                 // Update manga details metadata in the background
-                runAsObservable({ source?.getMangaDetails(manga) })
+                runAsObservable({ source?.getMangaUpdate(manga, emptyList(), fetchDetails = true, fetchChapters = false)?.manga })
                     .map { updatedManga ->
                         // Avoid "losing" existing cover
                         if (!updatedManga!!.thumbnail_url.isNullOrEmpty()) {
@@ -435,7 +435,7 @@ class LibraryUpdateService(
                         ?: return@flatMap Observable.empty<LibraryManga>()
 
                 runAsObservable({
-                    val sManga = source.getMangaDetails(manga)
+                    val sManga = source.getMangaUpdate(manga, emptyList(), fetchDetails = true, fetchChapters = false).manga
                     manga.prepUpdateCover(coverCache, sManga, true)
                     sManga.thumbnail_url?.let {
                         manga.thumbnail_url = it

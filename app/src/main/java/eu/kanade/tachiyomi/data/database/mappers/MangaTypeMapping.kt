@@ -9,6 +9,7 @@ import com.pushtorefresh.storio.sqlite.operations.put.DefaultPutResolver
 import com.pushtorefresh.storio.sqlite.queries.DeleteQuery
 import com.pushtorefresh.storio.sqlite.queries.InsertQuery
 import com.pushtorefresh.storio.sqlite.queries.UpdateQuery
+import eu.kanade.tachiyomi.data.database.memoColumnAdapter
 import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.data.database.models.MangaImpl
 import eu.kanade.tachiyomi.data.database.tables.MangaTable.COL_ARTIST
@@ -22,6 +23,7 @@ import eu.kanade.tachiyomi.data.database.tables.MangaTable.COL_GENRE
 import eu.kanade.tachiyomi.data.database.tables.MangaTable.COL_ID
 import eu.kanade.tachiyomi.data.database.tables.MangaTable.COL_INITIALIZED
 import eu.kanade.tachiyomi.data.database.tables.MangaTable.COL_LAST_UPDATE
+import eu.kanade.tachiyomi.data.database.tables.MangaTable.COL_MEMO
 import eu.kanade.tachiyomi.data.database.tables.MangaTable.COL_SOURCE
 import eu.kanade.tachiyomi.data.database.tables.MangaTable.COL_STATUS
 import eu.kanade.tachiyomi.data.database.tables.MangaTable.COL_THUMBNAIL_URL
@@ -52,7 +54,7 @@ class MangaPutResolver : DefaultPutResolver<Manga>() {
             .build()
 
     override fun mapToContentValues(obj: Manga) =
-        ContentValues(17).apply {
+        ContentValues(19).apply {
             put(COL_ID, obj.id)
             put(COL_SOURCE, obj.source)
             put(COL_URL, obj.url)
@@ -71,6 +73,7 @@ class MangaPutResolver : DefaultPutResolver<Manga>() {
             put(COL_COVER_LAST_MODIFIED, obj.cover_last_modified)
             put(COL_DATE_ADDED, obj.date_added)
             put(COL_UPDATE_STRATEGY, obj.update_strategy.let(updateStrategyAdapter::encode))
+            put(COL_MEMO, memoColumnAdapter.encode(obj.memo))
         }
 }
 
@@ -100,6 +103,7 @@ interface BaseMangaGetResolver {
             cursor.getInt(cursor.getColumnIndex(COL_UPDATE_STRATEGY)).let(
                 updateStrategyAdapter::decode
             )
+        memo = memoColumnAdapter.decode(cursor.getString(cursor.getColumnIndex(COL_MEMO)).orEmpty())
     }
 }
 

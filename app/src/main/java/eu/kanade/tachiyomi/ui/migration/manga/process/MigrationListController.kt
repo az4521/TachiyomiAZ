@@ -198,7 +198,7 @@ class MigrationListController(bundle: Bundle? = null) :
                                                         )
                                                     val chapters =
                                                         runAsObservable(
-                                                            { source.getChapterList(localManga) }
+                                                            { source.getMangaUpdate(localManga, emptyList(), fetchDetails = false, fetchChapters = true).chapters }
                                                         ).toSingle()
                                                             .await(
                                                                 Schedulers.io()
@@ -253,7 +253,7 @@ class MigrationListController(bundle: Bundle? = null) :
                                                 val chapters =
                                                     try {
                                                         runAsObservable(
-                                                            { source.getChapterList(localManga) }
+                                                            { source.getMangaUpdate(localManga, emptyList(), fetchDetails = false, fetchChapters = true).chapters }
                                                         ).toSingle()
                                                             .await(Schedulers.io())
                                                     } catch (e: java.lang.Exception) {
@@ -290,7 +290,7 @@ class MigrationListController(bundle: Bundle? = null) :
                 if (result != null && result.thumbnail_url == null) {
                     try {
                         val newManga =
-                            runAsObservable({ sourceManager.getOrStub(result.source).getMangaDetails(result) })
+                            runAsObservable({ sourceManager.getOrStub(result.source).getMangaUpdate(result, emptyList(), fetchDetails = true, fetchChapters = false).manga })
                                 .toSingle().await()
                         result.copyFrom(newManga)
 
@@ -406,7 +406,7 @@ class MigrationListController(bundle: Bundle? = null) :
                     val localManga = smartSearchEngine.networkToLocalManga(manga, source.id)
                     try {
                         val chapters =
-                            runAsObservable({ source.getChapterList(localManga) }).toSingle().await(
+                            runAsObservable({ source.getMangaUpdate(localManga, emptyList(), fetchDetails = false, fetchChapters = true).chapters }).toSingle().await(
                                 Schedulers.io()
                             )
                         syncChaptersWithSource(db, chapters, localManga, source)
@@ -420,7 +420,7 @@ class MigrationListController(bundle: Bundle? = null) :
                 try {
                     val newManga =
                         runAsObservable(
-                            { sourceManager.getOrStub(result.source).getMangaDetails(result) }
+                            { sourceManager.getOrStub(result.source).getMangaUpdate(result, emptyList(), fetchDetails = true, fetchChapters = false).manga }
                         ).toSingle()
                             .await()
                     result.copyFrom(newManga)

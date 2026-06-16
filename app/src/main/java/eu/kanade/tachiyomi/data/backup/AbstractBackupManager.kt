@@ -53,7 +53,7 @@ abstract class AbstractBackupManager(protected val context: Context) {
             if (source is EHentai) {
                 source.fetchChapterList(manga, throttleManager::throttle)
             } else {
-                runAsObservable({ source.getChapterList(manga) })
+                runAsObservable({ source.getMangaUpdate(manga, emptyList(), fetchDetails = false, fetchChapters = true).chapters })
             }
             ).map {
             syncChaptersWithSource(databaseHelper, it, manga, source)
