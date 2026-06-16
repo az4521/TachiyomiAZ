@@ -101,6 +101,8 @@ class EHentai(
 
     fun extendedGenericMangaParse(doc: Document) =
         with(doc) {
+            val parsedLocation = doc.location().toHttpUrlOrNull()
+            val containsReverseParam = parsedLocation?.queryParameterNames?.contains(REVERSE_PARAM) ?: false
             // Parse mangas (supports compact + extended layout)
             val parsedMangas =
                 select(".itg > tbody > tr").filter {
@@ -132,25 +134,24 @@ class EHentai(
                             // TODO Parse genre + uploader + tags
                         }
                     )
+                }.let { // reverse the list if the filter is on, making the pager work
+                    if (containsReverseParam) it.reversed() else it
                 }
-
-            val parsedLocation = doc.location().toHttpUrlOrNull()
 
             // Add to page if required
             val hasNextPage =
                 if (parsedLocation == null ||
-                    !parsedLocation.queryParameterNames.contains(REVERSE_PARAM)
+                    !containsReverseParam
                 ) {
                     select("a[onclick=return false]").last()
                         ?.let {
                             it.text() == ">"
-                        }
-                        ?: select(".searchnav >div > a")
-                            .find { it.attr("href").contains("next") }
-                            ?.let { true }
+                        } ?: select(".searchnav >div > a")
+                        .find { it.attr("href").contains("next") }
+                        ?.let { true }
                         ?: false
                 } else {
-                    parsedLocation.queryParameter(REVERSE_PARAM)!!.toBoolean()
+                    select("#uprev").firstOrNull()?.hasAttr("href") ?: false
                 }
             Pair(parsedMangas, hasNextPage)
         }
@@ -336,29 +337,10 @@ class EHentai(
         filters.forEach {
             if (it is UriFilter) it.addToUri(uri)
         }
-
-        val request = exGet(uri.toString(), page)
-
-        // Reverse search results on filter
         if (filters.any { it is ReverseFilter && it.state }) {
-            return client.newCall(request)
-                .asObservableSuccess()
-                .map {
-                    val doc = it.asJsoup()
-
-                    val elements = doc.select(".ptt > tbody > tr > td")
-
-                    val totalElement = elements[elements.size - 2]
-
-                    val thisPage = totalElement.text().toInt() - (page - 1)
-
-                    uri.appendQueryParameter(REVERSE_PARAM, (thisPage > 1).toString())
-
-                    exGet(uri.toString(), thisPage)
-                }
-        } else {
-            return Observable.just(request)
+            uri.appendQueryParameter(REVERSE_PARAM, "1")
         }
+        return Observable.just(exGet(uri.toString(), page))
     }
 
     override fun searchMangaRequest(
@@ -383,10 +365,13 @@ class EHentai(
     ): Request {
         return GET(
             page?.let {
-                if (page > 1) {
-                    addParam(url, "next", Integer.toString(page))
+                val containsReverse = url.toHttpUrlOrNull()?.queryParameterNames?.contains(REVERSE_PARAM) ?: false
+                if (page > 1 && !containsReverse) {
+                    addParam(url, "next", page.toString())
+                } else if (containsReverse) {
+                    addParam(url, "prev", page.toString())
                 } else {
-                    addParam(url, "page", Integer.toString(page - 1))
+                    addParam(url, "page", (page - 1).toString())
                 }
             } ?: url,
             additionalHeaders?.let {
