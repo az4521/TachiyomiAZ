@@ -35,7 +35,10 @@ import eu.kanade.tachiyomi.data.database.models.TrackImpl
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.source.LocalSource
 import eu.kanade.tachiyomi.source.Source
+import eu.kanade.tachiyomi.source.online.all.EHentai
+import eu.kanade.tachiyomi.util.chapter.syncChaptersWithSource
 import eu.kanade.tachiyomi.util.lang.runAsObservable
+import exh.eh.EHentaiThrottleManager
 import exh.savedsearches.JsonSavedSearch
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -345,22 +348,49 @@ class LegacyBackupManager(context: Context, version: Int = CURRENT_VERSION) : Ab
     }
 
     /**
-     * [Observable] that fetches manga information
+     * [Observable] that fetches manga information, including chapters, in as few
+     * network requests as possible.
      *
      * @param source source of manga
      * @param manga manga that needs updating
+     * @param chapters chapters of manga that needs updating
      * @return [Observable] that contains manga
      */
     fun restoreMangaFetchObservable(
         source: Source,
-        manga: Manga
+        manga: Manga,
+        chapters: List<Chapter>,
+        throttleManager: EHentaiThrottleManager
     ): Observable<Manga> {
+        // EHentai requires throttled chapter fetching, so its details and chapters
+        // can't share a single network request.
+        if (source is EHentai) {
+            return runAsObservable({
+                val networkManga = source.getMangaUpdate(manga, emptyList(), fetchDetails = true, fetchChapters = false).manga
+                manga.copyFrom(networkManga)
+                manga.favorite = true
+                manga.initialized = true
+                manga.id = insertManga(manga)
+                manga
+            }).flatMap { fetchedManga ->
+                restoreChapterFetchObservable(source, fetchedManga, chapters, throttleManager)
+                    .map { fetchedManga }
+            }
+        }
+
+        // Fetch manga details and chapters in a single network request.
         return runAsObservable({
-            val networkManga = source.getMangaUpdate(manga, emptyList(), fetchDetails = true, fetchChapters = false).manga
-            manga.copyFrom(networkManga)
+            val mangaUpdate = source.getMangaUpdate(manga, emptyList(), fetchDetails = true, fetchChapters = true)
+            manga.copyFrom(mangaUpdate.manga)
             manga.favorite = true
             manga.initialized = true
             manga.id = insertManga(manga)
+
+            val (newChapters) = syncChaptersWithSource(databaseHelper, mangaUpdate.chapters, manga, source)
+            if (newChapters.isNotEmpty()) {
+                chapters.forEach { it.manga_id = manga.id }
+                updateChapters(chapters)
+            }
             manga
         })
     }

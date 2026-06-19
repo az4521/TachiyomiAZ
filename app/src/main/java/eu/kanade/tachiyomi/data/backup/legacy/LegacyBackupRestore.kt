@@ -12,6 +12,7 @@ import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.source.Source
+import eu.kanade.tachiyomi.util.chapter.NoChaptersException
 import exh.EXHMigrations
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
@@ -154,17 +155,18 @@ class LegacyBackupRestore(context: Context, notifier: BackupNotifier) : Abstract
         history: List<DHistory>,
         tracks: List<Track>
     ) {
-        backupManager.restoreMangaFetchObservable(source, manga)
+        backupManager.restoreMangaFetchObservable(source, manga, chapters, throttleManager)
             .onErrorReturn {
-                errors.add(Date() to "${manga.title} - ${it.message}")
+                val errorMessage =
+                    if (it is NoChaptersException) {
+                        context.getString(R.string.no_chapters_error)
+                    } else {
+                        it.message
+                    }
+                errors.add(Date() to "${manga.title} - $errorMessage")
                 manga
             }
             .filter { it.id != null }
-            .flatMap {
-                chapterFetchObservable(source, it, chapters)
-                    // Convert to the manga that contains new chapters.
-                    .map { manga }
-            }
             .doOnNext {
                 restoreExtraForManga(it, categories, history, tracks)
             }

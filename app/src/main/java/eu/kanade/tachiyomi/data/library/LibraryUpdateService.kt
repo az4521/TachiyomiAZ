@@ -362,31 +362,30 @@ class LibraryUpdateService(
     fun updateManga(manga: Manga): Observable<Pair<List<Chapter>, List<Chapter>>> {
         val source = sourceManager.get(manga.source) ?: return Observable.empty()
 
-        // Update manga details metadata in the background
-        if (preferences.autoUpdateMetadata()) {
-            runAsObservable({
-                try {
-                    val sManga = source.getMangaUpdate(manga, emptyList(), fetchDetails = true, fetchChapters = false).manga
-                    // Avoid "losing" existing cover
-                    if (!sManga.thumbnail_url.isNullOrEmpty()) {
-                        manga.prepUpdateCover(coverCache, sManga, false)
-                    } else {
-                        sManga.thumbnail_url = manga.thumbnail_url
+        // Fetch details and chapters in a single network request when metadata
+        // auto-updating is enabled, otherwise only fetch chapters.
+        val fetchDetails = preferences.autoUpdateMetadata()
+
+        return runAsObservable({ source.getMangaUpdate(manga, emptyList(), fetchDetails = fetchDetails, fetchChapters = true) })
+            .map { mangaUpdate ->
+                if (fetchDetails) {
+                    try {
+                        val sManga = mangaUpdate.manga
+                        // Avoid "losing" existing cover
+                        if (!sManga.thumbnail_url.isNullOrEmpty()) {
+                            manga.prepUpdateCover(coverCache, sManga, false)
+                        } else {
+                            sManga.thumbnail_url = manga.thumbnail_url
+                        }
+
+                        manga.copyFrom(sManga)
+                        db.insertManga(manga).executeAsBlocking()
+                    } catch (e: Throwable) {
+                        Timber.e(e)
                     }
-
-                    manga.copyFrom(sManga)
-                    db.insertManga(manga).executeAsBlocking()
-                    manga
-                } catch (e: Throwable) {
-                    Timber.e(e)
                 }
-            })
-                .onErrorResumeNext { Observable.just(manga) }
-                .subscribeOn(Schedulers.io())
-                .subscribe()
-        }
-
-        return runAsObservable({ source.getMangaUpdate(manga, emptyList(), fetchDetails = false, fetchChapters = true).chapters })
+                mangaUpdate.chapters
+            }
             .map { syncChaptersWithSource(db, it, manga, source) }
     }
 
