@@ -4,13 +4,12 @@ import android.content.Context
 import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.network.interceptor.CloudflareInterceptor
-import eu.kanade.tachiyomi.network.interceptor.IgnoreGzipInterceptor
+import eu.kanade.tachiyomi.network.interceptor.UncaughtExceptionInterceptor
 import eu.kanade.tachiyomi.network.interceptor.UserAgentInterceptor
 import exh.log.maybeInjectEHLogger
 import okhttp3.Cache
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
-import okhttp3.brotli.BrotliInterceptor
 import okhttp3.dnsoverhttps.DnsOverHttps
 import okhttp3.logging.HttpLoggingInterceptor
 import uy.kohesive.injekt.injectLazy
@@ -32,11 +31,12 @@ open class NetworkHelper(context: Context) {
         val builder =
             OkHttpClient.Builder()
                 .cookieJar(cookieManager)
-                .cache(Cache(cacheDir, cacheSize))
                 .connectTimeout(30, TimeUnit.SECONDS)
                 .readTimeout(30, TimeUnit.SECONDS)
-                .addNetworkInterceptor(IgnoreGzipInterceptor())
-                .addNetworkInterceptor(BrotliInterceptor)
+                .callTimeout(2, TimeUnit.MINUTES)
+                .cache(Cache(cacheDir, cacheSize))
+                .addInterceptor(UncaughtExceptionInterceptor())
+                .addInterceptor(UserAgentInterceptor())
                 .maybeInjectEHLogger()
 
         if (BuildConfig.DEBUG) {
@@ -74,7 +74,6 @@ open class NetworkHelper(context: Context) {
     @Deprecated("Since extension-lib 1.5", ReplaceWith("client"))
     open val cloudflareClient by lazy {
         legacyClient.newBuilder()
-            .addInterceptor(UserAgentInterceptor())
             .addInterceptor(CloudflareInterceptor(context))
             .maybeInjectEHLogger()
             .build()

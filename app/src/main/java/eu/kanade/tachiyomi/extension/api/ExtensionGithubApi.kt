@@ -97,6 +97,10 @@ internal class ExtensionGithubApi {
         return "${extension.repoUrl.substringBeforeLast("index.min.json")}apk/${extension.apkName}"
     }
 
+    fun getIconUrl(extension: Extension.Available): String {
+        return "${extension.repoUrl.substringBeforeLast("index.min.json")}icon/${extension.pkgName}.png"
+    }
+
     private fun Extension.isBlacklisted(blacklistEnabled: Boolean = preferences.eh_enableSourceBlacklist().get()): Boolean {
         return pkgName in BlacklistedSources.BLACKLISTED_EXTENSIONS && blacklistEnabled
     }

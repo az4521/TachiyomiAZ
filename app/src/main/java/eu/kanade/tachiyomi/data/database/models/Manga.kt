@@ -113,4 +113,5 @@ fun Manga.toSManga(): SManga = SManga.create().also {
     it.thumbnail_url = thumbnail_url
     it.update_strategy = update_strategy
     it.initialized = initialized
+    it.memo = memo
 }

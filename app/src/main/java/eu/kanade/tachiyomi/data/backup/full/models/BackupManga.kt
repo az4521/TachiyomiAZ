@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.data.backup.full.models
 
+import eu.kanade.tachiyomi.data.database.jsonObjectEmptyBytes
 import eu.kanade.tachiyomi.data.database.memoColumnAdapter
 import eu.kanade.tachiyomi.data.database.models.ChapterImpl
 import eu.kanade.tachiyomi.data.database.models.Manga
@@ -12,7 +13,7 @@ import kotlinx.serialization.protobuf.ProtoNumber
 
 @ExperimentalSerializationApi
 @Serializable
-data class BackupManga(
+class BackupManga(
     // in 1.x some of these values have different names
     @ProtoNumber(1) var source: Long,
     // url is called key in 1.x
@@ -40,8 +41,8 @@ data class BackupManga(
     @ProtoNumber(102) var brokenHistory: List<BrokenBackupHistory> = emptyList(),
     @ProtoNumber(104) var history: List<BackupHistory> = emptyList(),
     @ProtoNumber(105) var updateStrategy: UpdateStrategy = UpdateStrategy.ALWAYS_UPDATE,
-    // memo holds the manga's extra JSON metadata serialized as text (extlib 1.6)
-    @ProtoNumber(112) var memo: String = "",
+    // memo holds the manga's extra JSON metadata serialized as bytes, defaulting to "{}" (extlib 1.6)
+    @ProtoNumber(112) var memo: ByteArray = jsonObjectEmptyBytes,
     // SY specific values
     @ProtoNumber(601) var flatMetadata: BackupFlatMetadata? = null
 ) {

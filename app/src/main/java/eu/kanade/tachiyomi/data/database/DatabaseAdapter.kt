@@ -38,21 +38,31 @@ val updateStrategyAdapter =
 private val memoJson = Json { ignoreUnknownKeys = true }
 
 /**
- * Stores a [JsonObject] memo as its serialized JSON text. An empty object is stored as an
- * empty string so existing rows (migrated with a default of '') decode cleanly.
+ * Serialized empty JSON object ("{}"). Used as the default memo value so stored rows and backups
+ * always contain a valid JSON object and older backups without a memo decode cleanly.
+ */
+val jsonObjectEmptyBytes = byteArrayOf(0x7B, 0x7D)
+
+/**
+ * Stores a [JsonObject] memo as UTF-8 encoded JSON bytes. Empty or invalid input decodes to an
+ * empty object, and an empty object encodes to "{}" ([jsonObjectEmptyBytes]).
  */
 val memoColumnAdapter =
-    object : ColumnAdapter<JsonObject, String> {
-        override fun decode(databaseValue: String): JsonObject =
-            if (databaseValue.isBlank()) {
+    object : ColumnAdapter<JsonObject, ByteArray> {
+        override fun decode(databaseValue: ByteArray): JsonObject =
+            if (databaseValue.isEmpty()) {
                 JsonObject(emptyMap())
             } else {
-                runCatching { memoJson.parseToJsonElement(databaseValue).jsonObject }
+                runCatching { memoJson.parseToJsonElement(databaseValue.decodeToString()).jsonObject }
                     .getOrDefault(JsonObject(emptyMap()))
             }
 
-        override fun encode(value: JsonObject): String =
-            if (value.isEmpty()) "" else memoJson.encodeToString(JsonObject.serializer(), value)
+        override fun encode(value: JsonObject): ByteArray =
+            if (value.isEmpty()) {
+                jsonObjectEmptyBytes
+            } else {
+                memoJson.encodeToString(JsonObject.serializer(), value).encodeToByteArray()
+            }
     }
 
 interface ColumnAdapter<T : Any, S> {

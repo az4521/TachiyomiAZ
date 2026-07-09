@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.data.backup.full.models
 
+import eu.kanade.tachiyomi.data.database.jsonObjectEmptyBytes
 import eu.kanade.tachiyomi.data.database.memoColumnAdapter
 import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.data.database.models.ChapterImpl
@@ -9,7 +10,7 @@ import kotlinx.serialization.protobuf.ProtoNumber
 
 @ExperimentalSerializationApi
 @Serializable
-data class BackupChapter(
+class BackupChapter(
     // in 1.x some of these values have different names
     // url is called key in 1.x
     @ProtoNumber(1) var url: String,
@@ -24,8 +25,8 @@ data class BackupChapter(
     // chapterNumber is called number is 1.x
     @ProtoNumber(9) var chapterNumber: Float = 0F,
     @ProtoNumber(10) var sourceOrder: Int = 0,
-    // memo holds the chapter's extra JSON metadata serialized as text (extlib 1.6)
-    @ProtoNumber(13) var memo: String = ""
+    // memo holds the chapter's extra JSON metadata serialized as bytes, defaulting to "{}" (extlib 1.6)
+    @ProtoNumber(13) var memo: ByteArray = jsonObjectEmptyBytes
 ) {
     fun toChapterImpl(): ChapterImpl {
         return ChapterImpl().apply {

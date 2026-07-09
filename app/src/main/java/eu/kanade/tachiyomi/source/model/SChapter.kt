@@ -70,6 +70,7 @@ interface SChapter : Serializable {
         date_upload = other.date_upload
         chapter_number = other.chapter_number
         scanlator = other.scanlator
+        memo = other.memo
         if (other.volume != null) {
             volume = other.volume
         }

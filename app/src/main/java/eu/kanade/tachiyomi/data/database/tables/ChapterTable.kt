@@ -44,7 +44,7 @@ object ChapterTable {
             $COL_SOURCE_ORDER INTEGER NOT NULL,
             $COL_DATE_FETCH LONG NOT NULL,
             $COL_DATE_UPLOAD LONG NOT NULL,
-            $COL_MEMO TEXT NOT NULL DEFAULT '',
+            $COL_MEMO BLOB NOT NULL DEFAULT '{}',
             FOREIGN KEY($COL_MANGA_ID) REFERENCES ${MangaTable.TABLE} (${MangaTable.COL_ID})
             ON DELETE CASCADE
             )"""
@@ -67,5 +67,5 @@ object ChapterTable {
         get() = "ALTER TABLE $TABLE ADD COLUMN $COL_SCANLATOR TEXT DEFAULT NULL"
 
     val addMemo: String
-        get() = "ALTER TABLE $TABLE ADD COLUMN $COL_MEMO TEXT NOT NULL DEFAULT ''"
+        get() = "ALTER TABLE $TABLE ADD COLUMN $COL_MEMO BLOB NOT NULL DEFAULT '{}'"
 }

@@ -78,6 +78,7 @@ fun syncChaptersWithSource(
                 dbChapter.name = sourceChapter.name
                 dbChapter.date_upload = sourceChapter.date_upload
                 dbChapter.chapter_number = sourceChapter.chapter_number
+                dbChapter.memo = sourceChapter.memo
                 toChange.add(dbChapter)
             }
         }
@@ -179,5 +180,6 @@ private fun shouldUpdateDbChapter(
 ): Boolean {
     return dbChapter.scanlator != sourceChapter.scanlator || dbChapter.name != sourceChapter.name ||
         dbChapter.date_upload != sourceChapter.date_upload ||
-        dbChapter.chapter_number != sourceChapter.chapter_number
+        dbChapter.chapter_number != sourceChapter.chapter_number ||
+        dbChapter.memo != sourceChapter.memo
 }

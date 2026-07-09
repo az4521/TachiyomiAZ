@@ -66,7 +66,7 @@ object MangaTable {
             $COL_COVER_LAST_MODIFIED LONG NOT NULL,
             $COL_DATE_ADDED LONG NOT NULL,
             $COL_UPDATE_STRATEGY INTEGER NOT NULL DEFAULT 0,
-            $COL_MEMO TEXT NOT NULL DEFAULT ''
+            $COL_MEMO BLOB NOT NULL DEFAULT '{}'
             )"""
 
     val createUrlIndexQuery: String
@@ -98,5 +98,5 @@ object MangaTable {
         get() = "ALTER TABLE $TABLE ADD COLUMN $COL_UPDATE_STRATEGY INTEGER NOT NULL DEFAULT 0"
 
     val addMemo: String
-        get() = "ALTER TABLE $TABLE ADD COLUMN $COL_MEMO TEXT NOT NULL DEFAULT ''"
+        get() = "ALTER TABLE $TABLE ADD COLUMN $COL_MEMO BLOB NOT NULL DEFAULT '{}'"
 }

@@ -134,6 +134,11 @@ interface SManga : Serializable {
 
         contentRating = other.contentRating
 
+        // Only copy memo when the source provides one so existing metadata isn't wiped on refresh.
+        if (other.memo.isNotEmpty()) {
+            memo = other.memo
+        }
+
         status = other.status
 
         update_strategy = other.update_strategy

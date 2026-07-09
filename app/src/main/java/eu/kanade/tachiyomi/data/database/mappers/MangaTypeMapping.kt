@@ -103,7 +103,7 @@ interface BaseMangaGetResolver {
             cursor.getInt(cursor.getColumnIndex(COL_UPDATE_STRATEGY)).let(
                 updateStrategyAdapter::decode
             )
-        memo = memoColumnAdapter.decode(cursor.getString(cursor.getColumnIndex(COL_MEMO)).orEmpty())
+        memo = memoColumnAdapter.decode(cursor.getBlob(cursor.getColumnIndex(COL_MEMO)) ?: byteArrayOf())
     }
 }
 

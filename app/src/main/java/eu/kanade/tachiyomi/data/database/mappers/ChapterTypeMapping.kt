@@ -79,7 +79,7 @@ class ChapterGetResolver : DefaultGetResolver<Chapter>() {
             last_page_read = cursor.getInt(cursor.getColumnIndex(COL_LAST_PAGE_READ))
             chapter_number = cursor.getFloat(cursor.getColumnIndex(COL_CHAPTER_NUMBER))
             source_order = cursor.getInt(cursor.getColumnIndex(COL_SOURCE_ORDER))
-            memo = memoColumnAdapter.decode(cursor.getString(cursor.getColumnIndex(COL_MEMO)).orEmpty())
+            memo = memoColumnAdapter.decode(cursor.getBlob(cursor.getColumnIndex(COL_MEMO)) ?: byteArrayOf())
         }
 }
 
