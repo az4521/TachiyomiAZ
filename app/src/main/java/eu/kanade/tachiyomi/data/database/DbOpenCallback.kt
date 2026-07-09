@@ -23,7 +23,7 @@ class DbOpenCallback : SupportSQLiteOpenHelper.Callback(DATABASE_VERSION) {
         /**
          * Version of the database.
          */
-        const val DATABASE_VERSION = 16 // [EXH + J2K DRAGNDROP + AZ MERGEDSOURES + DEV DATESORT + 1.4 EXTLIB + 1.6 MEMO]
+        const val DATABASE_VERSION = 17 // [EXH + J2K DRAGNDROP + AZ MERGEDSOURES + DEV DATESORT + 1.4 EXTLIB + 1.6 MEMO]
     }
 
     override fun onCreate(db: SupportSQLiteDatabase) =
@@ -140,6 +140,16 @@ class DbOpenCallback : SupportSQLiteOpenHelper.Callback(DATABASE_VERSION) {
         }
         if (oldVersion < 16) { // 1.6 extlib memo
             db.execSQL(MangaTable.addMemo)
+            db.execSQL(ChapterTable.addMemo)
+        }
+        if (oldVersion < 17) {
+            // Early 1.6 dev builds created the memo column as TEXT. Drop and recreate it as BLOB so
+            // every install ends up with the correct type. Safe to discard existing memo values:
+            // no public 1.6 extension populates the column yet. Requires the bundled requery SQLite
+            // (3.35+) for DROP COLUMN support.
+            db.execSQL(MangaTable.dropMemo)
+            db.execSQL(MangaTable.addMemo)
+            db.execSQL(ChapterTable.dropMemo)
             db.execSQL(ChapterTable.addMemo)
         }
     }

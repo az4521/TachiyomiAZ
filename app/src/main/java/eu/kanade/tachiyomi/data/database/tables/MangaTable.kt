@@ -99,4 +99,7 @@ object MangaTable {
 
     val addMemo: String
         get() = "ALTER TABLE $TABLE ADD COLUMN $COL_MEMO BLOB NOT NULL DEFAULT '{}'"
+
+    val dropMemo: String
+        get() = "ALTER TABLE $TABLE DROP COLUMN $COL_MEMO"
 }
