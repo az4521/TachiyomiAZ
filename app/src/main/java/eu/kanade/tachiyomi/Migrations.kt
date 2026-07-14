@@ -20,8 +20,10 @@ object Migrations {
         val context = preferences.context
         val oldVersion = preferences.lastVersionCode().get()
 
-        // Cancel app updater job for debug builds that don't include it
-        if (BuildConfig.DEBUG && !BuildConfig.INCLUDE_UPDATER) {
+        // Android 5 and 6 cannot install current app updates.
+        if (!UpdaterJob.isAutoUpdateSupported()) {
+            UpdaterJob.cancelTask(context)
+        } else if (BuildConfig.DEBUG && !BuildConfig.INCLUDE_UPDATER) {
             UpdaterJob.cancelTask(context)
         }
 

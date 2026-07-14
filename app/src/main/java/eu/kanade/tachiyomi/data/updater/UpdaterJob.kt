@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.data.updater
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -20,6 +21,8 @@ import java.util.concurrent.TimeUnit
 class UpdaterJob(private val context: Context, workerParams: WorkerParameters) :
     Worker(context, workerParams) {
     override fun doWork(): Result {
+        if (!isAutoUpdateSupported()) return Result.success()
+
         return runBlocking {
             try {
                 val result = UpdateChecker.getUpdateChecker().checkForUpdate()
@@ -59,7 +62,16 @@ class UpdaterJob(private val context: Context, workerParams: WorkerParameters) :
     companion object {
         private const val TAG = "UpdateChecker"
 
+        fun isAutoUpdateSupported(): Boolean {
+            return Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
+        }
+
         fun setupTask(context: Context) {
+            if (!isAutoUpdateSupported()) {
+                cancelTask(context)
+                return
+            }
+
             val constraints =
                 Constraints.Builder()
                     .setRequiredNetworkType(NetworkType.CONNECTED)
@@ -81,6 +93,7 @@ class UpdaterJob(private val context: Context, workerParams: WorkerParameters) :
 
         fun cancelTask(context: Context) {
             WorkManager.getInstance(context).cancelAllWorkByTag(TAG)
+            context.notificationManager.cancel(Notifications.ID_UPDATER)
         }
     }
 }
