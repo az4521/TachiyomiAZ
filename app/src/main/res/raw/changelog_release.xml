@@ -1,5 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <changelog bulletedList="true">
+    <changelogversion versionName="v8.8.6-AZ" changeDate="">
+        <changelogtext>sorry to my users on older android versions, this will be the last version of tachiyomiAZ you get. the newer extension library depends on features that cannot coexist with the build settings required to make the app work on android 7 and lower. next update will be android 8+ only</changelogtext>
+        <changelogtext>----------------------</changelogtext>
+        <changelogtext>fix eh/exh reverse search filter</changelogtext>
+        <changelogtext>fix nh</changelogtext>
+        <changelogtext>better webview spoofing</changelogtext>
+        <changelogtext>update dependencies (fixes some exts)</changelogtext>
+        <changelogtext>add setting for ascii-only filenames (for some devices with crap filesystems)</changelogtext>
+        <changelogtext>support *some* extlib 1.6 exts (the ones that don't need android 8+)</changelogtext>
+    </changelogversion>
     <changelogversion versionName="v8.8.5-AZ" changeDate="">
         <changelogtext>fix a crash when exiting the reader</changelogtext>
         <changelogtext>fix EH/EXH cookies issue</changelogtext>
