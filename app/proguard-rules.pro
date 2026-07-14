@@ -16,6 +16,7 @@
 -keep,allowoptimization class kotlinx.coroutines.** { public protected *; }
 -keep,allowoptimization class kotlin.time.** { public protected *; }
 -keep,allowoptimization class tachiyomi.decoder.** { *; }
+-keep,allowoptimization class com.squareup.zstd.** { public protected *; }
 
 # === Keep EH classes
 -keep class exh.** { *; }
@@ -44,6 +45,11 @@
 
 -keepattributes *Annotation*, InnerClasses
 -dontnote kotlinx.serialization.** # core serialization annotations
+
+-keepclassmembers class * implements java.io.Serializable {
+    java.lang.Object writeReplace();
+    java.lang.Object readResolve();
+}
 
 # kotlinx-serialization-json specific. Add this if you have java.lang.NoClassDefFoundError kotlinx.serialization.json.JsonObjectSerializer
 -keepclassmembers class kotlinx.serialization.json.** {
