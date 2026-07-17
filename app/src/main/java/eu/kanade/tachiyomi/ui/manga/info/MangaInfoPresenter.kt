@@ -76,6 +76,9 @@ class MangaInfoPresenter(
 
     private fun getMangaObservable(): Observable<Manga> {
         return db.getManga(manga.url, manga.source).asRxObservable()
+            // StorIO emits null when the row is missing or gets deleted while this
+            // screen is open; onNextManga takes a non-null Manga, so drop those.
+            .filter { it != null }
             .observeOn(AndroidSchedulers.mainThread())
     }
 

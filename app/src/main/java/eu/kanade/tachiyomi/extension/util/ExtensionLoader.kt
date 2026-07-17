@@ -14,6 +14,7 @@ import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.SourceFactory
 import eu.kanade.tachiyomi.util.lang.Hash
 import eu.kanade.tachiyomi.util.system.ChildFirstPathClassLoader
+import eu.kanade.tachiyomi.util.system.bypassMangaUpdateGuard
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import timber.log.Timber
@@ -179,6 +180,7 @@ internal object ExtensionLoader {
                     }
                 }
                 .filter { !isSourceNsfw(it) }
+                .onEach { it.bypassMangaUpdateGuard() }
 
         val langs =
             sources.filterIsInstance<CatalogueSource>()
