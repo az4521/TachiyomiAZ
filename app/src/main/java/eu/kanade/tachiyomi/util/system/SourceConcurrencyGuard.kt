@@ -8,18 +8,21 @@ import java.util.concurrent.ConcurrentHashMap
 private const val GUARD_TAG = "MangaUpdateGuard"
 
 /**
- * A [ConcurrentHashMap] whose [putIfAbsent] never reports an existing entry. some
- * extensions guard getMangaUpdate with
+ * A [ConcurrentHashMap] that stores entries normally but whose [putIfAbsent] always reports
+ * the key as newly added (returns null). some extensions guard getMangaUpdate with
  *
  *     check(updatesInFlight.putIfAbsent(manga.url, true) == null)
  *
  * to throw when the same manga is updated concurrently. This fork opens the manga info and
  * chapter list in separate tabs, each calling getMangaUpdate for the same manga on its own
- * IO thread, so that check fails. Returning null here makes the check always pass; nothing is
- * ever stored, so the finally-block remove() is a harmless no-op.
+ * IO thread, so that check fails. The real put still happens (so remove() in the finally block
+ * and any other reads stay consistent); only the return value is spoofed so the check passes.
  */
 private class AlwaysAbsentMap : ConcurrentHashMap<Any?, Any?>() {
-    override fun putIfAbsent(key: Any?, value: Any?): Any? = null
+    override fun putIfAbsent(key: Any?, value: Any?): Any? {
+        super.putIfAbsent(key, value)
+        return null
+    }
 }
 
 /**
