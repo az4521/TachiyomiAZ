@@ -16,6 +16,7 @@ import eu.davidea.flexibleadapter.helpers.UndoHelper
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.databinding.CategoriesControllerBinding
 import eu.kanade.tachiyomi.ui.base.controller.NucleusController
+import eu.kanade.tachiyomi.util.system.copyToClipboard
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
@@ -144,7 +145,7 @@ class RepoController() :
         menu: Menu
     ): Boolean {
         // Inflate menu.
-        mode.menuInflater.inflate(R.menu.category_selection, menu)
+        mode.menuInflater.inflate(R.menu.repo_selection, menu)
         // Enable adapter multi selection.
         adapter?.mode = SelectableAdapter.Mode.MULTI
         return true
@@ -165,9 +166,8 @@ class RepoController() :
         val count = adapter.selectedItemCount
         mode.title = count.toString()
 
-        // Show edit button only when one item is selected
-        val editItem = mode.menu.findItem(R.id.action_edit)
-        editItem.isVisible = false
+        // Show copy button only when a single repo is selected
+        mode.menu.findItem(R.id.action_copy).isVisible = count == 1
         return true
     }
 
@@ -186,6 +186,14 @@ class RepoController() :
         val adapter = adapter ?: return false
 
         when (item.itemId) {
+            R.id.action_copy -> {
+                val repo = adapter.selectedPositions.singleOrNull()
+                    ?.let { adapter.getItem(it)?.repo }
+                if (repo != null) {
+                    activity?.copyToClipboard(repo, repo)
+                }
+                mode.finish()
+            }
             R.id.action_delete -> {
                 undoHelper = UndoHelper(adapter, this)
                 undoHelper?.start(
