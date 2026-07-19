@@ -831,7 +831,8 @@ z
 
     <string name="information_empty_repos">You have no additional repos. Tap the plus button to create one for adding external extensions.</string>
     <string name="action_add_repo">Add repo</string>
-    <string name="action_add_repo_message">Add additional repos to Tachiyomi, the format of a repo is \'username/repo\' , with username being the repo owner, and repo being the repo name. Direct .min.json links to repos are also supported.</string>
+    <string name="repo_hint">username/repo or index URL</string>
+    <string name="action_add_repo_message">Enter a GitHub repo as \'username/repo\' (the owner and repository name), or paste the full URL to a repo index. Both the legacy index.min.json / repo.json and the newer index.pb store format are supported.</string>
     <string name="action_edit_repos">Edit repos</string>
     <plurals name="num_repos">
         <item quantity="one">%d additional repo</item>
@@ -839,7 +840,7 @@ z
     </plurals>
     <string name="error_repo_exists">This repo already exists!</string>
     <string name="snack_repo_deleted">Repo deleted</string>
-    <string name="invalid_repo_name">Invalid category name</string>
+    <string name="invalid_repo_name">Invalid repo. Use \'username/repo\' or a full URL to a repo index.</string>
     <string name="repo_source">Repo source</string>
 
     <!-- EH Settings Login Activity -->

@@ -34,7 +34,7 @@ class RepoCreateDialog<T>(bundle: Bundle? = null) : DialogController(bundle)
             .message(R.string.action_add_repo_message)
             .negativeButton(android.R.string.cancel)
             .input(
-                hint = resources?.getString(R.string.name),
+                hint = resources?.getString(R.string.repo_hint),
                 prefill = currentName
             ) { _, input ->
                 currentName = input.toString()

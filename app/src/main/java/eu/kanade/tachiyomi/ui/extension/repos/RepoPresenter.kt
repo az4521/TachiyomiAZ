@@ -86,7 +86,9 @@ class RepoPresenter(
     companion object {
         val repoRegex =
             """^[a-zA-Z-_.]*?\/[a-zA-Z-_.]*?$""".toRegex()
+        // Accepts a full URL to any repo index: the legacy index.min.json / repo.json or the
+        // newer index.pb / index.json store. Format is detected from the response at fetch time.
         val urlRegex =
-            """^https://.*/index\.min\.json$""".toRegex()
+            """^https?://.*/(index\.min\.json|repo\.json|index\.pb|index\.json)$""".toRegex()
     }
 }
