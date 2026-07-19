@@ -1,5 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <changelog bulletedList="true">
+    <changelogversion versionName="v8.9.0-AZ" changeDate="">
+        <changelogtext>bump minimum android version to 7 (nougat)</changelogtext>
+        <changelogtext>fix crash that sometimes happened when opening a manga in your library</changelogtext>
+        <changelogtext>bypass anti-fork measure used by some non-extlib-compliant extensions</changelogtext>
+        <changelogtext>fix crash for some extensions (missing zstd)</changelogtext>
+        <changelogtext>full support for extlib 1.6 and new index.pb extension repos (automatically migrates the urls)</changelogtext>
+    </changelogversion>
     <changelogversion versionName="v8.8.6-AZ" changeDate="">
         <changelogtext>sorry to my users on older android versions, this will be the last version of tachiyomiAZ you get. the newer extension library depends on features that cannot coexist with the build settings required to make the app work on android 6 and lower. next update will be android 7+ only</changelogtext>
         <changelogtext>----------------------</changelogtext>

@@ -40,8 +40,8 @@ android {
         minSdkVersion 24
         targetSdkVersion 29
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
-        versionCode 8850
-        versionName "v8.8.6-AZ"
+        versionCode 8900
+        versionName "v8.9.0-AZ"
 
         buildConfigField "String", "COMMIT_COUNT", "\"${getCommitCount()}\""
         buildConfigField "String", "COMMIT_SHA", "\"${getGitSha()}\""
