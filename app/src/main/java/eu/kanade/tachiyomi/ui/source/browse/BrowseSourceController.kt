@@ -436,7 +436,7 @@ open class BrowseSourceController(bundle: Bundle) :
         val source = presenter.source as? HttpSource ?: return
 
         val activity = activity ?: return
-        val intent = WebViewActivity.newIntent(activity, source.baseUrl, source.id, presenter.source.name)
+        val intent = WebViewActivity.newIntent(activity, source.getHomeUrl(), source.id, presenter.source.name)
         startActivity(intent)
     }
 
