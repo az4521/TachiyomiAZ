@@ -372,7 +372,9 @@ class MainActivity : BaseActivity<MainActivityBinding>() {
             }
             Intent.ACTION_VIEW -> {
                 // Deep link to add extension repo
-                if (intent.scheme == "tachiyomi" && intent.data?.host == "add-repo") {
+                if ((intent.scheme == "tachiyomi" && intent.data?.host == "add-repo") ||
+                    (intent.scheme == "mihon" && intent.data?.host == "extension-store")
+                ) {
                     intent.data?.getQueryParameter("url")?.let { repoUrl ->
                         router.popToRoot()
                         router.pushController(RepoController(repoUrl).withFadeTransaction())
