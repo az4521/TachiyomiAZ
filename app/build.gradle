@@ -225,6 +225,11 @@ dependencies {
     implementation "org.jetbrains.kotlinx:kotlinx-serialization-json:$kotlin_serialization_version"
     implementation "org.jetbrains.kotlinx:kotlinx-serialization-json-okio:$kotlin_serialization_version"
     implementation "org.jetbrains.kotlinx:kotlinx-serialization-protobuf:$kotlin_serialization_version"
+    // No longer used by the app itself, but kept on the classpath for older extensions that
+    // still compile/link against gson/kotson (avoids NoClassDefFoundError at runtime).
+    implementation 'com.google.code.gson:gson:2.8.6'
+    implementation 'com.github.salomonbrys.kotson:kotson:2.5.0'
+
     // JavaScript engine
     implementation 'com.squareup.duktape:duktape-android:1.4.0'
     implementation 'com.github.zhanghai.quickjs-java:quickjs-android:547f5b1597'
