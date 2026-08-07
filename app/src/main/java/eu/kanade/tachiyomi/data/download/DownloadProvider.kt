@@ -216,11 +216,19 @@ class DownloadProvider(private val context: Context) {
      * @param chapter the chapter to query.
      */
     fun getValidChapterDirNames(chapter: Chapter): List<String> {
-        return listOf(
+        return listOfNotNull(
             getChapterDirName(chapter, true),
             getChapterDirName(chapter, false),
             // Legacy chapter directory name used in v0.9.2 and before
-            DiskUtil.buildValidFilename(chapter.name)
+            DiskUtil.buildValidFilename(chapter.name),
+            // Chapters with a blank scanlator were previously stored as an empty
+            // string, producing a leading underscore (e.g. "_Ch.1"). Match those
+            // folders too now that blank scanlators are normalized to null.
+            if (chapter.scanlator == null) {
+                DiskUtil.buildValidFilename("_${chapter.name}")
+            } else {
+                null
+            }
         )
     }
 }
