@@ -246,10 +246,12 @@ class HttpPageLoader(
         }
     }
 
-    @Suppress("DEPRECATION")
     private fun HttpSource.fetchPageImageUrl(page: ReaderPage): Observable<ReaderPage> {
         page.status = Page.LOAD_PAGE
-        return fetchImageUrl(page)
+        // Use the suspend API so sources that only override `getImageUrl` (the current
+        // extensions-lib surface) resolve correctly instead of falling through to the
+        // deprecated no-op default.
+        return runAsObservable({ getImageUrl(page) })
             .doOnError { page.status = Page.ERROR }
             .onErrorReturn {
                 // [EXH]
@@ -333,7 +335,7 @@ class HttpPageLoader(
      */
     private fun HttpSource.cacheImage(page: ReaderPage): Observable<ReaderPage> {
         page.status = Page.DOWNLOAD_IMAGE
-        return fetchImage(page)
+        return runAsObservable({ getImage(page) })
             .doOnNext { chapterCache.putImageToCache(page.imageUrl!!, it) }
             .map { page }
     }

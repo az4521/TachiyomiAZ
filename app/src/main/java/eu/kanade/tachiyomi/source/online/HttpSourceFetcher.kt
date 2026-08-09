@@ -2,12 +2,13 @@ package eu.kanade.tachiyomi.source.online
 
 import com.elvishew.xlog.XLog
 import eu.kanade.tachiyomi.source.model.Page
+import eu.kanade.tachiyomi.util.lang.runAsObservable
 import rx.Observable
 
-@Suppress("DEPRECATION")
 fun HttpSource.fetchImageUrlWithStatus(page: Page): Observable<Page> {
     page.status = Page.LOAD_PAGE
-    return fetchImageUrl(page)
+    // Use the suspend API so sources that only override `getImageUrl` resolve correctly.
+    return runAsObservable({ getImageUrl(page) })
         .doOnError { page.status = Page.ERROR }
         .onErrorReturn {
             // [EXH]
