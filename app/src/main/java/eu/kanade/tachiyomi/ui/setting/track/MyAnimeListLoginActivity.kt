@@ -11,6 +11,7 @@ import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.webview.BaseWebViewActivity
 import eu.kanade.tachiyomi.util.system.WebViewClientCompat
+import eu.kanade.tachiyomi.util.system.setUserAgent
 import rx.android.schedulers.AndroidSchedulers
 import rx.schedulers.Schedulers
 import uy.kohesive.injekt.injectLazy
@@ -59,7 +60,7 @@ class MyAnimeListLoginActivity : BaseWebViewActivity() {
                         }
                     }
                 }
-            binding.webview.settings.userAgentString = networkHelper.defaultUserAgent
+            binding.webview.setUserAgent(networkHelper.defaultUserAgent)
             binding.webview.loadUrl(MyAnimeListApi.loginUrl())
         }
     }

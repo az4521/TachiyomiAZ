@@ -21,6 +21,7 @@ import eu.kanade.tachiyomi.util.system.WebViewClientCompat
 import eu.kanade.tachiyomi.util.system.getResourceColor
 import eu.kanade.tachiyomi.util.system.openInBrowser
 import eu.kanade.tachiyomi.util.system.setDefaultSettings
+import eu.kanade.tachiyomi.util.system.setUserAgent
 import eu.kanade.tachiyomi.util.system.toast
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import uy.kohesive.injekt.injectLazy
@@ -39,10 +40,11 @@ class WebViewActivity : BaseWebViewActivity() {
             val source = sourceManager.get(intent.extras!!.getLong(SOURCE_KEY)) as? HttpSource
             if (source != null) {
                 headers = source.headers.toMultimap().mapValues { it.value.getOrNull(0) ?: "" }.toMutableMap()
-                binding.webview.settings.userAgentString = source.headers["User-Agent"]
             }
 
             binding.webview.setDefaultSettings()
+            // Use the same identity (and client-hint metadata) as the network client
+            binding.webview.setUserAgent(headers["User-Agent"] ?: network.defaultUserAgent)
 
             supportActionBar?.subtitle = url
 

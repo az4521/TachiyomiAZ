@@ -74,7 +74,7 @@ open class NetworkHelper(context: Context) {
     @Deprecated("Since extension-lib 1.5", ReplaceWith("client"))
     open val cloudflareClient by lazy {
         legacyClient.newBuilder()
-            .addInterceptor(CloudflareInterceptor(context))
+            .addInterceptor(CloudflareInterceptor(context, cookieManager) { defaultUserAgent })
             .maybeInjectEHLogger()
             .build()
     }
@@ -82,7 +82,7 @@ open class NetworkHelper(context: Context) {
     @Suppress("DEPRECATION")
     open val client by lazy { cloudflareClient }
 
-    val defaultUserAgent by lazy {
-        preferences.defaultUserAgent().get()
-    }
+    // Read fresh on every access so a user-changed UA takes effect without an app restart.
+    val defaultUserAgent: String
+        get() = preferences.defaultUserAgent().get().trim()
 }

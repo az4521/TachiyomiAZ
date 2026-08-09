@@ -4,9 +4,13 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import android.util.Log
 import android.webkit.CookieManager
 import android.webkit.WebSettings
 import android.webkit.WebView
+import androidx.webkit.UserAgentMetadata
+import androidx.webkit.WebSettingsCompat
+import androidx.webkit.WebViewFeature
 
 object WebViewUtil {
     val WEBVIEW_UA_VERSION_REGEX by lazy {
@@ -68,8 +72,68 @@ fun WebView.setDefaultSettings() {
         useWideViewPort = true
         loadWithOverviewMode = true
         cacheMode = WebSettings.LOAD_DEFAULT
+
+        // Handle popups properly
+        setSupportMultipleWindows(true)
+
+        // Allow zooming
+        setSupportZoom(true)
+        builtInZoomControls = true
+        displayZoomControls = false
+    }
+
+    // Some embedded challenge frames (e.g. Turnstile) need third-party cookies to work
+    CookieManager.getInstance().acceptThirdPartyCookies(this)
+}
+
+/**
+ * Sets the WebView's User-Agent and, on supported WebView versions, synchronizes the
+ * corresponding user-agent client-hint metadata so the browser fingerprint stays consistent
+ * between the `User-Agent` header and the `Sec-CH-UA` client hints. Without this, a spoofed
+ * desktop UA can leak the real Android WebView identity through client hints and break
+ * Cloudflare/Turnstile challenges.
+ */
+fun WebView.setUserAgent(userAgent: String) {
+    settings.userAgentString = userAgent
+
+    if (!WebViewFeature.isFeatureSupported(WebViewFeature.USER_AGENT_METADATA)) return
+
+    val versionMatch = CHROME_VERSION_REGEX.find(userAgent) ?: return
+    val majorVersion = versionMatch.groupValues[1]
+    val fullVersion = majorVersion + versionMatch.groupValues[2].ifEmpty { ".0.0.0" }
+
+    try {
+        val metadata = WebSettingsCompat.getUserAgentMetadata(settings)
+        val brandVersionList = metadata.brandVersionList.map { brandVersion ->
+            val brand = when (brandVersion.brand) {
+                WEBVIEW_BRAND -> CHROME_BRAND
+                CHROMIUM_BRAND -> CHROMIUM_BRAND
+                else -> return@map brandVersion
+            }
+
+            UserAgentMetadata.BrandVersion.Builder()
+                .setBrand(brand)
+                .setMajorVersion(majorVersion)
+                .setFullVersion(fullVersion)
+                .build()
+        }
+
+        WebSettingsCompat.setUserAgentMetadata(
+            settings,
+            UserAgentMetadata.Builder(metadata)
+                .setBrandVersionList(brandVersionList)
+                .setFullVersion(fullVersion)
+                .build()
+        )
+    } catch (e: Exception) {
+        Log.e("WebViewUtil", "Failed to set user agent metadata", e)
     }
 }
+
+private const val WEBVIEW_BRAND = "Android WebView"
+private const val CHROMIUM_BRAND = "Chromium"
+private const val CHROME_BRAND = "Google Chrome"
+private val CHROME_VERSION_REGEX = """Chrome/(\d+)(\.[\d.]+)?""".toRegex()
 
 // Based on https://stackoverflow.com/a/29218966
 private fun getWebViewMajorVersion(webview: WebView): Int {
