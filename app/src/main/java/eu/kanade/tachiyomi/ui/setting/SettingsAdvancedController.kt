@@ -232,7 +232,7 @@ class SettingsAdvancedController : SettingsController() {
                     title = "Enable integrated hentai features"
                     summary = "This is a experimental feature that will disable all hentai features if toggled off"
                     key = Keys.eh_is_hentai_enabled
-                    defaultValue = true
+                    defaultValue = false
 
                     onChange {
                         if (preferences.eh_isHentaiEnabled().get()) {

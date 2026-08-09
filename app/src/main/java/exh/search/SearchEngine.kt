@@ -1,5 +1,6 @@
 package exh.search
 
+import exh.metadata.metadata.base.RaisedTag
 import exh.metadata.sql.tables.SearchMetadataTable
 import exh.metadata.sql.tables.SearchTagTable
 import exh.metadata.sql.tables.SearchTitleTable
@@ -214,6 +215,68 @@ class SearchEngine {
         res
     }
 
+    /**
+     * Evaluates a parsed query against a manga's in-memory tags, mirroring the semantics of
+     * [queryToSql]/[textToSubQueries]. This is used for library search of manga whose metadata
+     * isn't indexed in the search tables (e.g. galleries added before indexing), so tag search
+     * there behaves the same as source search: namespace aliases (f: -> female:), lenient
+     * (prefix) matching, the `$` exact marker, bare tags across any namespace, and `-` exclusion.
+     *
+     * @param components the parsed query (see [parseQuery]).
+     * @param tags the manga's tags; for sources without namespaces pass RaisedTag(null, genre, _).
+     * @return true if every query component is satisfied.
+     */
+    fun matchesTags(
+        components: List<QueryComponent>,
+        tags: List<RaisedTag>
+    ): Boolean {
+        return components.all { component ->
+            val hit =
+                when (component) {
+                    is Namespace -> {
+                        if (component.namespace == "uploader") {
+                            // Uploader isn't part of the tags, so it can't be matched offline.
+                            false
+                        } else {
+                            val tag = component.tag
+                            if (tag != null && tag.components.isNotEmpty()) {
+                                val matchers = tagNameMatchers(tag)
+                                tags.any { namespaceMatches(it, component.namespace) && nameMatches(it.name, matchers) }
+                            } else {
+                                tags.any { namespaceMatches(it, component.namespace) }
+                            }
+                        }
+                    }
+                    is Text -> {
+                        val matchers = tagNameMatchers(component)
+                        tags.any { nameMatches(it.name, matchers) }
+                    }
+                    else -> false
+                }
+            if (component.excluded) !hit else hit
+        }
+    }
+
+    private fun namespaceMatches(
+        tag: RaisedTag,
+        namespace: String
+    ) = tag.namespace?.equals(namespace, ignoreCase = true) == true
+
+    // Reuse the exact SQL LIKE patterns the engine builds so matching can't drift from it.
+    // Compiled once per query component and tested against every tag.
+    private fun tagNameMatchers(text: Text): List<Regex> {
+        val patterns = if (text.exact) listOf(text.asQuery()) else text.asLenientTagQueries()
+        return patterns.map { likeToRegex(it) }
+    }
+
+    private fun nameMatches(
+        name: String,
+        matchers: List<Regex>
+    ): Boolean {
+        val value = name.lowercase()
+        return matchers.any { it.matches(value) }
+    }
+
     companion object {
         private const val COL_MANGA_ID = "cmid"
 
@@ -221,6 +284,29 @@ class SearchEngine {
             return string.replace("\\", "\\\\")
                 .replace("_", "\\_")
                 .replace("%", "\\%")
+        }
+
+        /**
+         * Compiles a SQL LIKE [pattern] (where `%`/`_` are wildcards and `\` escapes them, matching
+         * [escapeLike]) into an anchored [Regex] for evaluating parsed queries in memory.
+         */
+        fun likeToRegex(pattern: String): Regex {
+            val regex = StringBuilder("^")
+            var i = 0
+            while (i < pattern.length) {
+                when (val c = pattern[i]) {
+                    '\\' -> {
+                        val next = if (i + 1 < pattern.length) pattern[++i] else '\\'
+                        regex.append(Regex.escape(next.toString()))
+                    }
+                    '%' -> regex.append(".*")
+                    '_' -> regex.append(".")
+                    else -> regex.append(Regex.escape(c.toString()))
+                }
+                i++
+            }
+            regex.append('$')
+            return Regex(regex.toString(), RegexOption.DOT_MATCHES_ALL)
         }
     }
 }

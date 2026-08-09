@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.data.updater.github
 
+import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.data.updater.Release
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -19,19 +20,29 @@ class GithubRelease(
     @SerialName("assets") private val assets: List<Assets>
 ) : Release {
     /**
-     * Get download link of latest release from the assets.
-     * @return download link of latest release.
+     * Get the download link for the APK matching this build's variant.
+     *
+     * A release ships two APKs (android5 = minSdk 21, android7 = minSdk 24). Pick the
+     * one whose file name contains this build's [BuildConfig.APK_VARIANT] so an install
+     * of the Android 5/6 build doesn't pull the Android 7+ APK (which it can't install)
+     * and vice versa. Falls back to the first asset if no match is found.
      */
     override val downloadLink: String
-        get() = assets[0].downloadLink
+        get() {
+            val variant = BuildConfig.APK_VARIANT
+            return assets.firstOrNull { it.name.contains(variant, ignoreCase = true) }?.downloadLink
+                ?: assets.first().downloadLink
+        }
 
     /**
      * Assets class containing download url.
+     * @param name file name of the asset.
      * @param downloadLink download url.
      */
 }
 
 @Serializable
 class Assets(
+    @SerialName("name") val name: String = "",
     @SerialName("browser_download_url") val downloadLink: String
 )

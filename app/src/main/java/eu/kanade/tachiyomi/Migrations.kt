@@ -1,7 +1,9 @@
 package eu.kanade.tachiyomi
 
+import androidx.preference.PreferenceManager
 import eu.kanade.tachiyomi.data.backup.BackupCreatorJob
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
+import eu.kanade.tachiyomi.data.preference.PreferenceKeys
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.data.updater.UpdaterJob
 import eu.kanade.tachiyomi.extension.ExtensionUpdateJob
@@ -20,7 +22,8 @@ object Migrations {
         val context = preferences.context
         val oldVersion = preferences.lastVersionCode().get()
 
-        // Android 5 and 6 cannot install current app updates.
+        // Auto-update is supported on all versions now that releases ship a dedicated
+        // Android 5/6 APK; this only cancels the job for builds without the updater.
         if (!UpdaterJob.isAutoUpdateSupported()) {
             UpdaterJob.cancelTask(context)
         } else if (BuildConfig.DEBUG && !BuildConfig.INCLUDE_UPDATER) {
@@ -39,6 +42,14 @@ object Migrations {
                 ExtensionUpdateJob.setupTask(context)
                 LibraryUpdateJob.setupTask(context)
                 return false
+            }
+
+            // Integrated hentai features used to default ON. New installs now default OFF
+            // (see PreferencesHelper.eh_isHentaiEnabled), but this is an upgrade, so preserve
+            // the previous behavior for users who never explicitly toggled it.
+            val defaultPrefs = PreferenceManager.getDefaultSharedPreferences(context)
+            if (!defaultPrefs.contains(PreferenceKeys.eh_is_hentai_enabled)) {
+                defaultPrefs.edit().putBoolean(PreferenceKeys.eh_is_hentai_enabled, true).apply()
             }
 
             if (oldVersion < 14) {

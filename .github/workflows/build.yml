@@ -7,7 +7,7 @@ on:
 
 jobs:
   apk:
-    name: Generate APK
+    name: Generate APKs
     runs-on: ubuntu-latest
 
     steps:
@@ -33,31 +33,46 @@ jobs:
           # The mode of writing to use: `overwrite`, `append`, or `preserve`.
           write-mode: overwrite # optional, default is preserve
 
-      - name: Build app
+      # Builds both API-level variants from the same code:
+      #   standardApi21Release -> Android 5/6 (minSdk 21)
+      #   standardApi24Release -> Android 7+  (minSdk 24)
+      - name: Build APKs
         uses: gradle/gradle-command-action@v2
         with:
-          arguments: assembleStandardRelease
+          arguments: assembleStandardApi21Release assembleStandardApi24Release
 
       - name: Setup Android SDK
         run: |
           ${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager "build-tools;29.0.3"
 
-      - name: Sign Android release
+      - name: Sign Android 5/6 (api21) release
+        id: sign_android5
         uses: r0adkll/sign-android-release@v1
         with:
-          # The directory to find your release to sign
-          releaseDirectory: app/build/outputs/apk/standard/release
-          # The key used to sign your release in base64 encoded format
+          releaseDirectory: app/build/outputs/apk/standardApi21/release
           signingKeyBase64: ${{ secrets.SIGNING_KEY }}
-          # The key alias
           alias: ${{ secrets.ALIAS }}
-          # The password to the keystore
           keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
-          # The password for the key
           keyPassword: ${{ secrets.KEY_PASSWORD }}
 
-      - name: Upload APK
+      - name: Sign Android 7+ (api24) release
+        id: sign_android7
+        uses: r0adkll/sign-android-release@v1
+        with:
+          releaseDirectory: app/build/outputs/apk/standardApi24/release
+          signingKeyBase64: ${{ secrets.SIGNING_KEY }}
+          alias: ${{ secrets.ALIAS }}
+          keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
+          keyPassword: ${{ secrets.KEY_PASSWORD }}
+
+      - name: Upload Android 5/6 APK (minSdk 21)
         uses: actions/upload-artifact@v4
         with:
-          name: TachiyomiAZ-${{ github.sha }}.apk
-          path: ${{ env.SIGNED_RELEASE_FILE }}
+          name: TachiyomiAZ-android5-${{ github.sha }}
+          path: ${{ steps.sign_android5.outputs.signedReleaseFile }}
+
+      - name: Upload Android 7+ APK (minSdk 24)
+        uses: actions/upload-artifact@v4
+        with:
+          name: TachiyomiAZ-android7-${{ github.sha }}
+          path: ${{ steps.sign_android7.outputs.signedReleaseFile }}

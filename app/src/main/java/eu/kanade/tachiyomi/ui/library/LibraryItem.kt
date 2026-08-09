@@ -23,9 +23,8 @@ import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.widget.AutofitRecyclerView
 import exh.isNamespaceSource
 import exh.metadata.metadata.base.RaisedTag
-import exh.util.SourceTagsUtil.Companion.TAG_TYPE_EXCLUDE
+import exh.search.SearchEngine
 import exh.util.SourceTagsUtil.Companion.getRaisedTags
-import exh.util.SourceTagsUtil.Companion.parseTag
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -37,6 +36,7 @@ class LibraryItem(val manga: LibraryManga, private val libraryDisplayMode: Prefe
     private val source by lazy {
         sourceManager.get(manga.source)
     }
+    private val searchEngine by lazy { SearchEngine() }
     // SY <--
 
     var downloadCount = -1
@@ -141,80 +141,25 @@ class LibraryItem(val manga: LibraryManga, private val libraryDisplayMode: Prefe
 
     private fun ehContainsGenre(constraint: String): Boolean {
         val genres = manga.genres
-        val raisedTags =
-            if (source?.isNamespaceSource() == true) {
-                manga.getRaisedTags(genres)
-            } else {
-                null
-            }
-        return if (constraint.contains(" ") || constraint.contains("\"")) {
-            var cleanConstraint = ""
-            var ignoreSpace = false
-            for (i in constraint.trim().lowercase()) {
-                when (i) {
-                    ' ' -> {
-                        cleanConstraint =
-                            if (!ignoreSpace) {
-                                "$cleanConstraint,"
-                            } else {
-                                "$cleanConstraint "
-                            }
-                    }
-                    '"' -> {
-                        ignoreSpace = !ignoreSpace
-                    }
-                    else -> {
-                        cleanConstraint += i.toString()
-                    }
-                }
-            }
-            cleanConstraint.split(",").all {
-                if (raisedTags == null) {
-                    containsGenre(it.trim(), genres)
-                } else {
-                    containsRaisedGenre(
-                        parseTag(it.trim()),
-                        raisedTags
-                    )
-                }
-            }
-        } else if (raisedTags == null) {
-            containsGenre(constraint, genres)
-        } else {
-            containsRaisedGenre(parseTag(constraint), raisedTags)
-        }
-    }
+        if (genres.isEmpty()) return false
 
-    private fun containsRaisedGenre(
-        tag: RaisedTag,
-        genres: List<RaisedTag>
-    ): Boolean {
-        val genre =
-            genres.find {
-                (it.namespace?.lowercase() == tag.namespace?.lowercase() && it.name.lowercase() == tag.name.lowercase())
+        // Parse the query with the same engine the source search uses so library tag search
+        // handles namespace aliases (f: -> female:), lenient/partial matches, the `$` exact
+        // marker, bare tags, quoted multi-word tags, `-` exclusion and hyphens (e.g. x-ray)
+        // identically. See issue #115.
+        val tags =
+            if (source?.isNamespaceSource() == true) {
+                manga.getRaisedTags(genres) ?: return false
+            } else {
+                // No namespaces: treat each plain genre as a nameless tag (type is unused here).
+                genres.map { RaisedTag(null, it, 0) }
             }
-        return if (tag.type == TAG_TYPE_EXCLUDE) {
-            genre == null
-        } else {
-            genre != null
-        }
+
+        val query = searchEngine.parseQuery(constraint)
+        if (query.isEmpty()) return false
+        return searchEngine.matchesTags(query, tags)
     }
     // SY <--
-
-    private fun containsGenre(
-        tag: String,
-        genres: List<String>?
-    ): Boolean {
-        return if (tag.startsWith("-")) {
-            genres?.find {
-                it.trim().lowercase() == tag.substringAfter("-").lowercase()
-            } == null
-        } else {
-            genres?.find {
-                it.trim().lowercase() == tag.lowercase()
-            } != null
-        }
-    }
 
     override fun equals(other: Any?): Boolean {
         if (other is LibraryItem) {

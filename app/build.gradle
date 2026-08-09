@@ -37,6 +37,7 @@ android {
 
     defaultConfig {
         applicationId "eu.kanade.tachiyomi.az"
+        // Baseline; overridden per "api" product flavor (api21 lowers this to 21).
         minSdkVersion 24
         targetSdkVersion 29
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
@@ -47,6 +48,9 @@ android {
         buildConfigField "String", "COMMIT_SHA", "\"${getGitSha()}\""
         buildConfigField "String", "BUILD_TIME", "\"${getBuildTime()}\""
         buildConfigField "boolean", "INCLUDE_UPDATER", "true"
+        // Marks which APK this is so the updater can pick the matching release asset.
+        // Overridden per "api" flavor; the default here matches the api24 build.
+        buildConfigField "String", "APK_VARIANT", "\"android7\""
 
         multiDexEnabled true
 
@@ -86,7 +90,7 @@ android {
         }
     }
 
-    flavorDimensions "default"
+    flavorDimensions "default", "api"
 
     productFlavors {
         standard {
@@ -96,6 +100,22 @@ android {
         dev {
             resConfigs "en", "xxhdpi"
             dimension "default"
+        }
+
+        // The "api" dimension produces two APKs from identical code:
+        //  - api21 (Android 5/6): minSdk 21. Building with minSdk < 24 changes core
+        //    library desugaring, which breaks 3rd-party extensions, so this build is
+        //    only for devices that can't run api24.
+        //  - api24 (Android 7+): minSdk 24. The recommended build; extensions work.
+        api21 {
+            dimension "api"
+            minSdkVersion 21
+            buildConfigField "String", "APK_VARIANT", "\"android5\""
+        }
+        api24 {
+            dimension "api"
+            minSdkVersion 24
+            buildConfigField "String", "APK_VARIANT", "\"android7\""
         }
     }
 

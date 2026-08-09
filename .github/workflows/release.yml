@@ -1,0 +1,129 @@
+name: Publish Release
+
+# Publishes a GitHub release whenever the versionName in app/build.gradle changes.
+# The release ships two APKs (Android 5/6 + Android 7+); the in-app updater picks
+# the one matching each install via the "android5"/"android7" marker in the file name.
+on:
+  push:
+    branches:
+      - 'master'
+    paths:
+      - 'app/build.gradle'
+
+jobs:
+  check:
+    name: Check version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      exists: ${{ steps.exists.outputs.exists }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Read versionName
+        id: version
+        run: |
+          VERSION=$(grep -oP 'versionName\s+"\K[^"]+' app/build.gradle | head -n1)
+          if [ -z "$VERSION" ]; then
+            echo "Could not read versionName from app/build.gradle" >&2
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Detected version: $VERSION"
+
+      - name: Check whether release already exists
+        id: exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view "${{ steps.version.outputs.version }}" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release ${{ steps.version.outputs.version }} already exists; skipping."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  publish:
+    name: Build and publish
+    needs: check
+    if: needs.check.outputs.exists == 'false'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.check.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up JDK
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
+        with:
+          java-version: 17
+          distribution: temurin
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@f29f5a9d7b09a7c6b29859002d29d24e1674c884 # v5.0.1
+
+      - name: Write google-services.json
+        uses: DamianReeves/write-file-action@v1.3
+        with:
+          path: app/google-services.json
+          contents: ${{ secrets.GOOGLE_SERVICES_TEXT }}
+          write-mode: overwrite
+
+      - name: Build APKs
+        uses: gradle/gradle-command-action@v2
+        with:
+          arguments: assembleStandardApi21Release assembleStandardApi24Release
+
+      - name: Setup Android SDK
+        run: |
+          ${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager "build-tools;29.0.3"
+
+      - name: Sign Android 5/6 (api21) release
+        id: sign_android5
+        uses: r0adkll/sign-android-release@v1
+        with:
+          releaseDirectory: app/build/outputs/apk/standardApi21/release
+          signingKeyBase64: ${{ secrets.SIGNING_KEY }}
+          alias: ${{ secrets.ALIAS }}
+          keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
+          keyPassword: ${{ secrets.KEY_PASSWORD }}
+
+      - name: Sign Android 7+ (api24) release
+        id: sign_android7
+        uses: r0adkll/sign-android-release@v1
+        with:
+          releaseDirectory: app/build/outputs/apk/standardApi24/release
+          signingKeyBase64: ${{ secrets.SIGNING_KEY }}
+          alias: ${{ secrets.ALIAS }}
+          keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
+          keyPassword: ${{ secrets.KEY_PASSWORD }}
+
+      # Rename to stable, updater-friendly names. The "android5"/"android7" marker is
+      # what GithubRelease.downloadLink matches against BuildConfig.APK_VARIANT.
+      - name: Collect release assets
+        run: |
+          mkdir -p release-assets
+          cp "${{ steps.sign_android5.outputs.signedReleaseFile }}" "release-assets/TachiyomiAZ-${VERSION}-android5.apk"
+          cp "${{ steps.sign_android7.outputs.signedReleaseFile }}" "release-assets/TachiyomiAZ-${VERSION}-android7.apk"
+          ls -l release-assets
+
+      # Asset ORDER matters for backwards compatibility: installs running the old
+      # updater have no variant awareness and always grab the first asset (assets[0]).
+      # The old app only auto-updates on Android 7+, so android7 MUST be uploaded first
+      # to keep those users on the correct build. New installs use the variant-aware
+      # updater and match by the "android5"/"android7" marker regardless of order.
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$VERSION" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "$VERSION" \
+            --generate-notes \
+            release-assets/TachiyomiAZ-${VERSION}-android7.apk \
+            release-assets/TachiyomiAZ-${VERSION}-android5.apk

@@ -3,7 +3,6 @@ package eu.kanade.tachiyomi.data.updater
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -63,7 +62,11 @@ class UpdaterJob(private val context: Context, workerParams: WorkerParameters) :
         private const val TAG = "UpdateChecker"
 
         fun isAutoUpdateSupported(): Boolean {
-            return Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
+            // Previously gated to Android 7+ (N) because the only APK was minSdk 24 and
+            // Android 5/6 couldn't install it. Releases now also ship a dedicated
+            // "android5" APK, and the updater fetches the one matching this build, so
+            // auto-update works on every supported version (minSdk 21+).
+            return true
         }
 
         fun setupTask(context: Context) {
