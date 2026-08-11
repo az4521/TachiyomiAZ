@@ -59,11 +59,7 @@ class HttpPageLoader(
             subscriptions +=
                 Observable.defer { Observable.just(queue.take().page) }
                     .filter { it.status == Page.QUEUE }
-                    .concatMap {
-                        source.fetchImageFromCacheThenNet(it).doOnNext {
-                            XLog.d("Downloaded page: ${it.number}!")
-                        }
-                    }
+                    .concatMap(::loadPageSafely)
                     // Hop back onto an Rx IO thread before repeating. Without this the loop can
                     // resubscribe on whichever thread signalled completion (an OkHttp dispatcher
                     // thread) and then block it indefinitely in `queue.take()`, permanently
@@ -251,6 +247,22 @@ class HttpPageLoader(
         }
     }
 
+    /**
+     * Loads one queued page without allowing a source/cache exception to terminate the worker.
+     * The worker subscriptions live for the whole chapter, so an uncaught error here would
+     * permanently reduce the configured download concurrency and can eventually leave the queue
+     * with no consumers at all.
+     */
+    private fun loadPageSafely(page: ReaderPage): Observable<ReaderPage> {
+        return Observable.defer { source.fetchImageFromCacheThenNet(page) }
+            .doOnNext { XLog.d("Downloaded page: ${it.number}!") }
+            .doOnError { error ->
+                page.status = Page.ERROR
+                Timber.e(error, "Reader page worker failed on page ${page.number}")
+            }
+            .onErrorResumeNext(Observable.empty())
+    }
+
     private fun HttpSource.fetchPageImageUrl(page: ReaderPage): Observable<ReaderPage> {
         page.status = Page.LOAD_PAGE
         // Use the suspend API so sources that only override `getImageUrl` (the current
@@ -348,9 +360,11 @@ class HttpPageLoader(
     // EXH -->
     fun boostPage(page: ReaderPage) {
         if (page.status == Page.QUEUE) {
+            // Avoid racing the forced request with a stale queued copy of the same page.
+            queue.filter { it.page === page }.forEach(queue::remove)
             subscriptions +=
                 Observable.just(page)
-                    .concatMap { source.fetchImageFromCacheThenNet(it) }
+                    .concatMap(::loadPageSafely)
                     .subscribeOn(Schedulers.io())
                     .subscribe(
                         {
