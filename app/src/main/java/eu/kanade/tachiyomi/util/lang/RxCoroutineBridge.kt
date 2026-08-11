@@ -25,6 +25,7 @@ import rx.Single
 import rx.SingleSubscriber
 import rx.Subscriber
 import rx.Subscription
+import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
@@ -243,12 +244,23 @@ fun <T : Any> Flow<T>.asObservable(backpressureMode: Emitter.BackpressureMode = 
 @ExperimentalCoroutinesApi
 fun <T> runAsObservable(
     block: suspend () -> T,
-    backpressureMode: Emitter.BackpressureMode = Emitter.BackpressureMode.NONE
+    backpressureMode: Emitter.BackpressureMode = Emitter.BackpressureMode.NONE,
+    // Defaults to [Dispatchers.IO] because every caller here wraps a suspending source call that
+    // hits the network (and often follows it with a blocking DB write).
+    //
+    // With [Dispatchers.Unconfined] the coroutine resumes on whatever thread completed the last
+    // suspension — for OkHttp that is a dispatcher callback thread — so the entire downstream
+    // chain would run inside `onResponse`. OkHttp only calls `dispatcher.finished()` after
+    // `onResponse` returns, so the request stays registered as "running" for the duration, and a
+    // blocking downstream operator can park that thread indefinitely. Once enough threads are
+    // parked, `maxRequestsPerHost` (5) is exhausted and every further request to that host queues
+    // forever. Pass [Dispatchers.Unconfined] explicitly if inline resumption is genuinely wanted.
+    context: CoroutineContext = Dispatchers.IO
 ): Observable<T> {
     return Observable.create(
         { emitter ->
             val job =
-                GlobalScope.launch(Dispatchers.Unconfined, start = CoroutineStart.ATOMIC) {
+                GlobalScope.launch(context, start = CoroutineStart.ATOMIC) {
                     try {
                         emitter.onNext(block())
                         emitter.onCompleted()

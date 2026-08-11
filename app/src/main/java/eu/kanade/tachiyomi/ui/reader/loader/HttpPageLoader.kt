@@ -64,6 +64,11 @@ class HttpPageLoader(
                             XLog.d("Downloaded page: ${it.number}!")
                         }
                     }
+                    // Hop back onto an Rx IO thread before repeating. Without this the loop can
+                    // resubscribe on whichever thread signalled completion (an OkHttp dispatcher
+                    // thread) and then block it indefinitely in `queue.take()`, permanently
+                    // consuming one of OkHttp's per-host request slots.
+                    .observeOn(Schedulers.io())
                     .repeat()
                     .subscribeOn(Schedulers.io())
                     .subscribe(
