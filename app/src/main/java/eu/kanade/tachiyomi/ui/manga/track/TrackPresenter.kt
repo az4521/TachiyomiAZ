@@ -1,13 +1,17 @@
 package eu.kanade.tachiyomi.ui.manga.track
 
 import android.os.Bundle
+import com.elvishew.xlog.XLog
 import eu.kanade.tachiyomi.data.database.DatabaseHelper
 import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
+import eu.kanade.tachiyomi.data.track.EnhancedTrackService
 import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.data.track.TrackService
+import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.ui.base.presenter.BasePresenter
+import eu.kanade.tachiyomi.util.lang.launchIO
 import eu.kanade.tachiyomi.util.system.toast
 import rx.Observable
 import rx.Subscription
@@ -20,7 +24,8 @@ class TrackPresenter(
     val manga: Manga,
     preferences: PreferencesHelper = Injekt.get(),
     private val db: DatabaseHelper = Injekt.get(),
-    private val trackManager: TrackManager = Injekt.get()
+    private val trackManager: TrackManager = Injekt.get(),
+    private val sourceManager: SourceManager = Injekt.get()
 ) : BasePresenter<TrackController>() {
     private val context = preferences.context
 
@@ -37,6 +42,36 @@ class TrackPresenter(
     override fun onCreate(savedState: Bundle?) {
         super.onCreate(savedState)
         fetchTrackings()
+        autoBindEnhancedTrackers()
+    }
+
+    /**
+     * Enhanced trackers are never bound manually: if one accepts this manga's source and there is
+     * no track for it yet, match it and register the result automatically.
+     */
+    private fun autoBindEnhancedTrackers() {
+        val source = sourceManager.get(manga.source) ?: return
+        val enhanced =
+            loggedServices
+                .filterIsInstance<EnhancedTrackService>()
+                .filter { it.accept(source) }
+        if (enhanced.isEmpty()) return
+
+        launchIO {
+            val existing = db.getTracks(manga).executeAsBlocking()
+            enhanced.forEach { service ->
+                service as TrackService
+                if (existing.any { it.sync_id == service.id }) return@forEach
+                try {
+                    val matched = service.match(manga) ?: return@forEach
+                    matched.manga_id = manga.id!!
+                    service.bind(matched).toBlocking().first()
+                    db.insertTrack(matched).executeAsBlocking()
+                } catch (e: Exception) {
+                    XLog.w("Failed to auto-bind ${service.name}", e)
+                }
+            }
+        }
     }
 
     fun fetchTrackings() {

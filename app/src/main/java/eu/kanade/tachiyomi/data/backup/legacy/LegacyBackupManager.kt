@@ -154,7 +154,7 @@ class LegacyBackupManager(context: Context, version: Int = CURRENT_VERSION) : Ab
         return TrackImpl().apply {
             title = obj["t"]!!.jsonPrimitive.content
             sync_id = obj["s"]!!.jsonPrimitive.int
-            media_id = obj["r"]!!.jsonPrimitive.int
+            media_id = obj["r"]!!.jsonPrimitive.long
             library_id = obj["ml"]!!.jsonPrimitive.long
             last_chapter_read = obj["l"]!!.jsonPrimitive.int
             tracking_url = obj["u"]!!.jsonPrimitive.content

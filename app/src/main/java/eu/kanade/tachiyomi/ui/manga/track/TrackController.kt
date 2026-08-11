@@ -130,6 +130,9 @@ class TrackController :
     override fun onScoreClick(position: Int) {
         val item = adapter?.getItem(position) ?: return
         if (item.track == null) return
+        // Enhanced trackers (Komga, Kavita, Suwayomi) have no scoring, so their score list is
+        // empty. Opening the picker on one would set a negative max value and crash.
+        if (item.service.getScoreList().isEmpty()) return
 
         SetTrackScoreDialog(this, item).showDialog(router)
     }

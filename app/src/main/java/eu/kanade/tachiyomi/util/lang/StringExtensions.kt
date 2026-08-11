@@ -1,7 +1,15 @@
 package eu.kanade.tachiyomi.util.lang
 
 import net.greypanther.natsort.CaseInsensitiveSimpleNaturalComparator
+import org.jsoup.parser.Parser
 import kotlin.math.floor
+
+/**
+ * Decodes HTML entities (e.g. `&amp;`, `&#039;`) in this string.
+ */
+fun String.htmlDecode(): String {
+    return Parser.unescapeEntities(this, false)
+}
 
 /**
  * Replaces the given string to have at most [count] characters using [replacement] at its end.

@@ -29,6 +29,8 @@ object TrackTable {
 
     const val COL_FINISH_DATE = "finish_date"
 
+    const val COL_PRIVATE = "private"
+
     val createTableQuery: String
         get() =
             """CREATE TABLE $TABLE(
@@ -45,6 +47,7 @@ object TrackTable {
             $COL_TRACKING_URL TEXT NOT NULL,
             $COL_START_DATE LONG NOT NULL,
             $COL_FINISH_DATE LONG NOT NULL,
+            $COL_PRIVATE INTEGER NOT NULL DEFAULT 0,
             UNIQUE ($COL_MANGA_ID, $COL_SYNC_ID) ON CONFLICT REPLACE,
             FOREIGN KEY($COL_MANGA_ID) REFERENCES ${MangaTable.TABLE} (${MangaTable.COL_ID})
             ON DELETE CASCADE
@@ -61,4 +64,7 @@ object TrackTable {
 
     val addFinishDate: String
         get() = "ALTER TABLE $TABLE ADD COLUMN $COL_FINISH_DATE LONG NOT NULL DEFAULT 0"
+
+    val addPrivate: String
+        get() = "ALTER TABLE $TABLE ADD COLUMN $COL_PRIVATE INTEGER NOT NULL DEFAULT 0"
 }

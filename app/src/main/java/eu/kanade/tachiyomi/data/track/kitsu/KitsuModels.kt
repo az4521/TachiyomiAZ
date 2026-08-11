@@ -30,7 +30,7 @@ class KitsuSearchManga(obj: JsonObject) {
     @CallSuper
     fun toTrack() =
         TrackSearch.create(TrackManager.KITSU).apply {
-            media_id = this@KitsuSearchManga.id
+            media_id = this@KitsuSearchManga.id.toLong()
             title = canonicalTitle
             total_chapters = chapterCount ?: 0
             cover_url = original ?: ""
@@ -62,7 +62,7 @@ class KitsuLibManga(obj: JsonObject, manga: JsonObject) {
 
     fun toTrack() =
         TrackSearch.create(TrackManager.KITSU).apply {
-            media_id = libraryId
+            media_id = libraryId.toLong()
             title = canonicalTitle
             total_chapters = chapterCount ?: 0
             cover_url = original

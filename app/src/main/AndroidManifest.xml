@@ -145,6 +145,34 @@
             </intent-filter>
         </activity>
         <activity
+            android:name=".ui.setting.track.MangaBakaLoginActivity"
+            android:label="MangaBaka">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data
+                    android:host="mangabaka-auth"
+                    android:scheme="mihon" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name=".ui.setting.track.HikkaLoginActivity"
+            android:label="Hikka">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data
+                    android:host="hikka-auth"
+                    android:scheme="tachiyomi" />
+            </intent-filter>
+        </activity>
+        <activity
             android:name=".ui.setting.track.BangumiLoginActivity"
             android:label="Bangumi">
             <intent-filter>

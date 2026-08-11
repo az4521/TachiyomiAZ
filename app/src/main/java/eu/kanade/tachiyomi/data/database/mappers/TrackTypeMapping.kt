@@ -17,6 +17,7 @@ import eu.kanade.tachiyomi.data.database.tables.TrackTable.COL_LAST_CHAPTER_READ
 import eu.kanade.tachiyomi.data.database.tables.TrackTable.COL_LIBRARY_ID
 import eu.kanade.tachiyomi.data.database.tables.TrackTable.COL_MANGA_ID
 import eu.kanade.tachiyomi.data.database.tables.TrackTable.COL_MEDIA_ID
+import eu.kanade.tachiyomi.data.database.tables.TrackTable.COL_PRIVATE
 import eu.kanade.tachiyomi.data.database.tables.TrackTable.COL_SCORE
 import eu.kanade.tachiyomi.data.database.tables.TrackTable.COL_START_DATE
 import eu.kanade.tachiyomi.data.database.tables.TrackTable.COL_STATUS
@@ -60,6 +61,7 @@ class TrackPutResolver : DefaultPutResolver<Track>() {
             put(COL_SCORE, obj.score)
             put(COL_START_DATE, obj.started_reading_date)
             put(COL_FINISH_DATE, obj.finished_reading_date)
+            put(COL_PRIVATE, obj.private)
         }
 }
 
@@ -69,7 +71,7 @@ class TrackGetResolver : DefaultGetResolver<Track>() {
             id = cursor.getLong(cursor.getColumnIndex(COL_ID))
             manga_id = cursor.getLong(cursor.getColumnIndex(COL_MANGA_ID))
             sync_id = cursor.getInt(cursor.getColumnIndex(COL_SYNC_ID))
-            media_id = cursor.getInt(cursor.getColumnIndex(COL_MEDIA_ID))
+            media_id = cursor.getLong(cursor.getColumnIndex(COL_MEDIA_ID))
             library_id = cursor.getLong(cursor.getColumnIndex(COL_LIBRARY_ID))
             title = cursor.getString(cursor.getColumnIndex(COL_TITLE))
             last_chapter_read = cursor.getInt(cursor.getColumnIndex(COL_LAST_CHAPTER_READ))
@@ -79,6 +81,7 @@ class TrackGetResolver : DefaultGetResolver<Track>() {
             tracking_url = cursor.getString(cursor.getColumnIndex(COL_TRACKING_URL))
             started_reading_date = cursor.getLong(cursor.getColumnIndex(COL_START_DATE))
             finished_reading_date = cursor.getLong(cursor.getColumnIndex(COL_FINISH_DATE))
+            private = cursor.getInt(cursor.getColumnIndex(COL_PRIVATE)) == 1
         }
 }
 

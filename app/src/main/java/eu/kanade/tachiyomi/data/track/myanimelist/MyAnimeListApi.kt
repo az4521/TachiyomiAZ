@@ -61,7 +61,7 @@ class MyAnimeListApi(private val client: OkHttpClient, interceptor: MyAnimeListI
                 .map { row ->
                     TrackSearch.create(TrackManager.MYANIMELIST).apply {
                         title = row.searchTitle()
-                        media_id = row.searchMediaId()
+                        media_id = row.searchMediaId().toLong()
                         total_chapters = row.searchTotalChapters()
                         summary = row.searchSummary()
                         cover_url = row.searchCoverUrl()
@@ -155,7 +155,7 @@ class MyAnimeListApi(private val client: OkHttpClient, interceptor: MyAnimeListI
             .map {
                 TrackSearch.create(TrackManager.MYANIMELIST).apply {
                     title = it.selectText("manga_title")!!
-                    media_id = it.selectInt("manga_mangadb_id")
+                    media_id = it.selectInt("manga_mangadb_id").toLong()
                     last_chapter_read = it.selectInt("my_read_chapters")
                     status = getStatus(it.selectText("my_status")!!)
                     score = it.selectInt("my_score").toFloat()
@@ -259,7 +259,7 @@ class MyAnimeListApi(private val client: OkHttpClient, interceptor: MyAnimeListI
                 .appendPath("login.php")
                 .toString()
 
-        private fun mangaUrl(remoteId: Int) = baseMangaUrl + remoteId
+        private fun mangaUrl(remoteId: Long) = baseMangaUrl + remoteId
 
         private fun searchUrl(query: String): String {
             val col = "c[]"
@@ -281,7 +281,7 @@ class MyAnimeListApi(private val client: OkHttpClient, interceptor: MyAnimeListI
                 .appendQueryParameter("go", "export")
                 .toString()
 
-        private fun editPageUrl(mediaId: Int) =
+        private fun editPageUrl(mediaId: Long) =
             Uri.parse(baseModifyListUrl).buildUpon()
                 .appendPath(mediaId.toString())
                 .appendPath("edit")

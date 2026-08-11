@@ -5,9 +5,12 @@ import okhttp3.FormBody
 import okhttp3.Headers
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
 import okhttp3.RequestBody
 import java.util.concurrent.TimeUnit.MINUTES
+
+val jsonMime = "application/json; charset=utf-8".toMediaType()
 
 private val DEFAULT_CACHE_CONTROL = CacheControl.Builder().maxAge(10, MINUTES).build()
 private val DEFAULT_HEADERS = Headers.Builder().build()
@@ -45,6 +48,34 @@ fun POST(
     return Request.Builder()
         .url(url)
         .post(body)
+        .headers(headers)
+        .cacheControl(cache)
+        .build()
+}
+
+fun PUT(
+    url: String,
+    headers: Headers = DEFAULT_HEADERS,
+    body: RequestBody = DEFAULT_BODY,
+    cache: CacheControl = DEFAULT_CACHE_CONTROL
+): Request {
+    return Request.Builder()
+        .url(url)
+        .put(body)
+        .headers(headers)
+        .cacheControl(cache)
+        .build()
+}
+
+fun DELETE(
+    url: String,
+    headers: Headers = DEFAULT_HEADERS,
+    body: RequestBody = DEFAULT_BODY,
+    cache: CacheControl = DEFAULT_CACHE_CONTROL
+): Request {
+    return Request.Builder()
+        .url(url)
+        .delete(body)
         .headers(headers)
         .cacheControl(cache)
         .build()

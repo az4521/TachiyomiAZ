@@ -5,10 +5,13 @@ import android.content.Intent
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.R
+import eu.kanade.tachiyomi.data.track.EnhancedTrackService
 import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.data.track.TrackService
 import eu.kanade.tachiyomi.data.track.anilist.AnilistApi
 import eu.kanade.tachiyomi.data.track.bangumi.BangumiApi
+import eu.kanade.tachiyomi.data.track.hikka.HikkaApi
+import eu.kanade.tachiyomi.data.track.mangabaka.MangaBakaApi
 import eu.kanade.tachiyomi.data.track.shikimori.ShikimoriApi
 import eu.kanade.tachiyomi.ui.setting.track.MyAnimeListLoginActivity
 import eu.kanade.tachiyomi.util.preference.defaultValue
@@ -72,6 +75,27 @@ class SettingsTrackingController :
                     tabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY)
                     tabsIntent.launchUrl(activity!!, ShikimoriApi.authUrl())
                 }
+                trackPreference(trackManager.mangaBaka) {
+                    val tabsIntent =
+                        CustomTabsIntent.Builder()
+                            .setToolbarColor(context.getResourceColor(androidx.appcompat.R.attr.colorPrimary))
+                            .build()
+                    tabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY)
+                    tabsIntent.launchUrl(activity!!, MangaBakaApi.authUrl())
+                }
+                trackPreference(trackManager.hikka) {
+                    val tabsIntent =
+                        CustomTabsIntent.Builder()
+                            .setToolbarColor(context.getResourceColor(androidx.appcompat.R.attr.colorPrimary))
+                            .build()
+                    tabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY)
+                    tabsIntent.launchUrl(activity!!, HikkaApi.authUrl())
+                }
+                trackPreference(trackManager.mangaUpdates) {
+                    val dialog = TrackLoginDialog(trackManager.mangaUpdates, R.string.username)
+                    dialog.targetController = this@SettingsTrackingController
+                    dialog.showDialog(router)
+                }
                 trackPreference(trackManager.bangumi) {
                     val tabsIntent =
                         CustomTabsIntent.Builder()
@@ -82,9 +106,41 @@ class SettingsTrackingController :
                 }
             }
             preferenceCategory {
+                titleRes = R.string.enhanced_services
+
+                enhancedTrackPreference(trackManager.komga)
+                enhancedTrackPreference(trackManager.kavita)
+                enhancedTrackPreference(trackManager.suwayomi)
+
+                infoPreference(R.string.enhanced_tracking_info)
+            }
+            preferenceCategory {
                 infoPreference(R.string.tracking_info)
             }
         }
+
+    /**
+     * Enhanced trackers have no credentials of their own - they reuse the bound source's. So the
+     * preference just toggles them on and off.
+     */
+    private fun PreferenceScreen.enhancedTrackPreference(service: TrackService): LoginPreference {
+        return initThenAdd(
+            LoginPreference(context).apply {
+                key = Keys.trackUsername(service.id)
+                title = service.name
+            },
+            {
+                onClick {
+                    if (service.isLogged) {
+                        service.logout()
+                    } else {
+                        (service as EnhancedTrackService).loginNoop()
+                    }
+                    updatePreference(service.id)
+                }
+            }
+        )
+    }
 
     private inline fun PreferenceScreen.trackPreference(
         service: TrackService,

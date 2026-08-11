@@ -23,7 +23,7 @@ class DbOpenCallback : SupportSQLiteOpenHelper.Callback(DATABASE_VERSION) {
         /**
          * Version of the database.
          */
-        const val DATABASE_VERSION = 17 // [EXH + J2K DRAGNDROP + AZ MERGEDSOURES + DEV DATESORT + 1.4 EXTLIB + 1.6 MEMO]
+        const val DATABASE_VERSION = 18 // [EXH + J2K DRAGNDROP + AZ MERGEDSOURES + DEV DATESORT + 1.4 EXTLIB + 1.6 MEMO + TRACK PRIVATE]
     }
 
     override fun onCreate(db: SupportSQLiteDatabase) =
@@ -151,6 +151,10 @@ class DbOpenCallback : SupportSQLiteOpenHelper.Callback(DATABASE_VERSION) {
             db.execSQL(MangaTable.addMemo)
             db.execSQL(ChapterTable.dropMemo)
             db.execSQL(ChapterTable.addMemo)
+        }
+        if (oldVersion < 18) {
+            // Private tracking flag, used by trackers that support hiding an entry (e.g. MangaBaka)
+            db.execSQL(TrackTable.addPrivate)
         }
     }
 

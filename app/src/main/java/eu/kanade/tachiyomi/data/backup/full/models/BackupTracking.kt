@@ -14,7 +14,9 @@ data class BackupTracking(
     @ProtoNumber(1) var syncId: Int,
     // LibraryId is not null in 1.x
     @ProtoNumber(2) var libraryId: Long,
-    @ProtoNumber(3) var mediaId: Int = 0,
+    // mediaId widened to Long for trackers with 64-bit ids (e.g. MangaUpdates); protobuf
+    // varints stay wire-compatible with backups written when this was an Int.
+    @ProtoNumber(3) var mediaId: Long = 0,
     // trackingUrl is called mediaUrl in 1.x
     @ProtoNumber(4) var trackingUrl: String = "",
     @ProtoNumber(5) var title: String = "",
@@ -26,7 +28,8 @@ data class BackupTracking(
     // startedReadingDate is called startReadTime in 1.x
     @ProtoNumber(10) var startedReadingDate: Long = 0,
     // finishedReadingDate is called endReadTime in 1.x
-    @ProtoNumber(11) var finishedReadingDate: Long = 0
+    @ProtoNumber(11) var finishedReadingDate: Long = 0,
+    @ProtoNumber(12) var private: Boolean = false
 ) {
     fun getTrackingImpl(): TrackImpl {
         return TrackImpl().apply {
@@ -42,6 +45,7 @@ data class BackupTracking(
             started_reading_date = this@BackupTracking.startedReadingDate
             finished_reading_date = this@BackupTracking.finishedReadingDate
             tracking_url = this@BackupTracking.trackingUrl
+            private = this@BackupTracking.private
         }
     }
 
@@ -60,7 +64,8 @@ data class BackupTracking(
                 status = track.status,
                 startedReadingDate = track.started_reading_date,
                 finishedReadingDate = track.finished_reading_date,
-                trackingUrl = track.tracking_url
+                trackingUrl = track.tracking_url,
+                private = track.private
             )
         }
     }

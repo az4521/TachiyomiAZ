@@ -20,12 +20,12 @@ data class ALManga(
 ) {
     fun toTrack() =
         TrackSearch.create(TrackManager.ANILIST).apply {
-            media_id = this@ALManga.media_id
+            media_id = this@ALManga.media_id.toLong()
             title = title_romaji
             total_chapters = this@ALManga.total_chapters
             cover_url = image_url_lge
             summary = description ?: ""
-            tracking_url = AnilistApi.mangaUrl(media_id)
+            tracking_url = AnilistApi.mangaUrl(this@ALManga.media_id)
             publishing_status = this@ALManga.publishing_status
             publishing_type = type
             if (start_date_fuzzy != 0L) {
@@ -49,7 +49,7 @@ data class ALUserManga(
 ) {
     fun toTrack() =
         Track.create(TrackManager.ANILIST).apply {
-            media_id = manga.media_id
+            media_id = manga.media_id.toLong()
             status = toTrackStatus()
             score = score_raw.toFloat()
             last_chapter_read = chapters_read

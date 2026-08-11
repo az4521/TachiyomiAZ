@@ -9,7 +9,7 @@ interface Track : Serializable {
 
     var sync_id: Int
 
-    var media_id: Int
+    var media_id: Long
 
     var library_id: Long?
 
@@ -29,12 +29,16 @@ interface Track : Serializable {
 
     var tracking_url: String
 
+    /** Whether the entry is hidden from other users on trackers that support it. */
+    var private: Boolean
+
     fun copyPersonalFrom(other: Track) {
         last_chapter_read = other.last_chapter_read
         score = other.score
         status = other.status
         started_reading_date = other.started_reading_date
         finished_reading_date = other.finished_reading_date
+        private = other.private
     }
 
     companion object {
