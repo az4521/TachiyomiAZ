@@ -112,6 +112,8 @@ class PreferencesHelper(val context: Context) {
 
     fun readWithTapping() = flowPrefs.getBoolean(Keys.readWithTapping, true)
 
+    fun readWithTappingInverted() = flowPrefs.getBoolean(Keys.readWithTappingInverted, false)
+
     fun readWithLongTap() = flowPrefs.getBoolean(Keys.readWithLongTap, true)
 
     fun readWithVolumeKeys() = flowPrefs.getBoolean(Keys.readWithVolumeKeys, false)
@@ -125,6 +127,8 @@ class PreferencesHelper(val context: Context) {
     fun updateOnlyNonCompleted() = prefs.getBoolean(Keys.updateOnlyNonCompleted, false)
 
     fun autoUpdateTrack() = prefs.getBoolean(Keys.autoUpdateTrack, true)
+
+    fun trackMarkedAsRead() = prefs.getBoolean(Keys.trackMarkedAsRead, true)
 
     fun lastUsedCatalogueSource() = flowPrefs.getLong(Keys.lastUsedCatalogueSource, -1)
 

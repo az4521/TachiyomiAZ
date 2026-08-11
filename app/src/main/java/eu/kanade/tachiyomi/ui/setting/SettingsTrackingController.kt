@@ -40,6 +40,11 @@ class SettingsTrackingController :
                 titleRes = R.string.pref_auto_update_manga_sync
                 defaultValue = true
             }
+            switchPreference {
+                key = Keys.trackMarkedAsRead
+                titleRes = R.string.pref_track_marked_as_read
+                defaultValue = true
+            }
             preferenceCategory {
                 titleRes = R.string.services
 

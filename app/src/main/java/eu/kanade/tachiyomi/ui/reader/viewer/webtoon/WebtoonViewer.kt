@@ -108,11 +108,16 @@ class WebtoonViewer(
         recycler.tapListener = { event ->
             val positionX = event.rawX
             val positionY = event.rawY
+            val inverted = config.tappingInverted
             when {
-                positionY < recycler.height * 0.33 && config.tappingEnabled -> scrollUp()
-                positionY > recycler.height * 0.66 && config.tappingEnabled -> scrollDown()
-                positionX < recycler.width * 0.33 && config.tappingEnabled -> scrollUp()
-                positionX > recycler.width * 0.66 && config.tappingEnabled -> scrollDown()
+                positionY < recycler.height * 0.33 && config.tappingEnabled ->
+                    if (inverted) scrollDown() else scrollUp()
+                positionY > recycler.height * 0.66 && config.tappingEnabled ->
+                    if (inverted) scrollUp() else scrollDown()
+                positionX < recycler.width * 0.33 && config.tappingEnabled ->
+                    if (inverted) scrollDown() else scrollUp()
+                positionX > recycler.width * 0.66 && config.tappingEnabled ->
+                    if (inverted) scrollUp() else scrollDown()
                 else -> activity.toggleMenu()
             }
         }

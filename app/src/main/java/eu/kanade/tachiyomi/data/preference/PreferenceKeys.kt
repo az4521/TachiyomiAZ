@@ -52,6 +52,8 @@ object PreferenceKeys {
 
     const val readWithTapping = "reader_tap"
 
+    const val readWithTappingInverted = "reader_tap_inverted"
+
     const val readWithLongTap = "reader_long_tap"
 
     const val readWithVolumeKeys = "reader_volume_keys"
@@ -67,6 +69,8 @@ object PreferenceKeys {
     const val updateOnlyNonCompleted = "pref_update_only_non_completed_key"
 
     const val autoUpdateTrack = "pref_auto_update_manga_sync_key"
+
+    const val trackMarkedAsRead = "pref_track_marked_as_read_key"
 
     const val lastUsedCatalogueSource = "last_catalogue_source"
 

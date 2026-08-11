@@ -13,6 +13,7 @@ import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.ui.base.presenter.BasePresenter
 import eu.kanade.tachiyomi.util.chapter.syncChaptersWithSource
+import eu.kanade.tachiyomi.util.chapter.updateTrackChapterMarkedRead
 import eu.kanade.tachiyomi.util.isLocal
 import eu.kanade.tachiyomi.util.lang.isNullOrUnsubscribed
 import eu.kanade.tachiyomi.util.lang.launchIO
@@ -317,6 +318,12 @@ class ChaptersPresenter(
 
         launchIO {
             db.updateChaptersProgress(chapters).executeAsBlocking()
+
+            if (read && preferences.autoUpdateTrack() && preferences.trackMarkedAsRead()) {
+                chapters.maxOfOrNull { it.chapter_number }
+                    ?.takeIf { it > 0 }
+                    ?.let { updateTrackChapterMarkedRead(manga, it.toInt()) }
+            }
 
             if (preferences.removeAfterMarkedAsRead()) {
                 deleteChapters(chapters)

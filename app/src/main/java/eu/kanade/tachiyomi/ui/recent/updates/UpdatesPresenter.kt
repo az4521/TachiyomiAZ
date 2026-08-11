@@ -9,6 +9,7 @@ import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.ui.base.presenter.BasePresenter
 import eu.kanade.tachiyomi.ui.recent.DateSectionItem
+import eu.kanade.tachiyomi.util.chapter.updateTrackChapterMarkedRead
 import eu.kanade.tachiyomi.util.lang.toDateKey
 import rx.Observable
 import rx.android.schedulers.AndroidSchedulers
@@ -150,6 +151,16 @@ class UpdatesPresenter(
         Observable.fromCallable { db.updateChaptersProgress(chapters).executeAsBlocking() }
             .subscribeOn(Schedulers.io())
             .subscribe()
+
+        if (read && preferences.autoUpdateTrack() && preferences.trackMarkedAsRead()) {
+            // Chapters here can span several manga, so sync each one to its own highest chapter.
+            items.groupBy { it.manga }
+                .forEach { (manga, mangaItems) ->
+                    mangaItems.maxOfOrNull { it.chapter.chapter_number }
+                        ?.takeIf { it > 0 }
+                        ?.let { updateTrackChapterMarkedRead(manga, it.toInt()) }
+                }
+        }
     }
 
     /**
