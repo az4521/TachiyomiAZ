@@ -24,6 +24,7 @@ import timber.log.Timber
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
+import java.util.concurrent.Executors
 import java.util.concurrent.PriorityBlockingQueue
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.min
@@ -52,21 +53,38 @@ class HttpPageLoader(
 
     private val preloadSize = prefs.eh_preload_size().get()
 
+    /**
+     * One dedicated thread per worker.
+     *
+     * The worker loop parks its thread in [PriorityBlockingQueue.take] for as long as the queue is
+     * empty, so it must never run on a shared pool. On `Schedulers.io()` the parked thread is
+     * released back into the cache — and handed out to unrelated subscribers, whose work then never
+     * runs — as soon as `repeat()` swaps subscriptions or this loader is recycled. Owning the
+     * executors also means [recycle] can actually interrupt the parked threads.
+     */
+    private val workerExecutors =
+        List(prefs.eh_readerThreads().get()) { index ->
+            Executors.newSingleThreadExecutor { runnable ->
+                Thread(runnable, "HttpPageLoader#$index").apply { isDaemon = true }
+            }
+        }
+
     init {
         // EXH -->
-        repeat(prefs.eh_readerThreads().get()) {
+        workerExecutors.forEach { executor ->
             // EXH <--
+            val worker = Schedulers.from(executor)
             subscriptions +=
                 Observable.defer { Observable.just(queue.take().page) }
                     .filter { it.status == Page.QUEUE }
                     .concatMap(::loadPageSafely)
-                    // Hop back onto an Rx IO thread before repeating. Without this the loop can
-                    // resubscribe on whichever thread signalled completion (an OkHttp dispatcher
-                    // thread) and then block it indefinitely in `queue.take()`, permanently
-                    // consuming one of OkHttp's per-host request slots.
-                    .observeOn(Schedulers.io())
+                    // Hop back onto this worker's own thread before repeating. Without this the
+                    // loop resubscribes on whichever thread signalled completion (an OkHttp
+                    // dispatcher thread) and then blocks it indefinitely in `queue.take()`,
+                    // permanently consuming one of OkHttp's per-host request slots.
+                    .observeOn(worker)
                     .repeat()
-                    .subscribeOn(Schedulers.io())
+                    .subscribeOn(worker)
                     .subscribe(
                         {
                         },
@@ -88,6 +106,9 @@ class HttpPageLoader(
         super.recycle()
         subscriptions.unsubscribe()
         queue.clear()
+        // Unsubscribing does not wake a worker parked in `queue.take()`, so interrupt the threads
+        // explicitly. Otherwise every recycled loader leaks its workers for the life of the process.
+        workerExecutors.forEach { it.shutdownNow() }
 
         // Cache current page list progress for online chapters to allow a faster reopen
         val pages = chapter.pages
