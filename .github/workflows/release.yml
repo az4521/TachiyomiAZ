@@ -102,20 +102,23 @@ jobs:
           keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
           keyPassword: ${{ secrets.KEY_PASSWORD }}
 
-      # Rename to stable, updater-friendly names. The "android5"/"android7" marker is
-      # what GithubRelease.downloadLink matches against BuildConfig.APK_VARIANT.
+      # Asset names matter for backwards compatibility. Installs running the OLD updater
+      # have no variant awareness and always download assets[0]. GitHub's release-assets
+      # API returns assets ordered by NAME (alphabetically), NOT by upload order, so the
+      # first asset is simply the alphabetically-first file name.
+      #
+      # The old app only auto-updates on Android 7+, so the android7 APK must sort first.
+      # Both names still contain the "android5"/"android7" marker that the new
+      # variant-aware updater (GithubRelease.downloadLink) matches BuildConfig.APK_VARIANT
+      # against. The android5 build is prefixed "legacy-" so it sorts AFTER android7
+      # ("android7" < "legacy-android5"), while remaining clearly labeled.
       - name: Collect release assets
         run: |
           mkdir -p release-assets
-          cp "${{ steps.sign_android5.outputs.signedReleaseFile }}" "release-assets/TachiyomiAZ-${VERSION}-android5.apk"
           cp "${{ steps.sign_android7.outputs.signedReleaseFile }}" "release-assets/TachiyomiAZ-${VERSION}-android7.apk"
+          cp "${{ steps.sign_android5.outputs.signedReleaseFile }}" "release-assets/TachiyomiAZ-${VERSION}-legacy-android5.apk"
           ls -l release-assets
 
-      # Asset ORDER matters for backwards compatibility: installs running the old
-      # updater have no variant awareness and always grab the first asset (assets[0]).
-      # The old app only auto-updates on Android 7+, so android7 MUST be uploaded first
-      # to keep those users on the correct build. New installs use the variant-aware
-      # updater and match by the "android5"/"android7" marker regardless of order.
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -126,4 +129,4 @@ jobs:
             --title "$VERSION" \
             --generate-notes \
             release-assets/TachiyomiAZ-${VERSION}-android7.apk \
-            release-assets/TachiyomiAZ-${VERSION}-android5.apk
+            release-assets/TachiyomiAZ-${VERSION}-legacy-android5.apk
