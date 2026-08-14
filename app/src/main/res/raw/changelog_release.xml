@@ -1,5 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <changelog bulletedList="true">
+    <changelogversion versionName="v8.9.1-AZ" changeDate="">
+        <changelogtext>bring back android 5 support as a separate version (new extensions probably won't work on it tho)</changelogtext>
+        <changelogtext>port the app to iOS (the mihon people won't let me advertise this though, look it up on my github profile)</changelogtext>
+        <changelogtext>some minor changes for better extension lib 1.6 support</changelogtext>
+        <changelogtext>support adding extension repos with the mihon:// intent url</changelogtext>
+        <changelogtext>fix old 1.2/1.3 extlib extensions crashing due to missing gson dependency</changelogtext>
+        <changelogtext>fix some old downloaded chapters not being marked as downloaded</changelogtext>
+        <changelogtext>improve cloudflare interceptor and update default user agent</changelogtext>
+        <changelogtext>add a bunch of new trackers</changelogtext>
+        <changelogtext>add option to update trackers when marking chapters as read</changelogtext>
+        <changelogtext>add option to invert tapping in reader</changelogtext>
+        <changelogtext>fix reader sometimes breaking after ~64 pages</changelogtext>
+    </changelogversion>
     <changelogversion versionName="v8.9.0-AZ" changeDate="">
         <changelogtext>bump minimum android version to 7 (nougat)</changelogtext>
         <changelogtext>fix crash that sometimes happened when opening a manga in your library</changelogtext>
