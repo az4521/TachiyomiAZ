@@ -1,15 +1,15 @@
 # Migrating TachiyomiAZ off RxJava
 
-Status: in progress — Phases 0 and 1 done, Phases 2-6 outstanding
+Status: in progress — Phases 0, 1 and 2 (separable part) done
 Last updated: 2026-08-15
 Branch: `rxjava-migration`
 
-Files importing `rx.*`: **103 at start, 88 now.** Of the remaining 88, six must
+Files importing `rx.*`: **103 at start, 81 now.** Of the remaining 88, six must
 keep RxJava permanently as the extension shim: `Source.kt`, `CatalogueSource.kt`,
 `HttpSource.kt`, `source/model/Page.kt`, `network/OkHttpExtensions.kt`, and
 `util/lang/RxCoroutineBridge.kt`.
 
-Remaining by area: `ui/` 33, `ui/reader/` 18, `data/` 14, `source/` 12, `exh/` 6,
+Remaining by area: `ui/` 33, `ui/reader/` 18, `data/` 7, `source/` 12, `exh/` 6,
 `util/` 4, `extension/` 2, `network/` 1.
 
 ## 1. The goal has to be restated
@@ -204,13 +204,44 @@ commit of a chain, and this fork starts before the chain begins.
 Also in scope: `network/OkHttpExtensions.kt` (`Call.asObservable()` →
 `Call.await()`), which the API conversions sit on.
 
-### Phase 2 — data layer
+### Phase 2 — data layer — PARTIALLY DONE
 
-- 38 `asRx*` call sites → `executeAsBlocking()` inside `withIOContext`, or Flow
-  where the call site genuinely observes changes. storio stays.
-- `FullBackupRestore.kt` (reference `990fb22d3e`).
-- `LibraryUpdateService.kt` (reference `86b9d7e843`).
-- `Downloader.kt` — no usable upstream reference; `3ae1e37c40` is post-Compose.
+**Done:**
+
+- backup/restore (`c6c5f1a164`, reference `990fb22d3e`)
+- `LibraryUpdateService` (`954333b83b`, reference `86b9d7e843`)
+
+**Blocked on Phases 3/4 — the phases are not independent.** The remaining
+data-layer items all *publish* Rx streams that presenters and the reader
+consume, so they cannot convert before (or without) their consumers:
+
+| Item | Consumers that must move with it |
+|---|---|
+| `DownloadQueue` (`getStatusObservable`, `getProgressObservable`, `getUpdatedObservable`) | `DownloadPresenter`, `ChaptersPresenter`, `UpdatesPresenter` |
+| `Downloader` | shares `Page`'s status subject with `HttpPageLoader` (reader) |
+| `ExtensionManager.installExtension` / `ExtensionInstaller` | `ExtensionPresenter` |
+
+`Downloader` is the hardest single item in the whole migration and should be
+done with the reader, not here. Its pipeline is
+`downloadsRelay.concatMapIterable → groupBy(source) → concatMap → downloadChapter`,
+with `flatMap(..., 5)` bounding page concurrency. A coroutine version needs an
+explicit `Channel` plus a `Semaphore`, and it has to preserve both the
+per-source serialisation and the 5-page cap. Getting either wrong degrades
+silently — stalled queues or a source being hammered — rather than crashing.
+
+**Still genuinely independent and not yet done:** the 38 `asRx*` DB call sites.
+These are mostly inside presenters, so they fall out of Phase 3 naturally.
+
+### Revised phase order
+
+Phases 2, 3 and 4 interleave. The workable order is:
+
+1. Presenters that only consume DB observables (Phase 3, easy half)
+2. `DownloadQueue` + its three presenters, together
+3. `ExtensionManager`/`ExtensionInstaller` + `ExtensionPresenter`, together
+4. Reader + `Downloader` + `HttpPageLoader`, together (the hard one)
+5. `exh/`
+6. Cleanup
 
 ### Phase 3 — presenters
 
