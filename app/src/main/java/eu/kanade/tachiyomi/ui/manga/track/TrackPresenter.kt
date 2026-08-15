@@ -13,10 +13,11 @@ import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.ui.base.presenter.BasePresenter
 import eu.kanade.tachiyomi.util.system.launchIO
 import eu.kanade.tachiyomi.util.system.toast
-import rx.Observable
+import eu.kanade.tachiyomi.util.system.withIOContext
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import rx.Subscription
 import rx.android.schedulers.AndroidSchedulers
-import rx.schedulers.Schedulers
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -35,9 +36,9 @@ class TrackPresenter(
 
     private var trackSubscription: Subscription? = null
 
-    private var searchSubscription: Subscription? = null
+    private var searchJob: Job? = null
 
-    private var refreshSubscription: Subscription? = null
+    private var refreshJob: Job? = null
 
     override fun onCreate(savedState: Bundle?) {
         super.onCreate(savedState)
@@ -65,7 +66,7 @@ class TrackPresenter(
                 try {
                     val matched = service.match(manga) ?: return@forEach
                     matched.manga_id = manga.id!!
-                    service.bind(matched).toBlocking().first()
+                    service.bind(matched)
                     db.insertTrack(matched).executeAsBlocking()
                 } catch (e: Exception) {
                     XLog.w("Failed to auto-bind ${service.name}", e)
@@ -90,38 +91,43 @@ class TrackPresenter(
     }
 
     fun refresh() {
-        refreshSubscription?.let { remove(it) }
-        refreshSubscription =
-            Observable.from(trackList)
-                .filter { it.track != null }
-                .concatMap { item ->
-                    item.service.refresh(item.track!!)
-                        .flatMap { db.insertTrack(it).asRxObservable() }
-                        .map { item }
-                        .onErrorReturn { item }
+        refreshJob?.cancel()
+        refreshJob =
+            presenterScope.launch {
+                try {
+                    withIOContext {
+                        trackList.filter { it.track != null }.forEach { item ->
+                            try {
+                                val updated = item.service.refresh(item.track!!)
+                                db.insertTrack(updated).executeAsBlocking()
+                            } catch (e: Exception) {
+                                // Mirrors the previous per-item onErrorReturn: one tracker
+                                // failing must not abort refreshing the others.
+                                XLog.w("Failed to refresh ${item.service.name}", e)
+                            }
+                        }
+                    }
+                    view?.onRefreshDone()
+                } catch (e: Exception) {
+                    view?.onRefreshError(e)
                 }
-                .toList()
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribeFirst(
-                    { view, _ -> view.onRefreshDone() },
-                    TrackController::onRefreshError
-                )
+            }
     }
 
     fun search(
         query: String,
         service: TrackService
     ) {
-        searchSubscription?.let { remove(it) }
-        searchSubscription =
-            service.search(query)
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribeLatestCache(
-                    TrackController::onSearchResults,
-                    TrackController::onSearchResultsError
-                )
+        searchJob?.cancel()
+        searchJob =
+            presenterScope.launch {
+                try {
+                    val results = withIOContext { service.search(query) }
+                    view?.onSearchResults(results)
+                } catch (e: Exception) {
+                    view?.onSearchResultsError(e)
+                }
+            }
     }
 
     fun registerTracking(
@@ -130,16 +136,16 @@ class TrackPresenter(
     ) {
         if (item != null) {
             item.manga_id = manga.id!!
-            add(
-                service.bind(item)
-                    .flatMap { db.insertTrack(item).asRxObservable() }
-                    .subscribeOn(Schedulers.io())
-                    .observeOn(AndroidSchedulers.mainThread())
-                    .subscribe(
-                        { },
-                        { error -> context.toast(error.message) }
-                    )
-            )
+            presenterScope.launch {
+                try {
+                    withIOContext {
+                        service.bind(item)
+                        db.insertTrack(item).executeAsBlocking()
+                    }
+                } catch (error: Exception) {
+                    context.toast(error.message)
+                }
+            }
         } else {
             unregisterTracking(service)
         }
@@ -153,19 +159,20 @@ class TrackPresenter(
         track: Track,
         service: TrackService
     ) {
-        service.update(track)
-            .flatMap { db.insertTrack(track).asRxObservable() }
-            .subscribeOn(Schedulers.io())
-            .observeOn(AndroidSchedulers.mainThread())
-            .subscribeFirst(
-                { view, _ -> view.onRefreshDone() },
-                { view, error ->
-                    view.onRefreshError(error)
-
-                    // Restart on error to set old values
-                    fetchTrackings()
+        presenterScope.launch {
+            try {
+                withIOContext {
+                    service.update(track)
+                    db.insertTrack(track).executeAsBlocking()
                 }
-            )
+                view?.onRefreshDone()
+            } catch (error: Exception) {
+                view?.onRefreshError(error)
+
+                // Restart on error to set old values
+                fetchTrackings()
+            }
+        }
     }
 
     fun setStatus(

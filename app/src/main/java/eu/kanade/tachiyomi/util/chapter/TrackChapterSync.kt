@@ -6,6 +6,7 @@ import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.data.track.job.DelayedTrackingStore
 import eu.kanade.tachiyomi.data.track.job.DelayedTrackingUpdateJob
+import eu.kanade.tachiyomi.util.lang.runAsObservable
 import eu.kanade.tachiyomi.util.system.isOnline
 import rx.Completable
 import rx.Observable
@@ -40,7 +41,7 @@ fun updateTrackChapterMarkedRead(
 
                         // These should finish even if the caller goes away.
                         if (context.isOnline()) {
-                            Observable.defer { service.update(track) }
+                            runAsObservable({ service.update(track) })
                                 .map { db.insertTrack(track).executeAsBlocking() }
                                 .toCompletable()
                                 .onErrorComplete()

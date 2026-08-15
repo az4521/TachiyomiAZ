@@ -14,7 +14,10 @@ import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.databinding.PrefAccountLoginBinding
 import eu.kanade.tachiyomi.ui.base.controller.DialogController
-import rx.Subscription
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.cancel
 import uy.kohesive.injekt.injectLazy
 
 abstract class LoginDialogPreference(
@@ -30,7 +33,10 @@ abstract class LoginDialogPreference(
 
     val preferences: PreferencesHelper by injectLazy()
 
-    var requestSubscription: Subscription? = null
+    var requestJob: Job? = null
+
+    /** Cancelled in [onDialogClosed], so an in-flight login cannot outlive the dialog. */
+    val scope: CoroutineScope = MainScope()
 
     override fun onCreateDialog(savedViewState: Bundle?): Dialog {
         var dialog =
@@ -74,7 +80,7 @@ abstract class LoginDialogPreference(
     }
 
     open fun onDialogClosed() {
-        requestSubscription?.unsubscribe()
+        scope.cancel()
     }
 
     protected abstract fun checkLogin()

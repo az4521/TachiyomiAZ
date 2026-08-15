@@ -7,8 +7,8 @@ import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.data.track.TrackService
 import eu.kanade.tachiyomi.util.system.toast
-import rx.android.schedulers.AndroidSchedulers
-import rx.schedulers.Schedulers
+import eu.kanade.tachiyomi.util.system.withIOContext
+import kotlinx.coroutines.launch
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -34,7 +34,7 @@ class TrackLoginDialog(
     }
 
     override fun checkLogin() {
-        requestSubscription?.unsubscribe()
+        requestJob?.cancel()
 
         v?.apply {
             if (binding.username.text.isNullOrEmpty() || binding.password.text.isNullOrEmpty()) {
@@ -45,21 +45,18 @@ class TrackLoginDialog(
             val user = binding.username.text.toString()
             val pass = binding.password.text.toString()
 
-            requestSubscription =
-                service.login(user, pass)
-                    .subscribeOn(Schedulers.io())
-                    .observeOn(AndroidSchedulers.mainThread())
-                    .subscribe(
-                        {
-                            dialog?.dismiss()
-                            context.toast(R.string.login_success)
-                        },
-                        { error ->
-                            binding!!.login.progress = -1
-                            binding!!.login.setText(R.string.unknown_error)
-                            error.message?.let { context.toast(it) }
-                        }
-                    )
+            requestJob =
+                scope.launch {
+                    try {
+                        withIOContext { service.login(user, pass) }
+                        dialog?.dismiss()
+                        context.toast(R.string.login_success)
+                    } catch (error: Throwable) {
+                        binding!!.login.progress = -1
+                        binding!!.login.setText(R.string.unknown_error)
+                        error.message?.let { context.toast(it) }
+                    }
+                }
         }
     }
 

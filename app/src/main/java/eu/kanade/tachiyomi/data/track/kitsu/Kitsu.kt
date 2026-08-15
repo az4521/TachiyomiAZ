@@ -9,8 +9,6 @@ import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import rx.Completable
-import rx.Observable
 import uy.kohesive.injekt.injectLazy
 import java.text.DecimalFormat
 
@@ -70,52 +68,51 @@ class Kitsu(private val context: Context, id: Int) : TrackService(id) {
         return df.format(track.score)
     }
 
-    override fun add(track: Track): Observable<Track> {
+    override suspend fun add(track: Track): Track {
         return api.addLibManga(track, getUserId())
     }
 
-    override fun update(track: Track): Observable<Track> {
+    override suspend fun update(track: Track): Track {
         return api.updateLibManga(track)
     }
 
-    override fun bind(track: Track): Observable<Track> {
-        return api.findLibManga(track, getUserId())
-            .flatMap { remoteTrack ->
-                if (remoteTrack != null) {
-                    track.copyPersonalFrom(remoteTrack)
-                    track.media_id = remoteTrack.media_id
-                    update(track)
-                } else {
-                    track.score = DEFAULT_SCORE
-                    track.status = DEFAULT_STATUS
-                    add(track)
-                }
-            }
+    override suspend fun bind(track: Track): Track {
+        val remoteTrack = api.findLibManga(track, getUserId())
+        return if (remoteTrack != null) {
+            track.copyPersonalFrom(remoteTrack)
+            track.media_id = remoteTrack.media_id
+            update(track)
+        } else {
+            track.score = DEFAULT_SCORE
+            track.status = DEFAULT_STATUS
+            add(track)
+        }
     }
 
-    override fun search(query: String): Observable<List<TrackSearch>> {
+    override suspend fun search(query: String): List<TrackSearch> {
         return api.search(query)
     }
 
-    override fun refresh(track: Track): Observable<Track> {
-        return api.getLibManga(track)
-            .map { remoteTrack ->
-                track.copyPersonalFrom(remoteTrack)
-                track.total_chapters = remoteTrack.total_chapters
-                track
-            }
+    override suspend fun refresh(track: Track): Track {
+        val remoteTrack = api.getLibManga(track)
+        track.copyPersonalFrom(remoteTrack)
+        track.total_chapters = remoteTrack.total_chapters
+        return track
     }
 
-    override fun login(
+    override suspend fun login(
         username: String,
         password: String
-    ): Completable {
-        return api.login(username, password)
-            .doOnNext { interceptor.newAuth(it) }
-            .flatMap { api.getCurrentUser() }
-            .doOnNext { userId -> saveCredentials(username, userId) }
-            .doOnError { logout() }
-            .toCompletable()
+    ) {
+        try {
+            val oauth = api.login(username, password)
+            interceptor.newAuth(oauth)
+            val userId = api.getCurrentUser()
+            saveCredentials(username, userId)
+        } catch (e: Throwable) {
+            logout()
+            throw e
+        }
     }
 
     override fun logout() {

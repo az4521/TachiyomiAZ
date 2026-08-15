@@ -9,8 +9,6 @@ import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import rx.Completable
-import rx.Observable
 import uy.kohesive.injekt.injectLazy
 
 class Anilist(private val context: Context, id: Int) : TrackService(id) {
@@ -135,68 +133,64 @@ class Anilist(private val context: Context, id: Int) : TrackService(id) {
         }
     }
 
-    override fun add(track: Track): Observable<Track> {
+    override suspend fun add(track: Track): Track {
         return api.addLibManga(track)
     }
 
-    override fun update(track: Track): Observable<Track> {
+    override suspend fun update(track: Track): Track {
         // If user was using API v1 fetch library_id
         if (track.library_id == null || track.library_id!! == 0L) {
-            return api.findLibManga(track, getUsername().toInt()).flatMap {
-                if (it == null) {
-                    throw Exception("$track not found on user library")
-                }
-                track.library_id = it.library_id
-                api.updateLibManga(track)
-            }
+            val remoteTrack =
+                api.findLibManga(track, getUsername().toInt())
+                    ?: throw Exception("$track not found on user library")
+            track.library_id = remoteTrack.library_id
+            return api.updateLibManga(track)
         }
 
         return api.updateLibManga(track)
     }
 
-    override fun bind(track: Track): Observable<Track> {
-        return api.findLibManga(track, getUsername().toInt())
-            .flatMap { remoteTrack ->
-                if (remoteTrack != null) {
-                    track.copyPersonalFrom(remoteTrack)
-                    track.library_id = remoteTrack.library_id
-                    update(track)
-                } else {
-                    // Set default fields if it's not found in the list
-                    track.score = DEFAULT_SCORE.toFloat()
-                    track.status = DEFAULT_STATUS
-                    add(track)
-                }
-            }
+    override suspend fun bind(track: Track): Track {
+        val remoteTrack = api.findLibManga(track, getUsername().toInt())
+        return if (remoteTrack != null) {
+            track.copyPersonalFrom(remoteTrack)
+            track.library_id = remoteTrack.library_id
+            update(track)
+        } else {
+            // Set default fields if it's not found in the list
+            track.score = DEFAULT_SCORE.toFloat()
+            track.status = DEFAULT_STATUS
+            add(track)
+        }
     }
 
-    override fun search(query: String): Observable<List<TrackSearch>> {
+    override suspend fun search(query: String): List<TrackSearch> {
         return api.search(query)
     }
 
-    override fun refresh(track: Track): Observable<Track> {
-        return api.getLibManga(track, getUsername().toInt())
-            .map { remoteTrack ->
-                track.copyPersonalFrom(remoteTrack)
-                track.total_chapters = remoteTrack.total_chapters
-                track
-            }
+    override suspend fun refresh(track: Track): Track {
+        val remoteTrack = api.getLibManga(track, getUsername().toInt())
+        track.copyPersonalFrom(remoteTrack)
+        track.total_chapters = remoteTrack.total_chapters
+        return track
     }
 
-    override fun login(
+    override suspend fun login(
         username: String,
         password: String
     ) = login(password)
 
-    fun login(token: String): Completable {
+    suspend fun login(token: String) {
         val oauth = api.createOAuth(token)
         interceptor.setAuth(oauth)
-        return api.getCurrentUser().map { (username, scoreType) ->
+        try {
+            val (username, scoreType) = api.getCurrentUser()
             scorePreference.set(scoreType)
             saveCredentials(username.toString(), oauth.access_token)
-        }.doOnError {
+        } catch (e: Throwable) {
             logout()
-        }.toCompletable()
+            throw e
+        }
     }
 
     override fun logout() {

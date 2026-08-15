@@ -7,11 +7,8 @@ import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.TrackService
 import eu.kanade.tachiyomi.data.track.hikka.dto.HKOAuth
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
-import eu.kanade.tachiyomi.util.lang.runAsObservable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import rx.Completable
-import rx.Observable
 import uy.kohesive.injekt.injectLazy
 
 class Hikka(private val context: Context, id: Int) : TrackService(id) {
@@ -54,12 +51,12 @@ class Hikka(private val context: Context, id: Int) : TrackService(id) {
         return track.score.toInt().toString()
     }
 
-    override fun add(track: Track): Observable<Track> {
-        return runAsObservable({ api.addUserManga(track) })
+    override suspend fun add(track: Track): Track {
+        return api.addUserManga(track)
     }
 
-    override fun update(track: Track): Observable<Track> {
-        return runAsObservable({ updateInternal(track) })
+    override suspend fun update(track: Track): Track {
+        return updateInternal(track)
     }
 
     private suspend fun updateInternal(track: Track): Track {
@@ -69,70 +66,68 @@ class Hikka(private val context: Context, id: Int) : TrackService(id) {
         return api.updateUserManga(track)
     }
 
-    override fun bind(track: Track): Observable<Track> {
-        return runAsObservable({
-            val readContent = api.getRead(track)
-            val remoteTrack = api.getManga(track)
+    override suspend fun bind(track: Track): Track {
+        val readContent = api.getRead(track)
+        val remoteTrack = api.getManga(track)
 
-            track.copyPersonalFrom(remoteTrack)
-            track.media_id = remoteTrack.media_id
-            track.library_id = remoteTrack.library_id
+        track.copyPersonalFrom(remoteTrack)
+        track.media_id = remoteTrack.media_id
+        track.library_id = remoteTrack.library_id
 
-            val hasReadChapters = track.last_chapter_read > 0
-            if (track.status != COMPLETED) {
-                val isRereading = track.status == REREADING
-                track.status = if (!isRereading && hasReadChapters) READING else track.status
-            }
+        val hasReadChapters = track.last_chapter_read > 0
+        if (track.status != COMPLETED) {
+            val isRereading = track.status == REREADING
+            track.status = if (!isRereading && hasReadChapters) READING else track.status
+        }
 
-            if (readContent != null) {
-                track.score = readContent.score.toFloat()
-                track.last_chapter_read = readContent.chapters
-                track.started_reading_date = (readContent.startDate ?: 0L) * 1000
-                track.finished_reading_date = (readContent.endDate ?: 0L) * 1000
-                updateInternal(track)
-            } else {
-                track.status = if (hasReadChapters) READING else PLAN_TO_READ
-                track.score = 0f
-                updateInternal(track)
-            }
-        })
-    }
-
-    override fun search(query: String): Observable<List<TrackSearch>> {
-        return runAsObservable({ api.searchManga(query) })
-    }
-
-    override fun refresh(track: Track): Observable<Track> {
-        return runAsObservable({
-            val remoteTrack = api.getManga(track)
-            track.copyPersonalFrom(remoteTrack)
-            track.total_chapters = remoteTrack.total_chapters
-
-            val readContent = api.getRead(track) ?: throw Exception("Could not find manga")
-
+        return if (readContent != null) {
             track.score = readContent.score.toFloat()
             track.last_chapter_read = readContent.chapters
-            track.status = toTrackStatus(readContent.status)
             track.started_reading_date = (readContent.startDate ?: 0L) * 1000
             track.finished_reading_date = (readContent.endDate ?: 0L) * 1000
-
-            track
-        })
+            updateInternal(track)
+        } else {
+            track.status = if (hasReadChapters) READING else PLAN_TO_READ
+            track.score = 0f
+            updateInternal(track)
+        }
     }
 
-    override fun login(
+    override suspend fun search(query: String): List<TrackSearch> {
+        return api.searchManga(query)
+    }
+
+    override suspend fun refresh(track: Track): Track {
+        val remoteTrack = api.getManga(track)
+        track.copyPersonalFrom(remoteTrack)
+        track.total_chapters = remoteTrack.total_chapters
+
+        val readContent = api.getRead(track) ?: throw Exception("Could not find manga")
+
+        track.score = readContent.score.toFloat()
+        track.last_chapter_read = readContent.chapters
+        track.status = toTrackStatus(readContent.status)
+        track.started_reading_date = (readContent.startDate ?: 0L) * 1000
+        track.finished_reading_date = (readContent.endDate ?: 0L) * 1000
+
+        return track
+    }
+
+    override suspend fun login(
         username: String,
         password: String
     ) = login(password)
 
-    fun login(reference: String): Completable {
-        return runAsObservable({
+    suspend fun login(reference: String) {
+        try {
             val oauth = api.accessToken(reference)
             interceptor.setAuth(oauth)
             val user = api.getCurrentUser()
             saveCredentials(user.reference, oauth.accessToken)
-        }).doOnError { logout() }
-            .toCompletable()
+        } catch (e: Throwable) {
+            logout()
+            throw e
+        }
     }
 
     override fun logout() {

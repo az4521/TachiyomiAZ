@@ -3,7 +3,7 @@ package eu.kanade.tachiyomi.data.track.anilist
 import android.net.Uri
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
-import eu.kanade.tachiyomi.network.asObservableSuccess
+import eu.kanade.tachiyomi.network.awaitSuccess
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.int
@@ -17,158 +17,91 @@ import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import rx.Observable
+import eu.kanade.tachiyomi.util.system.withIOContext
 import java.util.Calendar
 
 class AnilistApi(val client: OkHttpClient, interceptor: AnilistInterceptor) {
     private val jsonMime = "application/json; charset=utf-8".toMediaTypeOrNull()
     private val authClient = client.newBuilder().addInterceptor(interceptor).build()
 
-    fun addLibManga(track: Track): Observable<Track> {
-        val query =
-            """
-            |mutation AddManga(${'$'}mangaId: Int, ${'$'}progress: Int, ${'$'}status: MediaListStatus) {
-                |SaveMediaListEntry (mediaId: ${'$'}mangaId, progress: ${'$'}progress, status: ${'$'}status) {
-                |   id
-                |   status
-                |}
-            |}
-            |
-            """.trimMargin()
-        val variables = buildJsonObject {
-            put("mangaId", track.media_id)
-            put("progress", track.last_chapter_read)
-            put("status", track.toAnilistStatus())
-        }
-        val payload = buildJsonObject {
-            put("query", query)
-            put("variables", variables)
-        }
-        val body = payload.toString().toRequestBody(jsonMime)
-        val request =
-            Request.Builder()
-                .url(apiUrl)
-                .post(body)
-                .build()
-        return authClient.newCall(request)
-            .asObservableSuccess()
-            .map { netResponse ->
-                val responseBody = netResponse.body.string().orEmpty()
-                netResponse.close()
-                if (responseBody.isEmpty()) {
-                    throw Exception("Null Response")
-                }
-                val response = Json.parseToJsonElement(responseBody).jsonObject
-                track.library_id = response["data"]!!.jsonObject["SaveMediaListEntry"]!!.jsonObject["id"]!!.jsonPrimitive.long
-                track
-            }
-    }
-
-    fun updateLibManga(track: Track): Observable<Track> {
-        val query =
-            """
-            |mutation UpdateManga(${'$'}listId: Int, ${'$'}progress: Int, ${'$'}status: MediaListStatus, ${'$'}score: Int) {
-                |SaveMediaListEntry (id: ${'$'}listId, progress: ${'$'}progress, status: ${'$'}status, scoreRaw: ${'$'}score) {
-                    |id
-                    |status
-                    |progress
-                |}
-            |}
-            |
-            """.trimMargin()
-        val variables = buildJsonObject {
-            put("listId", track.library_id)
-            put("progress", track.last_chapter_read)
-            put("status", track.toAnilistStatus())
-            put("score", track.score.toInt())
-        }
-        val payload = buildJsonObject {
-            put("query", query)
-            put("variables", variables)
-        }
-        val body = payload.toString().toRequestBody(jsonMime)
-        val request =
-            Request.Builder()
-                .url(apiUrl)
-                .post(body)
-                .build()
-        return authClient.newCall(request)
-            .asObservableSuccess()
-            .map {
-                track
-            }
-    }
-
-    fun search(search: String): Observable<List<TrackSearch>> {
-        val query =
-            """
-            |query Search(${'$'}query: String) {
-                |Page (perPage: 50) {
-                    |media(search: ${'$'}query, type: MANGA, format_not_in: [NOVEL]) {
-                        |id
-                        |title {
-                            |romaji
-                        |}
-                        |coverImage {
-                            |large
-                        |}
-                        |type
-                        |status
-                        |chapters
-                        |description
-                        |startDate {
-                            |year
-                            |month
-                            |day
-                        |}
+    suspend fun addLibManga(track: Track): Track =
+        withIOContext {
+            val query =
+                """
+                |mutation AddManga(${'$'}mangaId: Int, ${'$'}progress: Int, ${'$'}status: MediaListStatus) {
+                    |SaveMediaListEntry (mediaId: ${'$'}mangaId, progress: ${'$'}progress, status: ${'$'}status) {
+                    |   id
+                    |   status
                     |}
                 |}
-            |}
-            |
-            """.trimMargin()
-        val variables = buildJsonObject {
-            put("query", search)
-        }
-        val payload = buildJsonObject {
-            put("query", query)
-            put("variables", variables)
-        }
-        val body = payload.toString().toRequestBody(jsonMime)
-        val request =
-            Request.Builder()
-                .url(apiUrl)
-                .post(body)
-                .build()
-        return authClient.newCall(request)
-            .asObservableSuccess()
-            .map { netResponse ->
-                val responseBody = netResponse.body.string().orEmpty()
-                if (responseBody.isEmpty()) {
-                    throw Exception("Null Response")
-                }
-                val response = Json.parseToJsonElement(responseBody).jsonObject
-                val data = response["data"]!!.jsonObject
-                val page = data["Page"]!!.jsonObject
-                val media = page["media"]!!.jsonArray
-                val entries = media.map { jsonToALManga(it.jsonObject) }
-                entries.map { it.toTrack() }
+                |
+                """.trimMargin()
+            val variables = buildJsonObject {
+                put("mangaId", track.media_id)
+                put("progress", track.last_chapter_read)
+                put("status", track.toAnilistStatus())
             }
-    }
+            val payload = buildJsonObject {
+                put("query", query)
+                put("variables", variables)
+            }
+            val body = payload.toString().toRequestBody(jsonMime)
+            val request =
+                Request.Builder()
+                    .url(apiUrl)
+                    .post(body)
+                    .build()
+            val netResponse = authClient.newCall(request).awaitSuccess()
+            val responseBody = netResponse.body.string().orEmpty()
+            netResponse.close()
+            if (responseBody.isEmpty()) {
+                throw Exception("Null Response")
+            }
+            val response = Json.parseToJsonElement(responseBody).jsonObject
+            track.library_id = response["data"]!!.jsonObject["SaveMediaListEntry"]!!.jsonObject["id"]!!.jsonPrimitive.long
+            track
+        }
 
-    fun findLibManga(
-        track: Track,
-        userid: Int
-    ): Observable<Track?> {
-        val query =
-            """
-            |query (${'$'}id: Int!, ${'$'}manga_id: Int!) {
-                |Page {
-                    |mediaList(userId: ${'$'}id, type: MANGA, mediaId: ${'$'}manga_id) {
+    suspend fun updateLibManga(track: Track): Track =
+        withIOContext {
+            val query =
+                """
+                |mutation UpdateManga(${'$'}listId: Int, ${'$'}progress: Int, ${'$'}status: MediaListStatus, ${'$'}score: Int) {
+                    |SaveMediaListEntry (id: ${'$'}listId, progress: ${'$'}progress, status: ${'$'}status, scoreRaw: ${'$'}score) {
                         |id
                         |status
-                        |scoreRaw: score(format: POINT_100)
                         |progress
-                        |media {
+                    |}
+                |}
+                |
+                """.trimMargin()
+            val variables = buildJsonObject {
+                put("listId", track.library_id)
+                put("progress", track.last_chapter_read)
+                put("status", track.toAnilistStatus())
+                put("score", track.score.toInt())
+            }
+            val payload = buildJsonObject {
+                put("query", query)
+                put("variables", variables)
+            }
+            val body = payload.toString().toRequestBody(jsonMime)
+            val request =
+                Request.Builder()
+                    .url(apiUrl)
+                    .post(body)
+                    .build()
+            authClient.newCall(request).awaitSuccess().close()
+            track
+        }
+
+    suspend fun search(search: String): List<TrackSearch> =
+        withIOContext {
+            val query =
+                """
+                |query Search(${'$'}query: String) {
+                    |Page (perPage: 50) {
+                        |media(search: ${'$'}query, type: MANGA, format_not_in: [NOVEL]) {
                             |id
                             |title {
                                 |romaji
@@ -188,86 +121,140 @@ class AnilistApi(val client: OkHttpClient, interceptor: AnilistInterceptor) {
                         |}
                     |}
                 |}
-            |}
-            |
-            """.trimMargin()
-        val variables = buildJsonObject {
-            put("id", userid)
-            put("manga_id", track.media_id)
-        }
-        val payload = buildJsonObject {
-            put("query", query)
-            put("variables", variables)
-        }
-        val body = payload.toString().toRequestBody(jsonMime)
-        val request =
-            Request.Builder()
-                .url(apiUrl)
-                .post(body)
-                .build()
-        return authClient.newCall(request)
-            .asObservableSuccess()
-            .map { netResponse ->
-                val responseBody = netResponse.body.string().orEmpty()
-                if (responseBody.isEmpty()) {
-                    throw Exception("Null Response")
-                }
-                val response = Json.parseToJsonElement(responseBody).jsonObject
-                val data = response["data"]!!.jsonObject
-                val page = data["Page"]!!.jsonObject
-                val media = page["mediaList"]!!.jsonArray
-                val entries = media.map { jsonToALUserManga(it.jsonObject) }
-                entries.firstOrNull()?.toTrack()
+                |
+                """.trimMargin()
+            val variables = buildJsonObject {
+                put("query", search)
             }
-    }
+            val payload = buildJsonObject {
+                put("query", query)
+                put("variables", variables)
+            }
+            val body = payload.toString().toRequestBody(jsonMime)
+            val request =
+                Request.Builder()
+                    .url(apiUrl)
+                    .post(body)
+                    .build()
+            val netResponse = authClient.newCall(request).awaitSuccess()
+            val responseBody = netResponse.body.string().orEmpty()
+            if (responseBody.isEmpty()) {
+                throw Exception("Null Response")
+            }
+            val response = Json.parseToJsonElement(responseBody).jsonObject
+            val data = response["data"]!!.jsonObject
+            val page = data["Page"]!!.jsonObject
+            val media = page["media"]!!.jsonArray
+            val entries = media.map { jsonToALManga(it.jsonObject) }
+            entries.map { it.toTrack() }
+        }
 
-    fun getLibManga(
+    suspend fun findLibManga(
         track: Track,
         userid: Int
-    ): Observable<Track> {
-        return findLibManga(track, userid)
-            .map { it ?: throw Exception("Could not find manga") }
-    }
+    ): Track? =
+        withIOContext {
+            val query =
+                """
+                |query (${'$'}id: Int!, ${'$'}manga_id: Int!) {
+                    |Page {
+                        |mediaList(userId: ${'$'}id, type: MANGA, mediaId: ${'$'}manga_id) {
+                            |id
+                            |status
+                            |scoreRaw: score(format: POINT_100)
+                            |progress
+                            |media {
+                                |id
+                                |title {
+                                    |romaji
+                                |}
+                                |coverImage {
+                                    |large
+                                |}
+                                |type
+                                |status
+                                |chapters
+                                |description
+                                |startDate {
+                                    |year
+                                    |month
+                                    |day
+                                |}
+                            |}
+                        |}
+                    |}
+                |}
+                |
+                """.trimMargin()
+            val variables = buildJsonObject {
+                put("id", userid)
+                put("manga_id", track.media_id)
+            }
+            val payload = buildJsonObject {
+                put("query", query)
+                put("variables", variables)
+            }
+            val body = payload.toString().toRequestBody(jsonMime)
+            val request =
+                Request.Builder()
+                    .url(apiUrl)
+                    .post(body)
+                    .build()
+            val netResponse = authClient.newCall(request).awaitSuccess()
+            val responseBody = netResponse.body.string().orEmpty()
+            if (responseBody.isEmpty()) {
+                throw Exception("Null Response")
+            }
+            val response = Json.parseToJsonElement(responseBody).jsonObject
+            val data = response["data"]!!.jsonObject
+            val page = data["Page"]!!.jsonObject
+            val media = page["mediaList"]!!.jsonArray
+            val entries = media.map { jsonToALUserManga(it.jsonObject) }
+            entries.firstOrNull()?.toTrack()
+        }
+
+    suspend fun getLibManga(
+        track: Track,
+        userid: Int
+    ): Track = findLibManga(track, userid) ?: throw Exception("Could not find manga")
 
     fun createOAuth(token: String): OAuth {
         return OAuth(token, "Bearer", System.currentTimeMillis() + 31536000000, 31536000000)
     }
 
-    fun getCurrentUser(): Observable<Pair<Int, String>> {
-        val query =
-            """
-            |query User {
-                |Viewer {
-                    |id
-                    |mediaListOptions {
-                        |scoreFormat
+    suspend fun getCurrentUser(): Pair<Int, String> =
+        withIOContext {
+            val query =
+                """
+                |query User {
+                    |Viewer {
+                        |id
+                        |mediaListOptions {
+                            |scoreFormat
+                        |}
                     |}
                 |}
-            |}
-            |
-            """.trimMargin()
-        val payload = buildJsonObject {
-            put("query", query)
-        }
-        val body = payload.toString().toRequestBody(jsonMime)
-        val request =
-            Request.Builder()
-                .url(apiUrl)
-                .post(body)
-                .build()
-        return authClient.newCall(request)
-            .asObservableSuccess()
-            .map { netResponse ->
-                val responseBody = netResponse.body.string().orEmpty()
-                if (responseBody.isEmpty()) {
-                    throw Exception("Null Response")
-                }
-                val response = Json.parseToJsonElement(responseBody).jsonObject
-                val data = response["data"]!!.jsonObject
-                val viewer = data["Viewer"]!!.jsonObject
-                Pair(viewer["id"]!!.jsonPrimitive.int, viewer["mediaListOptions"]!!.jsonObject["scoreFormat"]!!.jsonPrimitive.content)
+                |
+                """.trimMargin()
+            val payload = buildJsonObject {
+                put("query", query)
             }
-    }
+            val body = payload.toString().toRequestBody(jsonMime)
+            val request =
+                Request.Builder()
+                    .url(apiUrl)
+                    .post(body)
+                    .build()
+            val netResponse = authClient.newCall(request).awaitSuccess()
+            val responseBody = netResponse.body.string().orEmpty()
+            if (responseBody.isEmpty()) {
+                throw Exception("Null Response")
+            }
+            val response = Json.parseToJsonElement(responseBody).jsonObject
+            val data = response["data"]!!.jsonObject
+            val viewer = data["Viewer"]!!.jsonObject
+            Pair(viewer["id"]!!.jsonPrimitive.int, viewer["mediaListOptions"]!!.jsonObject["scoreFormat"]!!.jsonPrimitive.content)
+        }
 
     private fun jsonToALManga(struct: kotlinx.serialization.json.JsonObject): ALManga {
         val date =

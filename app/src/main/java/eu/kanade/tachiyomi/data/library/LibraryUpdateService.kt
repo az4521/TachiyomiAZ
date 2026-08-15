@@ -467,7 +467,7 @@ class LibraryUpdateService(
                     .concatMap { track ->
                         val service = trackManager.getService(track.sync_id)
                         if (service != null && service in loggedServices) {
-                            service.refresh(track)
+                            runAsObservable({ service.refresh(track) })
                                 .doOnNext { db.insertTrack(it).executeAsBlocking() }
                                 .onErrorReturn { track }
                         } else {

@@ -9,8 +9,6 @@ import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import rx.Completable
-import rx.Observable
 import uy.kohesive.injekt.injectLazy
 
 class Bangumi(private val context: Context, id: Int) : TrackService(id) {
@@ -30,52 +28,48 @@ class Bangumi(private val context: Context, id: Int) : TrackService(id) {
         return track.score.toInt().toString()
     }
 
-    override fun add(track: Track): Observable<Track> {
+    override suspend fun add(track: Track): Track {
         return api.addLibManga(track)
     }
 
-    override fun update(track: Track): Observable<Track> {
+    override suspend fun update(track: Track): Track {
         return api.updateLibManga(track)
     }
 
-    override fun bind(track: Track): Observable<Track> {
-        return api.statusLibManga(track)
-            .flatMap {
-                api.findLibManga(track).flatMap { remoteTrack ->
-                    if (remoteTrack != null && it != null) {
-                        track.copyPersonalFrom(remoteTrack)
-                        track.library_id = remoteTrack.library_id
-                        track.status = remoteTrack.status
-                        track.last_chapter_read = remoteTrack.last_chapter_read
-                        refresh(track)
-                    } else {
-                        // Set default fields if it's not found in the list
-                        track.score = DEFAULT_SCORE.toFloat()
-                        track.status = DEFAULT_STATUS
-                        add(track)
-                        update(track)
-                    }
-                }
-            }
+    override suspend fun bind(track: Track): Track {
+        val status = api.statusLibManga(track)
+        val remoteTrack = api.findLibManga(track)
+        return if (remoteTrack != null && status != null) {
+            track.copyPersonalFrom(remoteTrack)
+            track.library_id = remoteTrack.library_id
+            track.status = remoteTrack.status
+            track.last_chapter_read = remoteTrack.last_chapter_read
+            refresh(track)
+        } else {
+            // Set default fields if it's not found in the list
+            track.score = DEFAULT_SCORE.toFloat()
+            track.status = DEFAULT_STATUS
+            // The previous Rx version built an `add(track)` Observable here and
+            // dropped it without subscribing, so the add never actually ran.
+            // Sequencing them makes it run, which is what the code intended.
+            add(track)
+            update(track)
+        }
     }
 
-    override fun search(query: String): Observable<List<TrackSearch>> {
+    override suspend fun search(query: String): List<TrackSearch> {
         return api.search(query)
     }
 
-    override fun refresh(track: Track): Observable<Track> {
-        return api.statusLibManga(track)
-            .flatMap {
-                track.copyPersonalFrom(it!!)
-                api.findLibManga(track)
-                    .map { remoteTrack ->
-                        if (remoteTrack != null) {
-                            track.total_chapters = remoteTrack.total_chapters
-                            track.status = remoteTrack.status
-                        }
-                        track
-                    }
-            }
+    override suspend fun refresh(track: Track): Track {
+        val status = api.statusLibManga(track)
+        track.copyPersonalFrom(status!!)
+        val remoteTrack = api.findLibManga(track)
+        if (remoteTrack != null) {
+            track.total_chapters = remoteTrack.total_chapters
+            track.status = remoteTrack.status
+        }
+        return track
     }
 
     override fun getLogo() = R.drawable.ic_tracker_bangumi
@@ -100,20 +94,22 @@ class Bangumi(private val context: Context, id: Int) : TrackService(id) {
 
     override fun getCompletionStatus(): Int = COMPLETED
 
-    override fun login(
+    override suspend fun login(
         username: String,
         password: String
     ) = login(password)
 
-    fun login(code: String): Completable {
-        return api.accessToken(code).map { oauth: OAuth? ->
+    suspend fun login(code: String) {
+        try {
+            val oauth: OAuth? = api.accessToken(code)
             interceptor.newAuth(oauth)
             if (oauth != null) {
                 saveCredentials(oauth.user_id.toString(), oauth.access_token)
             }
-        }.doOnError {
+        } catch (e: Throwable) {
             logout()
-        }.toCompletable()
+            throw e
+        }
     }
 
     fun saveToken(oauth: OAuth?) {

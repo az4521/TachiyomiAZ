@@ -11,9 +11,6 @@ import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.SourceManager
-import eu.kanade.tachiyomi.util.lang.runAsObservable
-import rx.Completable
-import rx.Observable
 import uy.kohesive.injekt.injectLazy
 import java.security.MessageDigest
 
@@ -82,43 +79,39 @@ class Kavita(private val context: Context, id: Int) : TrackService(id), Enhanced
 
     override fun displayScore(track: Track): String = ""
 
-    override fun add(track: Track): Observable<Track> = Observable.just(track)
+    override suspend fun add(track: Track): Track = track
 
-    override fun update(track: Track): Observable<Track> {
-        return runAsObservable({
-            if (track.status != COMPLETED) {
-                if (track.last_chapter_read > 0) {
-                    track.status =
-                        if (track.last_chapter_read == track.total_chapters && track.total_chapters > 0) {
-                            COMPLETED
-                        } else {
-                            READING
-                        }
-                }
+    override suspend fun update(track: Track): Track {
+        if (track.status != COMPLETED) {
+            if (track.last_chapter_read > 0) {
+                track.status =
+                    if (track.last_chapter_read == track.total_chapters && track.total_chapters > 0) {
+                        COMPLETED
+                    } else {
+                        READING
+                    }
             }
-            api.updateProgress(track)
-        })
+        }
+        return api.updateProgress(track)
     }
 
-    override fun bind(track: Track): Observable<Track> = Observable.just(track)
+    override suspend fun bind(track: Track): Track = track
 
-    override fun search(query: String): Observable<List<TrackSearch>> {
+    override suspend fun search(query: String): List<TrackSearch> {
         throw UnsupportedOperationException("Not used: Kavita is an enhanced tracker")
     }
 
-    override fun refresh(track: Track): Observable<Track> {
-        return runAsObservable({
-            val remoteTrack = api.getTrackSearch(track.tracking_url)
-            track.copyPersonalFrom(remoteTrack)
-            track.total_chapters = remoteTrack.total_chapters
-            track
-        })
+    override suspend fun refresh(track: Track): Track {
+        val remoteTrack = api.getTrackSearch(track.tracking_url)
+        track.copyPersonalFrom(remoteTrack)
+        track.total_chapters = remoteTrack.total_chapters
+        return track
     }
 
-    override fun login(
+    override suspend fun login(
         username: String,
         password: String
-    ): Completable = Completable.fromAction { loginNoop() }
+    ) = loginNoop()
 
     // [TrackService].isLogged works by checking that credentials are saved.
     // By saving dummy, unused credentials, we can activate the tracker simply by login/logout.

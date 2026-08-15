@@ -29,6 +29,7 @@ import eu.kanade.tachiyomi.util.system.launchIO
 import eu.kanade.tachiyomi.util.lang.takeBytes
 import eu.kanade.tachiyomi.util.storage.DiskUtil
 import eu.kanade.tachiyomi.util.system.ImageUtil
+import eu.kanade.tachiyomi.util.lang.runAsObservable
 import eu.kanade.tachiyomi.util.system.isOnline
 import eu.kanade.tachiyomi.util.updateCoverLastModified
 import exh.util.defaultReaderType
@@ -666,7 +667,7 @@ class ReaderPresenter(
                             // for a while. The view can still be garbage collected.
                             if (context.isOnline()) {
                                 Timber.d("Tracking ONLINE")
-                                Observable.defer { service.update(track) }
+                                runAsObservable({ service.update(track) })
                                     .map { db.insertTrack(track).executeAsBlocking() }
                                     .toCompletable()
                                     .onErrorComplete()

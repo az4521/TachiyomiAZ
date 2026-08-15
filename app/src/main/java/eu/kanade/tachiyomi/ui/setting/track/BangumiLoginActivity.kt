@@ -7,10 +7,10 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
 import android.widget.ProgressBar
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.ui.main.MainActivity
-import rx.android.schedulers.AndroidSchedulers
-import rx.schedulers.Schedulers
+import kotlinx.coroutines.launch
 import uy.kohesive.injekt.injectLazy
 
 class BangumiLoginActivity : AppCompatActivity() {
@@ -24,17 +24,15 @@ class BangumiLoginActivity : AppCompatActivity() {
 
         val code = intent.data?.getQueryParameter("code")
         if (code != null) {
-            trackManager.bangumi.login(code)
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(
-                    {
-                        returnToSettings()
-                    },
-                    {
-                        returnToSettings()
-                    }
-                )
+            lifecycleScope.launch {
+                try {
+                    trackManager.bangumi.login(code)
+                } catch (e: Throwable) {
+                    // The previous Rx chain returned to settings on both success and
+                    // failure; the tracker itself logs out on a failed login.
+                }
+                returnToSettings()
+            }
         } else {
             trackManager.bangumi.logout()
             returnToSettings()

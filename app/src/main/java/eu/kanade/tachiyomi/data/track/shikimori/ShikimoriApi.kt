@@ -6,7 +6,8 @@ import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.POST
-import eu.kanade.tachiyomi.network.asObservableSuccess
+import eu.kanade.tachiyomi.network.awaitSuccess
+import eu.kanade.tachiyomi.util.system.withIOContext
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -23,7 +24,6 @@ import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import rx.Observable
 import uy.kohesive.injekt.injectLazy
 
 class ShikimoriApi(private val client: OkHttpClient, interceptor: ShikimoriInterceptor) {
@@ -31,61 +31,57 @@ class ShikimoriApi(private val client: OkHttpClient, interceptor: ShikimoriInter
     private val jsonime = "application/json; charset=utf-8".toMediaTypeOrNull()
     private val authClient = client.newBuilder().addInterceptor(interceptor).build()
 
-    fun addLibManga(
+    suspend fun addLibManga(
         track: Track,
         user_id: String
-    ): Observable<Track> {
-        val payload = buildJsonObject {
-            putJsonObject("user_rate") {
-                put("user_id", user_id)
-                put("target_id", track.media_id)
-                put("target_type", "Manga")
-                put("chapters", track.last_chapter_read)
-                put("score", track.score.toInt())
-                put("status", track.toShikimoriStatus())
-            }
-        }
-        val body = payload.toString().toRequestBody(jsonime)
-        val request =
-            Request.Builder()
-                .url("$apiUrl/v2/user_rates")
-                .post(body)
-                .build()
-        return authClient.newCall(request)
-            .asObservableSuccess()
-            .map {
-                track
-            }
-    }
-
-    fun updateLibManga(
-        track: Track,
-        user_id: String
-    ): Observable<Track> = addLibManga(track, user_id)
-
-    fun search(search: String): Observable<List<TrackSearch>> {
-        val url =
-            Uri.parse("$apiUrl/mangas").buildUpon()
-                .appendQueryParameter("order", "popularity")
-                .appendQueryParameter("search", search)
-                .appendQueryParameter("limit", "20")
-                .build()
-        val request =
-            Request.Builder()
-                .url(url.toString())
-                .get()
-                .build()
-        return authClient.newCall(request)
-            .asObservableSuccess()
-            .map { netResponse ->
-                val responseBody = netResponse.body.string()
-                if (responseBody.isEmpty()) {
-                    throw Exception("Null Response")
+    ): Track =
+        withIOContext {
+            val payload = buildJsonObject {
+                putJsonObject("user_rate") {
+                    put("user_id", user_id)
+                    put("target_id", track.media_id)
+                    put("target_type", "Manga")
+                    put("chapters", track.last_chapter_read)
+                    put("score", track.score.toInt())
+                    put("status", track.toShikimoriStatus())
                 }
-                val response = Json.parseToJsonElement(responseBody).jsonArray
-                response.map { jsonToSearch(it.jsonObject) }
             }
-    }
+            val body = payload.toString().toRequestBody(jsonime)
+            val request =
+                Request.Builder()
+                    .url("$apiUrl/v2/user_rates")
+                    .post(body)
+                    .build()
+            authClient.newCall(request).awaitSuccess().close()
+            track
+        }
+
+    suspend fun updateLibManga(
+        track: Track,
+        user_id: String
+    ): Track = addLibManga(track, user_id)
+
+    suspend fun search(search: String): List<TrackSearch> =
+        withIOContext {
+            val url =
+                Uri.parse("$apiUrl/mangas").buildUpon()
+                    .appendQueryParameter("order", "popularity")
+                    .appendQueryParameter("search", search)
+                    .appendQueryParameter("limit", "20")
+                    .build()
+            val request =
+                Request.Builder()
+                    .url(url.toString())
+                    .get()
+                    .build()
+            val responseBody =
+                authClient.newCall(request).awaitSuccess().use { it.body.string() }
+            if (responseBody.isEmpty()) {
+                throw Exception("Null Response")
+            }
+            val response = Json.parseToJsonElement(responseBody).jsonArray
+            response.map { jsonToSearch(it.jsonObject) }
+        }
 
     private fun jsonToSearch(obj: JsonObject): TrackSearch {
         return TrackSearch.create(TrackManager.SHIKIMORI).apply {
@@ -116,71 +112,65 @@ class ShikimoriApi(private val client: OkHttpClient, interceptor: ShikimoriInter
         }
     }
 
-    fun findLibManga(
+    suspend fun findLibManga(
         track: Track,
         user_id: String
-    ): Observable<Track?> {
-        val url =
-            Uri.parse("$apiUrl/v2/user_rates").buildUpon()
-                .appendQueryParameter("user_id", user_id)
-                .appendQueryParameter("target_id", track.media_id.toString())
-                .appendQueryParameter("target_type", "Manga")
-                .build()
-        val request =
-            Request.Builder()
-                .url(url.toString())
-                .get()
-                .build()
+    ): Track? =
+        withIOContext {
+            val url =
+                Uri.parse("$apiUrl/v2/user_rates").buildUpon()
+                    .appendQueryParameter("user_id", user_id)
+                    .appendQueryParameter("target_id", track.media_id.toString())
+                    .appendQueryParameter("target_type", "Manga")
+                    .build()
+            val request =
+                Request.Builder()
+                    .url(url.toString())
+                    .get()
+                    .build()
 
-        val urlMangas =
-            Uri.parse("$apiUrl/mangas").buildUpon()
-                .appendPath(track.media_id.toString())
-                .build()
-        val requestMangas =
-            Request.Builder()
-                .url(urlMangas.toString())
-                .get()
-                .build()
-        return authClient.newCall(requestMangas)
-            .asObservableSuccess()
-            .map { netResponse ->
-                val responseBody = netResponse.body.string()
-                Json.parseToJsonElement(responseBody).jsonObject
-            }.flatMap { mangas ->
-                authClient.newCall(request)
-                    .asObservableSuccess()
-                    .map { netResponse ->
-                        val responseBody = netResponse.body.string()
-                        if (responseBody.isEmpty()) {
-                            throw Exception("Null Response")
-                        }
-                        val response = Json.parseToJsonElement(responseBody).jsonArray
-                        if (response.size > 1) {
-                            throw Exception("Too much mangas in response")
-                        }
-                        val entry =
-                            response.map {
-                                jsonToTrack(it.jsonObject, mangas)
-                            }
-                        entry.firstOrNull()
-                    }
+            val urlMangas =
+                Uri.parse("$apiUrl/mangas").buildUpon()
+                    .appendPath(track.media_id.toString())
+                    .build()
+            val requestMangas =
+                Request.Builder()
+                    .url(urlMangas.toString())
+                    .get()
+                    .build()
+
+            // The manga lookup ran first and its result fed the user-rate mapping,
+            // which is why these stay ordered rather than running concurrently.
+            val mangas =
+                authClient.newCall(requestMangas).awaitSuccess().use {
+                    Json.parseToJsonElement(it.body.string()).jsonObject
+                }
+            val responseBody =
+                authClient.newCall(request).awaitSuccess().use { it.body.string() }
+            if (responseBody.isEmpty()) {
+                throw Exception("Null Response")
             }
-    }
+            val response = Json.parseToJsonElement(responseBody).jsonArray
+            if (response.size > 1) {
+                throw Exception("Too much mangas in response")
+            }
+            response.map { jsonToTrack(it.jsonObject, mangas) }.firstOrNull()
+        }
 
     fun getCurrentUser(): Int {
         val user = authClient.newCall(GET("$apiUrl/users/whoami")).execute().body.string()
         return Json.parseToJsonElement(user).jsonObject["id"]!!.jsonPrimitive.int
     }
 
-    fun accessToken(code: String): Observable<OAuth> {
-        return client.newCall(accessTokenRequest(code)).asObservableSuccess().map { netResponse ->
-            val responseBody = netResponse.body.string()
+    suspend fun accessToken(code: String): OAuth =
+        withIOContext {
+            val responseBody =
+                client.newCall(accessTokenRequest(code)).awaitSuccess().use { it.body.string() }
             if (responseBody.isEmpty()) {
                 throw Exception("Null Response")
             }
             json.decodeFromString<OAuth>(responseBody)
         }
-    }
 
     private fun accessTokenRequest(code: String) =
         POST(

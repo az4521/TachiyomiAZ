@@ -12,7 +12,6 @@ import eu.kanade.tachiyomi.data.track.mangaupdates.dto.toTrackSearch
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.util.lang.runAsObservable
 import rx.Completable
-import rx.Observable
 
 class MangaUpdates(private val context: Context, id: Int) : TrackService(id) {
     override val name = "MangaUpdates"
@@ -53,48 +52,38 @@ class MangaUpdates(private val context: Context, id: Int) : TrackService(id) {
         return if (track.score <= 0f) "-" else track.score.toString()
     }
 
-    override fun add(track: Track): Observable<Track> {
-        return runAsObservable({
-            api.addSeriesToList(track, track.last_chapter_read > 0)
-            track
-        })
+    override suspend fun add(track: Track): Track {
+        api.addSeriesToList(track, track.last_chapter_read > 0)
+        return track
     }
 
-    override fun update(track: Track): Observable<Track> {
-        return runAsObservable({
-            // Deliberately no status juggling here: this app routes both "user picked a status"
-            // and "a chapter was read" through update(), so promoting to READING_LIST based on
-            // progress would silently revert a manually chosen status.
-            api.updateSeriesListItem(track)
-            track
-        })
+    override suspend fun update(track: Track): Track {
+        // Deliberately no status juggling here: this app routes both "user picked a status"
+        // and "a chapter was read" through update(), so promoting to READING_LIST based on
+        // progress would silently revert a manually chosen status.
+        api.updateSeriesListItem(track)
+        return track
     }
 
-    override fun bind(track: Track): Observable<Track> {
-        return runAsObservable({
-            try {
-                val (series, rating) = api.getSeriesListItem(track)
-                track.copyFrom(series, rating)
-            } catch (e: Exception) {
-                // Not on any list yet, so add it.
-                track.score = 0f
-                api.addSeriesToList(track, track.last_chapter_read > 0)
-                track
-            }
-        })
-    }
-
-    override fun search(query: String): Observable<List<TrackSearch>> {
-        return runAsObservable({
-            api.search(query).map { it.toTrackSearch(id) }
-        })
-    }
-
-    override fun refresh(track: Track): Observable<Track> {
-        return runAsObservable({
+    override suspend fun bind(track: Track): Track {
+        return try {
             val (series, rating) = api.getSeriesListItem(track)
             track.copyFrom(series, rating)
-        })
+        } catch (e: Exception) {
+            // Not on any list yet, so add it.
+            track.score = 0f
+            api.addSeriesToList(track, track.last_chapter_read > 0)
+            track
+        }
+    }
+
+    override suspend fun search(query: String): List<TrackSearch> {
+        return api.search(query).map { it.toTrackSearch(id) }
+    }
+
+    override suspend fun refresh(track: Track): Track {
+        val (series, rating) = api.getSeriesListItem(track)
+        return track.copyFrom(series, rating)
     }
 
     private fun Track.copyFrom(
@@ -106,17 +95,19 @@ class MangaUpdates(private val context: Context, id: Int) : TrackService(id) {
             score = rating?.rating?.toFloat() ?: 0f
         }
 
-    override fun login(
+    override suspend fun login(
         username: String,
         password: String
-    ): Completable {
-        return runAsObservable({
+    ) {
+        try {
             val authenticated = api.authenticate(username, password)
             interceptor.newAuth(authenticated.sessionToken)
             val currentUser = api.getCurrentUser()
             saveCredentials(currentUser.username, authenticated.sessionToken)
-        }).doOnError { logout() }
-            .toCompletable()
+        } catch (e: Throwable) {
+            logout()
+            throw e
+        }
     }
 
     override fun logout() {
