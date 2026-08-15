@@ -61,6 +61,21 @@ open class BasePresenter<V> : RxPresenter<V>() {
         }
 
     /**
+     * Coroutine equivalent of [subscribeReplay]: delivers every value in order, waiting for a view
+     * rather than dropping superseded values the way [collectLatestCache] does. Pair it with a
+     * replaying source (e.g. a `MutableSharedFlow(replay = Int.MAX_VALUE)`) when the view needs
+     * the whole sequence back after a detach, such as an incrementally paged list.
+     */
+    fun <T> Flow<T>.collectReplay(
+        onNext: (V, T) -> Unit,
+        onError: ((V, Throwable) -> Unit)? = null
+    ): Job =
+        presenterScope.launch {
+            catch { e -> onError?.invoke(awaitAttachedView(), e) }
+                .collect { value -> onNext(awaitAttachedView(), value) }
+        }
+
+    /**
      * Coroutine equivalent of a one-shot [subscribeFirst]: runs [block] against the view once one
      * is attached.
      */

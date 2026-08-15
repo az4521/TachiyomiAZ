@@ -17,7 +17,7 @@ class ExhLatestUpdatesPager(val source: CatalogueSource) : Pager() {
         val page = currentPage
         currentPage = urlToId(mangasPage.mangas.lastOrNull()?.url)
         hasNextPage = mangasPage.hasNextPage && mangasPage.mangas.isNotEmpty()
-        results.call(Pair(page, mangasPage.mangas))
+        results.tryEmit(Pair(page, mangasPage.mangas))
     }
 
     private fun urlToId(url: String?): Int {
