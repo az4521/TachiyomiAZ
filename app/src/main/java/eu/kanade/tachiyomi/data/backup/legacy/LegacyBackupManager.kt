@@ -35,7 +35,6 @@ import eu.kanade.tachiyomi.data.database.models.TrackImpl
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.source.LocalSource
 import eu.kanade.tachiyomi.source.Source
-import eu.kanade.tachiyomi.util.lang.runAsObservable
 import exh.savedsearches.JsonSavedSearch
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -51,7 +50,6 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
 import kotlinx.serialization.json.put
-import rx.Observable
 import timber.log.Timber
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -351,18 +349,16 @@ class LegacyBackupManager(context: Context, version: Int = CURRENT_VERSION) : Ab
      * @param manga manga that needs updating
      * @return [Observable] that contains manga
      */
-    fun restoreMangaFetchObservable(
+    suspend fun restoreMangaFetch(
         source: Source,
         manga: Manga
-    ): Observable<Manga> {
-        return runAsObservable({
-            val networkManga = source.getMangaUpdate(manga, emptyList(), fetchDetails = true, fetchChapters = false).manga
-            manga.copyFrom(networkManga)
-            manga.favorite = true
-            manga.initialized = true
-            manga.id = insertManga(manga)
-            manga
-        })
+    ): Manga {
+        val networkManga = source.getMangaUpdate(manga, emptyList(), fetchDetails = true, fetchChapters = false).manga
+        manga.copyFrom(networkManga)
+        manga.favorite = true
+        manga.initialized = true
+        manga.id = insertManga(manga)
+        return manga
     }
 
     /**

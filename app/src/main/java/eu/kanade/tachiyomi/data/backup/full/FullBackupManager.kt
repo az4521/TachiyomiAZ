@@ -29,7 +29,6 @@ import eu.kanade.tachiyomi.data.database.models.MangaCategory
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.online.LewdSource
-import eu.kanade.tachiyomi.util.lang.runAsObservable
 import exh.metadata.metadata.base.getFlatMetadataForManga
 import exh.metadata.metadata.base.insertFlatMetadata
 import exh.savedsearches.JsonSavedSearch
@@ -42,7 +41,6 @@ import kotlinx.serialization.protobuf.ProtoBuf
 import okio.buffer
 import okio.gzip
 import okio.sink
-import rx.Observable
 import timber.log.Timber
 import kotlin.math.max
 
@@ -247,27 +245,22 @@ class FullBackupManager(context: Context) : AbstractBackupManager(context) {
      * @param manga manga that needs updating
      * @return [Observable] that contains manga
      */
-    fun restoreMangaFetchObservable(
+    suspend fun restoreMangaFetch(
         source: Source?,
         manga: Manga,
         online: Boolean
-    ): Observable<Manga> {
+    ): Manga {
         return if (online && source != null) {
-            return runAsObservable({
-                val networkManga = source.getMangaUpdate(manga, emptyList(), fetchDetails = true, fetchChapters = false).manga
-                manga.copyFrom(networkManga)
-                manga.favorite = manga.favorite
-                manga.initialized = true
-                manga.id = insertManga(manga)
-                manga
-            })
+            val networkManga = source.getMangaUpdate(manga, emptyList(), fetchDetails = true, fetchChapters = false).manga
+            manga.copyFrom(networkManga)
+            manga.favorite = manga.favorite
+            manga.initialized = true
+            manga.id = insertManga(manga)
+            manga
         } else {
-            Observable.just(manga)
-                .map {
-                    it.initialized = it.description != null
-                    it.id = insertManga(it)
-                    it
-                }
+            manga.initialized = manga.description != null
+            manga.id = insertManga(manga)
+            manga
         }
     }
 
