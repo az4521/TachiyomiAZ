@@ -23,8 +23,7 @@ class ExtensionDetailsPresenter(
     }
 
     private fun bindToUninstalledExtension() {
-        extensionManager.getInstalledExtensionsObservable()
-            .asFlow()
+        extensionManager.getInstalledExtensionsFlow()
             .drop(1)
             .filter { extensions -> extensions.none { it.pkgName == pkgName } }
             .take(1)

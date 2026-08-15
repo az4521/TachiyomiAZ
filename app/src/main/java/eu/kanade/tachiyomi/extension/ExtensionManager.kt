@@ -23,6 +23,8 @@ import exh.MERGED_SOURCE_ID
 import exh.NHENTAI_SOURCE_ID
 import exh.source.BlacklistedSources
 import kotlinx.coroutines.async
+import eu.kanade.tachiyomi.util.lang.asFlow
+import kotlinx.coroutines.flow.Flow
 import rx.Observable
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -173,22 +175,22 @@ class ExtensionManager(
     /**
      * Returns the relay of the installed extensions as an observable.
      */
-    fun getInstalledExtensionsObservable(): Observable<List<Extension.Installed>> {
-        return installedExtensionsRelay.asObservable()
+    fun getInstalledExtensionsFlow(): Flow<List<Extension.Installed>> {
+        return installedExtensionsRelay.asObservable().asFlow()
     }
 
     /**
      * Returns the relay of the available extensions as an observable.
      */
-    fun getAvailableExtensionsObservable(): Observable<List<Extension.Available>> {
-        return availableExtensionsRelay.asObservable()
+    fun getAvailableExtensionsFlow(): Flow<List<Extension.Available>> {
+        return availableExtensionsRelay.asObservable().asFlow()
     }
 
     /**
      * Returns the relay of the untrusted extensions as an observable.
      */
-    fun getUntrustedExtensionsObservable(): Observable<List<Extension.Untrusted>> {
-        return untrustedExtensionsRelay.asObservable()
+    fun getUntrustedExtensionsFlow(): Flow<List<Extension.Untrusted>> {
+        return untrustedExtensionsRelay.asObservable().asFlow()
     }
 
     /**
