@@ -102,25 +102,94 @@ hand. Budget for that; do not plan around `git cherry-pick`.
 
 ## 4. Phases
 
-### Phase 0 — infrastructure
+### Prerequisite: the build does not work from `Z:`
 
-`CoroutinesExtensions.kt` currently builds `launchUI`, `launchIO`, and
-`launchNow` on **`GlobalScope`**. Every coroutine already in the codebase — 87
-files' worth — outlives the component that started it. Fix this first or the
-migration multiplies an existing leak.
+Two environment problems block compile verification, and both cost real time to
+rediscover:
 
-- Replace the `GlobalScope` helpers with scoped equivalents.
-- Add `presenterScope` to `BasePresenter`, cancelled in `onDestroy`.
-- Keep `RxCoroutineBridge.kt`. It is the migration tool and the permanent
-  extension shim; it goes last, and partly never.
+**`Z:` is an SMB share** (`\\192.168.0.150\az4521`). Gradle creates a directory
+and immediately stats it; SMB metadata caching makes that fail intermittently
+(`Cannot create directory 'buildSrc\build\tmp\jar'`, `Failed to create MD5 hash
+... as it does not exist`). `--no-daemon`, `--no-parallel`, `--no-build-cache`
+and disabling VFS watching do not fix it. Build from local disk instead: clone
+or copy the tree to a local path, sync sources into it, and compile there. A
+shallow clone is ~14 MB; `local.properties` and `app/google-services.json` are
+gitignored and must be recreated.
 
-### Phase 1 — leaves
+**`JAVA_HOME` points at a Java 8 JDK** (`scoop/apps/temurin8-jdk`), while AGP
+8.13 requires 17+. Gradle uses `JAVA_HOME`, not `PATH`, so the JDK 21 on `PATH`
+is not picked up. Export `JAVA_HOME` explicitly for the build.
 
-No internal dependents, independently testable.
+With both handled, `:app:compileStandardApi24DebugKotlin` is clean on `master`
+and takes ~2 minutes.
 
-- `network/OkHttpExtensions.kt`: `Call.asObservable()` → `Call.await()`.
-- Trackers: `MyAnimeListApi` (25 Rx references), `KitsuApi` (20),
-  `MangaUpdates` (17), and the rest. Reference `7d713b87b1`.
+### Phase 0 — infrastructure — DONE (`736a70cc6c`)
+
+What was actually there differed from the description above, which assumed the
+scoped helpers had to be written. They already existed:
+
+**Two copies of `CoroutinesExtensions.kt`** declared the same top-level
+`launchUI`/`launchIO`/`launchNow` in different packages — `util/lang` (the
+`GlobalScope` versions only) and `util/system` (the same three, plus the
+`CoroutineScope`-scoped variants and `withUIContext`/`withIOContext`/
+`withDefContext`). Which one a call site got depended purely on its import, and
+all 24 call sites had imported the `util/lang` copy, leaving the scoped variants
+dead code. The `util/lang` copy is now deleted and its imports repointed.
+
+**The `GlobalScope` helpers stay for now.** Upstream kept them through this
+batch and added the scoped alternatives alongside, letting call sites migrate
+one at a time. Removing them wholesale means touching all 24 sites at once, for
+no benefit over doing it per-phase.
+
+`presenterScope` is on `BasePresenter`, cancelled in `onDestroy`. Note the
+deviation from upstream `86b9d7e843`: it declares the scope `lateinit` and
+assigns it *inside* the `try`, after `super.onCreate()` — the call the
+surrounding `catch` exists to swallow. When that NPE fires, the `lateinit` is
+never initialized and `onDestroy` throws. Initialize eagerly at construction
+instead.
+
+`RxCoroutineBridge.kt` stays. It is the migration tool and the permanent
+extension shim; it goes last, and partly never.
+
+### Phase 1 — trackers
+
+Calling this "leaves" was wrong. `TrackService` declares `add`, `update`,
+`bind`, `search`, `refresh` (all `Observable`) and `login` (`Completable`) as
+**abstract**, so there is no incremental path: converting any one of them
+converts all 9 implementations and every call site in the same commit.
+
+Call sites outside `data/track/`, all of which must move together:
+
+| Site | Handling |
+|---|---|
+| `TrackPresenter` (5 calls, incl. a `.toBlocking().first()`) | convert with the presenter |
+| `AbstractBackupRestore.kt:104` | already in a coroutine |
+| `LibraryUpdateService.kt:470` | already in a coroutine |
+| `ReaderPresenter.kt:669` | wrap in `runAsObservable` — defer to Phase 4 |
+| `TrackChapterSync.kt:43` | wrap in `runAsObservable` — defer to Phase 4 |
+
+`runAsObservable` (`RxCoroutineBridge.kt:245`) is what keeps this from
+cascading into the reader. Note its documented `Dispatchers.IO` default: with
+`Unconfined`, chains resume on OkHttp callback threads and can exhaust
+`maxRequestsPerHost`. Do not "simplify" that away.
+
+**Hidden predecessor.** The trackers split in two:
+
+- *Already suspend underneath*, wrapped in `runAsObservable` — Hikka, Kavita,
+  Komga, MangaBaka. Converting these is unwrapping.
+- *Still genuinely Rx underneath* — Anilist, Bangumi, Kitsu, whose `api.*`
+  methods return `Observable` (Anilist's `update` is a real `flatMap` chain).
+  These need their API classes converted first, which upstream did in **December
+  2020**, before `7d713b87b1`: `271de31d51` (Kitsu → coroutines +
+  kotlinx.serialization), `dc3ed7fffc` (Anilist), `6fcf6ae1f5` (Bangumi and
+  Shikimori), `ea33179a95` (add/update/login), `2d0a5eb02c` (more of
+  `TrackService`), plus `1268caf3e0` on OkHttp error semantics.
+
+So `7d713b87b1` alone is not the reference for this phase — it is the last
+commit of a chain, and this fork starts before the chain begins.
+
+Also in scope: `network/OkHttpExtensions.kt` (`Call.asObservable()` →
+`Call.await()`), which the API conversions sit on.
 
 ### Phase 2 — data layer
 
