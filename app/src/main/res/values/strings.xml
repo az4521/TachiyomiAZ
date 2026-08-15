@@ -851,6 +851,7 @@ z
     <string name="error_repo_exists">This repo already exists!</string>
     <string name="snack_repo_deleted">Repo deleted</string>
     <string name="invalid_repo_name">Invalid repo. Use \'username/repo\' or a full URL to a repo index.</string>
+    <string name="invalid_repo_url">That URL doesn\'t point to an extension repo index.</string>
     <string name="repo_source">Repo source</string>
 
     <!-- EH Settings Login Activity -->

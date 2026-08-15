@@ -329,4 +329,11 @@ class RepoController() :
     fun onRepoInvalidNameError() {
         activity?.toast(R.string.invalid_repo_name)
     }
+
+    /**
+     * Called from the presenter when a repo URL doesn't serve an extension index.
+     */
+    fun onRepoInvalidUrlError() {
+        activity?.toast(R.string.invalid_repo_url)
+    }
 }

@@ -6,7 +6,9 @@ import eu.kanade.tachiyomi.extension.model.Extension
 import eu.kanade.tachiyomi.extension.model.LoadResult
 import eu.kanade.tachiyomi.extension.util.ExtensionLoader
 import eu.kanade.tachiyomi.network.GET
+import eu.kanade.tachiyomi.network.HEAD
 import eu.kanade.tachiyomi.network.NetworkHelper
+import eu.kanade.tachiyomi.network.await
 import eu.kanade.tachiyomi.network.awaitSuccess
 import exh.source.BlacklistedSources
 import kotlinx.serialization.decodeFromByteArray
@@ -17,6 +19,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.okio.decodeFromBufferedSource
 import kotlinx.serialization.protobuf.ProtoBuf
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okio.BufferedSource
 import okio.buffer
 import okio.gzip
@@ -97,11 +100,62 @@ internal class ExtensionGithubApi {
 
     /**
      * Resolves a configured repo entry to the URL of its index file. A `username/repo` shorthand
-     * maps to the GitHub raw legacy index; anything that already looks like a URL is used as-is
-     * (may point at index.min.json, repo.json, or a newer index.pb / index.json).
+     * maps to the GitHub raw legacy index; anything that already looks like a URL is used as-is.
      */
     private fun indexUrlFor(repo: String): String {
         return if ("://" in repo) repo else "$BASE_URL$repo/repo/index.min.json"
+    }
+
+    /**
+     * Checks whether [url] plausibly points at a repo index, for validating one before it's saved.
+     *
+     * Index files can be named anything, so the file name tells us nothing about the format. A
+     * HEAD gives us the content type cheaply; when that's missing or too generic to judge (raw
+     * hosts commonly serve both JSON and protobuf as `text/plain`) the first bytes of the body are
+     * sniffed the same way [fetchStore] does. Peeking and closing means only the first packet or
+     * so is actually transferred.
+     *
+     * Rejects only on evidence that the URL isn't an index — an HTTP error, or an HTML page, which
+     * is what a repo's web page pasted instead of the raw file looks like. A URL that can't be
+     * reached at all is accepted: the user may be offline, and refusing to save a repo over that
+     * is worse than saving one that turns out to be wrong.
+     */
+    suspend fun isRepoIndexUrl(url: String): Boolean {
+        val httpUrl = url.toHttpUrlOrNull() ?: return false
+
+        val contentType = runCatching {
+            // A server that doesn't do HEAD (405) just leaves this inconclusive.
+            network.client.newCall(HEAD(httpUrl)).await().use { response ->
+                response.header("Content-Type")?.substringBefore(';')?.trim()?.lowercase()
+            }
+        }.getOrNull()
+
+        if (contentType != null) {
+            if (INDEX_CONTENT_TYPES.any { it in contentType }) return true
+            if ("html" in contentType) return false
+        }
+
+        return runCatching {
+            network.client.newCall(GET(httpUrl)).await().use { response ->
+                if (!response.isSuccessful) return@use false
+
+                val peek = response.body.source().peek()
+                if (!peek.request(1)) return@use false
+                val first = peek.readByte()
+                val second = if (peek.request(1)) peek.readByte() else null
+
+                when {
+                    // gzipped index
+                    first == GZIP_MAGIC_FIRST && second == GZIP_MAGIC_SECOND -> true
+                    // legacy array index, or a JSON store
+                    first == '['.code.toByte() || first == '{'.code.toByte() -> true
+                    // a web page or an error document, not an index
+                    first == '<'.code.toByte() -> false
+                    // anything else is taken for protobuf, as it is at fetch time
+                    else -> true
+                }
+            }
+        }.getOrDefault(true)
     }
 
     /**
@@ -149,8 +203,7 @@ internal class ExtensionGithubApi {
         indexUrl: String,
         onMigrated: (String) -> Unit
     ): List<Extension.Available>? {
-        if (!indexUrl.endsWith("/index.min.json")) return null
-        val repoJsonUrl = indexUrl.removeSuffix("index.min.json") + "repo.json"
+        val repoJsonUrl = repoDirOf(indexUrl) + "repo.json"
         return try {
             val repo = network.client.newCall(GET(repoJsonUrl)).awaitSuccess().body.source().use {
                 json.decodeFromBufferedSource<NetworkLegacyExtensionRepo>(it)
@@ -165,7 +218,7 @@ internal class ExtensionGithubApi {
 
     /** A repo.json object with no index_v2: its extensions still live in the sibling index.min.json. */
     private suspend fun legacyListFromRepoJson(repoJsonUrl: String): List<Extension.Available> {
-        val indexUrl = repoJsonUrl.substringBeforeLast("repo.json") + "index.min.json"
+        val indexUrl = repoDirOf(repoJsonUrl) + "index.min.json"
         val array = network.client.newCall(GET(indexUrl)).awaitSuccess().body.source().use {
             json.decodeFromBufferedSource<JsonArray>(it)
         }
@@ -212,7 +265,7 @@ internal class ExtensionGithubApi {
                 val lang = element.jsonObject["lang"]!!.jsonPrimitive.content
                 val nsfw = element.jsonObject["nsfw"]!!.jsonPrimitive.int == 1
                 // SY -->
-                val icon = "${repoUrl.substringBeforeLast("index.min.json")}icon/$pkgName.png"
+                val icon = "${repoDirOf(repoUrl)}icon/$pkgName.png"
                 // SY <--
 
                 Extension.Available(name, pkgName, versionName, versionCode, libVersion, lang, nsfw, apkName, icon /* SY --> */, repoUrl /* SY <-- */)
@@ -236,13 +289,20 @@ internal class ExtensionGithubApi {
         return if ("://" in apkName) {
             apkName
         } else {
-            "${extension.repoUrl.substringBeforeLast("index.min.json")}apk/$apkName"
+            "${repoDirOf(extension.repoUrl)}apk/$apkName"
         }
     }
 
     fun getIconUrl(extension: Extension.Available): String {
-        return "${extension.repoUrl.substringBeforeLast("index.min.json")}icon/${extension.pkgName}.png"
+        return "${repoDirOf(extension.repoUrl)}icon/${extension.pkgName}.png"
     }
+
+    /**
+     * The directory an index file lives in, with its trailing slash. Legacy repos keep their
+     * `apk/` and `icon/` folders next to the index, and the index itself can be named anything,
+     * so siblings are resolved from the path rather than by trimming a known file name.
+     */
+    private fun repoDirOf(indexUrl: String): String = indexUrl.substringBeforeLast('/') + "/"
 
     private fun Extension.isBlacklisted(blacklistEnabled: Boolean = preferences.eh_enableSourceBlacklist().get()): Boolean {
         return pkgName in BlacklistedSources.BLACKLISTED_EXTENSIONS && blacklistEnabled
@@ -250,5 +310,12 @@ internal class ExtensionGithubApi {
 
     companion object {
         const val BASE_URL = "https://raw.githubusercontent.com/"
+
+        private const val GZIP_MAGIC_FIRST = 0x1f.toByte()
+        private const val GZIP_MAGIC_SECOND = 0x8b.toByte()
+
+        /** Content types that identify an index on their own, no sniffing needed. */
+        private val INDEX_CONTENT_TYPES =
+            listOf("json", "protobuf", "octet-stream", "gzip", "x-gzip")
     }
 }
