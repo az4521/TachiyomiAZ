@@ -6,7 +6,7 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.widget.Toast
 import eu.kanade.tachiyomi.R
-import eu.kanade.tachiyomi.util.lang.launchUI
+import eu.kanade.tachiyomi.util.system.launchUI
 import eu.kanade.tachiyomi.util.system.MiuiUtil
 import eu.kanade.tachiyomi.util.system.WebViewUtil
 import eu.kanade.tachiyomi.util.system.setDefaultSettings

@@ -1,11 +1,22 @@
 package eu.kanade.tachiyomi.ui.base.presenter
 
 import android.os.Bundle
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.cancel
 import nucleus.presenter.RxPresenter
 import nucleus.presenter.delivery.Delivery
 import rx.Observable
 
 open class BasePresenter<V> : RxPresenter<V>() {
+    /**
+     * Scope for coroutines started by this presenter. Cancelled in [onDestroy], so work started
+     * here does not outlive the presenter the way the process-wide [launchIO]/[launchUI] helpers
+     * do. Initialized eagerly rather than in [onCreate] because [super.onCreate] can throw, and a
+     * `lateinit` assigned after that call would be left uninitialized when it does.
+     */
+    val presenterScope: CoroutineScope = MainScope()
+
     override fun onCreate(savedState: Bundle?) {
         try {
             super.onCreate(savedState)
@@ -13,6 +24,11 @@ open class BasePresenter<V> : RxPresenter<V>() {
             // Swallow this error. This should be fixed in the library but since it's not critical
             // (only used by restartables) it should be enough. It saves me a fork.
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        presenterScope.cancel()
     }
 
     /**
