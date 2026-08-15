@@ -109,7 +109,8 @@ class MangaInfoController(private val fromSource: Boolean = false) :
             ctrl.smartSearchConfig,
             ctrl.chapterCountRelay,
             ctrl.lastUpdateRelay,
-            ctrl.mangaFavoriteRelay
+            ctrl.mangaFavoriteRelay,
+            ctrl.updateCoordinator
         )
     }
 

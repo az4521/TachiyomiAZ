@@ -32,6 +32,7 @@ import eu.kanade.tachiyomi.ui.base.controller.NucleusController
 import eu.kanade.tachiyomi.ui.manga.MangaController
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.video.VideoActivity
+import eu.kanade.tachiyomi.util.chapter.NoChaptersException
 import eu.kanade.tachiyomi.util.system.getResourceColor
 import eu.kanade.tachiyomi.util.system.toast
 import eu.kanade.tachiyomi.util.view.getCoordinates
@@ -85,7 +86,8 @@ class ChaptersController :
             ctrl.source!!,
             ctrl.chapterCountRelay,
             ctrl.lastUpdateRelay,
-            ctrl.mangaFavoriteRelay
+            ctrl.mangaFavoriteRelay,
+            ctrl.updateCoordinator
         )
     }
 
@@ -333,7 +335,11 @@ class ChaptersController :
 
     fun onFetchChaptersError(error: Throwable) {
         binding.swipeRefresh.isRefreshing = false
-        activity?.toast(error.message)
+        if (error is NoChaptersException) {
+            activity?.toast(R.string.no_chapters_error)
+        } else {
+            activity?.toast(error.message)
+        }
         // [EXH]
         XLog.w("> Failed to fetch chapters!", error)
         XLog.w(

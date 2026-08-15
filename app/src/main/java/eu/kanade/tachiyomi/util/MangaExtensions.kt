@@ -40,6 +40,52 @@ fun Manga.prepUpdateCover(
     }
 }
 
+/**
+ * Copies the source-provided [SManga.memo] over, if there is one. Sources use it to carry their
+ * own metadata across calls, so it's kept in sync even when the user has manga metadata updating
+ * turned off.
+ *
+ * @return whether the memo changed.
+ */
+fun Manga.copyMemoFrom(other: SManga): Boolean {
+    if (other.memo.isEmpty() || other.memo == memo) return false
+
+    memo = other.memo
+    return true
+}
+
+/**
+ * Persists the manga half of a [eu.kanade.tachiyomi.source.model.SMangaUpdate].
+ *
+ * Sources may return fresh details even when `fetchDetails = false` was requested, so the result
+ * is always saved. [updateMetadata] decides how much of it is kept: everything when true, only the
+ * memo when false — that way the "refresh manga metadata" library setting still governs what the
+ * user sees, while source-internal metadata stays current either way.
+ */
+fun Manga.saveMangaUpdate(
+    sManga: SManga,
+    db: DatabaseHelper,
+    coverCache: CoverCache,
+    updateMetadata: Boolean,
+    manualFetch: Boolean = false
+) {
+    if (updateMetadata) {
+        // Avoid "losing" the existing cover when the source doesn't provide one.
+        if (!sManga.thumbnail_url.isNullOrEmpty()) {
+            prepUpdateCover(coverCache, sManga, manualFetch)
+        } else {
+            sManga.thumbnail_url = thumbnail_url
+        }
+
+        copyFrom(sManga)
+        initialized = true
+    } else if (!copyMemoFrom(sManga)) {
+        return
+    }
+
+    db.insertManga(this).executeAsBlocking()
+}
+
 fun Manga.hasCustomCover(coverCache: CoverCache): Boolean {
     return coverCache.getCustomCoverFile(this).exists()
 }

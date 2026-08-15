@@ -22,9 +22,12 @@ import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.model.UpdateStrategy
+import eu.kanade.tachiyomi.util.chapter.syncChaptersFromUpdate
 import eu.kanade.tachiyomi.util.chapter.syncChaptersWithSource
+import eu.kanade.tachiyomi.util.copyMemoFrom
 import eu.kanade.tachiyomi.util.lang.runAsObservable
 import eu.kanade.tachiyomi.util.prepUpdateCover
+import eu.kanade.tachiyomi.util.saveMangaUpdate
 import eu.kanade.tachiyomi.util.shouldDownloadNewChapters
 import eu.kanade.tachiyomi.util.storage.getUriCompat
 import eu.kanade.tachiyomi.util.system.acquireWakeLock
@@ -363,30 +366,19 @@ class LibraryUpdateService(
         val source = sourceManager.get(manga.source) ?: return Observable.empty()
 
         // Fetch details and chapters in a single network request when metadata
-        // auto-updating is enabled, otherwise only fetch chapters.
-        val fetchDetails = preferences.autoUpdateMetadata()
+        // auto-updating is enabled, otherwise only ask for chapters. Sources are free to return
+        // details anyway, which is why the result is saved either way below.
+        val updateMetadata = preferences.autoUpdateMetadata()
 
-        return runAsObservable({ source.getMangaUpdate(manga, emptyList(), fetchDetails = fetchDetails, fetchChapters = true) })
-            .map { mangaUpdate ->
-                if (fetchDetails) {
-                    try {
-                        val sManga = mangaUpdate.manga
-                        // Avoid "losing" existing cover
-                        if (!sManga.thumbnail_url.isNullOrEmpty()) {
-                            manga.prepUpdateCover(coverCache, sManga, false)
-                        } else {
-                            sManga.thumbnail_url = manga.thumbnail_url
-                        }
-
-                        manga.copyFrom(sManga)
-                        db.insertManga(manga).executeAsBlocking()
-                    } catch (e: Throwable) {
-                        Timber.e(e)
-                    }
+        return runAsObservable({ source.getMangaUpdate(manga, emptyList(), fetchDetails = updateMetadata, fetchChapters = true) })
+            .doOnNext { mangaUpdate ->
+                try {
+                    manga.saveMangaUpdate(mangaUpdate.manga, db, coverCache, updateMetadata)
+                } catch (e: Throwable) {
+                    Timber.e(e)
                 }
-                mangaUpdate.chapters
             }
-            .map { syncChaptersWithSource(db, it, manga, source) }
+            .map { syncChaptersWithSource(db, it.chapters, manga, source) }
     }
 
     private fun updateMangaMetadata(mangaToUpdate: List<LibraryManga>): Observable<LibraryManga> {
@@ -397,24 +389,19 @@ class LibraryUpdateService(
                 notifier.showProgressNotification(it, count++, mangaToUpdate.size)
             }
             .flatMap { manga ->
-
-                val source = sourceManager.get(manga.source)
+                val source =
+                    sourceManager.get(manga.source)
+                        ?: return@flatMap Observable.empty<LibraryManga>()
 
                 // Update manga details metadata in the background
-                runAsObservable({ source?.getMangaUpdate(manga, emptyList(), fetchDetails = true, fetchChapters = false)?.manga })
-                    .map { updatedManga ->
-                        // Avoid "losing" existing cover
-                        if (!updatedManga!!.thumbnail_url.isNullOrEmpty()) {
-                            manga.prepUpdateCover(coverCache, updatedManga, false)
-                        } else {
-                            updatedManga.thumbnail_url = manga.thumbnail_url
-                        }
-
-                        manga.copyFrom(updatedManga)
-                        db.insertManga(manga).executeAsBlocking()
-                        manga
-                    }
-                    ?.onErrorReturn { manga }
+                runAsObservable({
+                    val update = source.getMangaUpdate(manga, emptyList(), fetchDetails = true, fetchChapters = false)
+                    manga.saveMangaUpdate(update.manga, db, coverCache, updateMetadata = true)
+                    // Sources may hand back chapters even though they weren't asked for.
+                    syncChaptersFromUpdate(db, update, manga, source)
+                    manga
+                })
+                    .onErrorReturn { manga }
             }
             .doOnCompleted {
                 notifier.cancelProgressNotification()
@@ -434,12 +421,21 @@ class LibraryUpdateService(
                         ?: return@flatMap Observable.empty<LibraryManga>()
 
                 runAsObservable({
-                    val sManga = source.getMangaUpdate(manga, emptyList(), fetchDetails = true, fetchChapters = false).manga
+                    val update = source.getMangaUpdate(manga, emptyList(), fetchDetails = true, fetchChapters = false)
+                    val sManga = update.manga
                     manga.prepUpdateCover(coverCache, sManga, true)
+                    // Only the cover is wanted here, but the memo is source-internal metadata that
+                    // shouldn't be thrown away now that we have it.
+                    var changed = manga.copyMemoFrom(sManga)
                     sManga.thumbnail_url?.let {
                         manga.thumbnail_url = it
+                        changed = true
+                    }
+                    if (changed) {
                         db.insertManga(manga).executeAsBlocking()
                     }
+                    // Sources may hand back chapters even though they weren't asked for.
+                    syncChaptersFromUpdate(db, update, manga, source)
                     manga
                 })
                     .onErrorReturn { manga }

@@ -12,10 +12,10 @@ import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.online.all.MergedSource
 import eu.kanade.tachiyomi.ui.base.presenter.BasePresenter
+import eu.kanade.tachiyomi.ui.manga.MangaUpdateCoordinator
 import eu.kanade.tachiyomi.ui.source.SourceController
 import eu.kanade.tachiyomi.util.lang.isNullOrUnsubscribed
 import eu.kanade.tachiyomi.util.lang.runAsObservable
-import eu.kanade.tachiyomi.util.prepUpdateCover
 import eu.kanade.tachiyomi.util.removeCovers
 import exh.MERGED_SOURCE_ID
 import exh.util.await
@@ -42,6 +42,7 @@ class MangaInfoPresenter(
     private val chapterCountRelay: BehaviorRelay<Float>,
     private val lastUpdateRelay: BehaviorRelay<Date>,
     private val mangaFavoriteRelay: PublishRelay<Boolean>,
+    private val updateCoordinator: MangaUpdateCoordinator,
     private val db: DatabaseHelper = Injekt.get(),
     private val downloadManager: DownloadManager = Injekt.get(),
     private val coverCache: CoverCache = Injekt.get(),
@@ -92,12 +93,9 @@ class MangaInfoPresenter(
         fetchMangaSubscription =
             Observable.defer {
                 runAsObservable({
-                    val sManga = source.getMangaUpdate(manga, emptyList(), fetchDetails = true, fetchChapters = false).manga
-                    manga.prepUpdateCover(coverCache, sManga, manualFetch)
-                    manga.copyFrom(sManga)
-                    manga.initialized = true
-                    db.insertManga(manga).executeAsBlocking()
-                    manga
+                    // The coordinator saves both halves of the update; the view picks the manga
+                    // back up from the db observable.
+                    updateCoordinator.awaitUpdate(force = manualFetch)
                 })
             }
                 .subscribeOn(Schedulers.io())

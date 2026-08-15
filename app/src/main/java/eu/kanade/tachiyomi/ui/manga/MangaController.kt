@@ -86,6 +86,11 @@ class MangaController : RxController<MangaControllerBinding>, TabbedController {
 
     private var adapter: MangaDetailAdapter? = null
 
+    /**
+     * Shared by the info and chapters tabs so both are served by a single source call.
+     */
+    val updateCoordinator by lazy { MangaUpdateCoordinator(manga!!, source!!) }
+
     val fromSource = args.getBoolean(FROM_SOURCE_EXTRA, false)
 
     var update = args.getBoolean(UPDATE_EXTRA, false)

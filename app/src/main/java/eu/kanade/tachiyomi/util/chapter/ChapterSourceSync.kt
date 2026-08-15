@@ -6,6 +6,7 @@ import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.model.SChapter
+import eu.kanade.tachiyomi.source.model.SMangaUpdate
 import eu.kanade.tachiyomi.source.online.HttpSource
 import exh.EH_SOURCE_ID
 import exh.EXH_SOURCE_ID
@@ -13,6 +14,23 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.util.Date
 import java.util.TreeSet
+
+/**
+ * Syncs the chapter half of a [SMangaUpdate], which sources may fill in even when
+ * `fetchChapters = false` was requested.
+ *
+ * @return a pair of new insertions and deletions, or null if the source returned no chapters.
+ */
+fun syncChaptersFromUpdate(
+    db: DatabaseHelper,
+    update: SMangaUpdate,
+    manga: Manga,
+    source: Source
+): Pair<List<Chapter>, List<Chapter>>? {
+    if (update.chapters.isEmpty()) return null
+
+    return syncChaptersWithSource(db, update.chapters, manga, source)
+}
 
 /**
  * Helper method for syncing the list of chapters from the source with the ones from the database.
@@ -30,7 +48,7 @@ fun syncChaptersWithSource(
     source: Source
 ): Pair<List<Chapter>, List<Chapter>> {
     if (rawSourceChapters.isEmpty()) {
-        throw Exception("No chapters found")
+        throw NoChaptersException()
     }
 
     val downloadManager: DownloadManager = Injekt.get()

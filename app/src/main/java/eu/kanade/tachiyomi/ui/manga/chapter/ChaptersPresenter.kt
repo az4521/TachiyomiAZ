@@ -12,7 +12,8 @@ import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.ui.base.presenter.BasePresenter
-import eu.kanade.tachiyomi.util.chapter.syncChaptersWithSource
+import eu.kanade.tachiyomi.ui.manga.MangaUpdateCoordinator
+import eu.kanade.tachiyomi.util.chapter.NoChaptersException
 import eu.kanade.tachiyomi.util.chapter.updateTrackChapterMarkedRead
 import eu.kanade.tachiyomi.util.isLocal
 import eu.kanade.tachiyomi.util.lang.isNullOrUnsubscribed
@@ -42,6 +43,7 @@ class ChaptersPresenter(
     private val chapterCountRelay: BehaviorRelay<Float>,
     private val lastUpdateRelay: BehaviorRelay<Date>,
     private val mangaFavoriteRelay: PublishRelay<Boolean>,
+    private val updateCoordinator: MangaUpdateCoordinator,
     val preferences: PreferencesHelper = Injekt.get(),
     private val db: DatabaseHelper = Injekt.get(),
     private val downloadManager: DownloadManager = Injekt.get(),
@@ -202,10 +204,13 @@ class ChaptersPresenter(
         if (!fetchChaptersSubscription.isNullOrUnsubscribed()) return
         fetchChaptersSubscription =
             Observable.defer {
-                runAsObservable({ source.getMangaUpdate(manga, emptyList(), fetchDetails = false, fetchChapters = true).chapters })
+                runAsObservable({
+                    // The coordinator fetches and syncs; a source that returns nothing at all is
+                    // still an error worth surfacing on this tab.
+                    updateCoordinator.awaitUpdate(force = manualFetch).chapters ?: throw NoChaptersException()
+                })
             }
                 .subscribeOn(Schedulers.io())
-                .map { syncChaptersWithSource(db, it, manga, source) }
                 .doOnNext {
                     if (manualFetch) {
                         downloadNewChapters(it.first)
