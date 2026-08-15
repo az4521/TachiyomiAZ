@@ -12,6 +12,9 @@ import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.ui.base.presenter.BasePresenter
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.onEach
 import eu.kanade.tachiyomi.ui.manga.MangaUpdateCoordinator
 import eu.kanade.tachiyomi.util.chapter.NoChaptersException
 import eu.kanade.tachiyomi.util.chapter.updateTrackChapterMarkedRead
@@ -75,7 +78,7 @@ class ChaptersPresenter(
     /**
      * Subscription to observe download status changes.
      */
-    private var observeDownloadsSubscription: Subscription? = null
+    private var observeDownloadsJob: Job? = null
 
     // EXH -->
     private val updateHelper: EHentaiUpdateHelper by injectLazy()
@@ -154,13 +157,12 @@ class ChaptersPresenter(
     }
 
     private fun observeDownloads() {
-        observeDownloadsSubscription?.let { remove(it) }
-        observeDownloadsSubscription =
-            downloadManager.queue.getStatusObservable()
-                .observeOn(AndroidSchedulers.mainThread())
+        observeDownloadsJob?.cancel()
+        observeDownloadsJob =
+            downloadManager.queue.getStatusFlow()
                 .filter { download -> download.manga.id == manga.id }
-                .doOnNext { onDownloadStatusChange(it) }
-                .subscribeLatestCache(ChaptersController::onChapterStatusChange) { _, error ->
+                .onEach { onDownloadStatusChange(it) }
+                .collectLatestCache(ChaptersController::onChapterStatusChange) { _, error ->
                     Timber.e(error)
                 }
     }

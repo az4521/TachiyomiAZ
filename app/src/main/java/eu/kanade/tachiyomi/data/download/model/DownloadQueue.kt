@@ -1,11 +1,19 @@
 package eu.kanade.tachiyomi.data.download.model
 
-import com.jakewharton.rxrelay.PublishRelay
 import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.data.download.DownloadStore
 import eu.kanade.tachiyomi.source.model.Page
-import rx.Observable
+import eu.kanade.tachiyomi.util.lang.asFlow
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.flatMapMerge
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 import rx.subjects.PublishSubject
 import java.util.concurrent.CopyOnWriteArrayList
 
@@ -13,31 +21,34 @@ class DownloadQueue(
     private val store: DownloadStore,
     private val queue: MutableList<Download> = CopyOnWriteArrayList()
 ) : List<Download> by queue {
-    private val statusSubject = PublishSubject.create<Download>()
+    // extraBufferCapacity stands in for the onBackpressureBuffer these streams used to carry:
+    // emitters are non-suspending (tryEmit from a @Volatile setter), so they need somewhere to
+    // put values when a collector is slow.
+    private val statusFlow = MutableSharedFlow<Download>(extraBufferCapacity = 64)
 
-    private val updatedRelay = PublishRelay.create<Unit>()
+    private val updatedFlow = MutableSharedFlow<Unit>(extraBufferCapacity = 8)
 
     fun addAll(downloads: List<Download>) {
         downloads.forEach { download ->
-            download.setStatusSubject(statusSubject)
+            download.setStatusFlow(statusFlow)
             download.setStatusCallback(::setPagesFor)
             download.status = Download.QUEUE
         }
         queue.addAll(downloads)
         store.addAll(downloads)
-        updatedRelay.call(Unit)
+        updatedFlow.tryEmit(Unit)
     }
 
     fun remove(download: Download) {
         val removed = queue.remove(download)
         store.remove(download)
-        download.setStatusSubject(null)
+        download.setStatusFlow(null)
         download.setStatusCallback(null)
         if (download.status == Download.DOWNLOADING || download.status == Download.QUEUE) {
             download.status = Download.NOT_DOWNLOADED
         }
         if (removed) {
-            updatedRelay.call(Unit)
+            updatedFlow.tryEmit(Unit)
         }
     }
 
@@ -57,7 +68,7 @@ class DownloadQueue(
 
     fun clear() {
         queue.forEach { download ->
-            download.setStatusSubject(null)
+            download.setStatusFlow(null)
             download.setStatusCallback(null)
             if (download.status == Download.DOWNLOADING || download.status == Download.QUEUE) {
                 download.status = Download.NOT_DOWNLOADED
@@ -65,16 +76,16 @@ class DownloadQueue(
         }
         queue.clear()
         store.clear()
-        updatedRelay.call(Unit)
+        updatedFlow.tryEmit(Unit)
     }
 
-    fun getActiveDownloads(): Observable<Download> = Observable.from(this).filter { download -> download.status == Download.DOWNLOADING }
+    fun getActiveDownloads(): List<Download> = filter { download -> download.status == Download.DOWNLOADING }
 
-    fun getStatusObservable(): Observable<Download> = statusSubject.onBackpressureBuffer()
+    fun getStatusFlow(): Flow<Download> = statusFlow.asSharedFlow()
 
-    fun getUpdatedObservable(): Observable<List<Download>> =
-        updatedRelay.onBackpressureBuffer()
-            .startWith(Unit)
+    fun getUpdatedFlow(): Flow<List<Download>> =
+        updatedFlow.asSharedFlow()
+            .onStart { emit(Unit) }
             .map { this }
 
     private fun setPagesFor(download: Download) {
@@ -83,21 +94,25 @@ class DownloadQueue(
         }
     }
 
-    fun getProgressObservable(): Observable<Download> {
-        return statusSubject.onBackpressureBuffer()
-            .startWith(getActiveDownloads())
-            .flatMap { download ->
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun getProgressFlow(): Flow<Download> {
+        return statusFlow.asSharedFlow()
+            .onStart { getActiveDownloads().forEach { emit(it) } }
+            .flatMapMerge { download ->
                 if (download.status == Download.DOWNLOADING) {
+                    // Page still exposes an RxJava status subject because it is part of the
+                    // extension-facing API, so bridge it rather than changing that surface.
                     val pageStatusSubject = PublishSubject.create<Int>()
                     setPagesSubject(download.pages, pageStatusSubject)
-                    return@flatMap pageStatusSubject
+                    return@flatMapMerge pageStatusSubject
                         .onBackpressureBuffer()
+                        .asFlow()
                         .filter { it == Page.READY }
                         .map { download }
                 } else if (download.status == Download.DOWNLOADED || download.status == Download.ERROR) {
                     setPagesSubject(download.pages, null)
                 }
-                Observable.just(download)
+                flowOf(download)
             }
             .filter { it.status == Download.DOWNLOADING }
     }

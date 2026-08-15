@@ -13,6 +13,9 @@ import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.databinding.DownloadControllerBinding
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.ui.base.controller.NucleusController
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.flow
 import rx.Observable
 import rx.Subscription
 import rx.android.schedulers.AndroidSchedulers
@@ -34,7 +37,7 @@ class DownloadController :
     /**
      * Map of subscriptions for active downloads.
      */
-    private val progressSubscriptions by lazy { HashMap<Download, Subscription>() }
+    private val progressJobs by lazy { HashMap<Download, Job>() }
 
     /**
      * Whether the download queue is running or not.
@@ -81,20 +84,18 @@ class DownloadController :
             .observeOn(AndroidSchedulers.mainThread())
             .subscribeUntilDestroy { onQueueStatusChange(it) }
 
-        presenter.getDownloadStatusObservable()
-            .observeOn(AndroidSchedulers.mainThread())
-            .subscribeUntilDestroy { onStatusChange(it) }
+        presenter.getDownloadStatusFlow()
+            .collectUntilDestroy { onStatusChange(it) }
 
-        presenter.getDownloadProgressObservable()
-            .observeOn(AndroidSchedulers.mainThread())
-            .subscribeUntilDestroy { onUpdateDownloadedPages(it) }
+        presenter.getDownloadProgressFlow()
+            .collectUntilDestroy { onUpdateDownloadedPages(it) }
     }
 
     override fun onDestroyView(view: View) {
-        for (subscription in progressSubscriptions.values) {
-            subscription.unsubscribe()
+        for (job in progressJobs.values) {
+            job.cancel()
         }
-        progressSubscriptions.clear()
+        progressJobs.clear()
         adapter = null
         super.onDestroyView(view)
     }
@@ -168,29 +169,24 @@ class DownloadController :
      * @param download the download to observe its progress.
      */
     private fun observeProgress(download: Download) {
-        val subscription =
-            Observable.interval(50, TimeUnit.MILLISECONDS)
+        // Avoid leaking jobs
+        progressJobs.remove(download)?.cancel()
+
+        progressJobs[download] =
+            flow {
+                while (true) {
+                    emit(Unit)
+                    delay(50)
+                }
+            }.collectUntilDestroy {
                 // Get the sum of percentages for all the pages.
-                .flatMap {
-                    Observable.from(download.pages)
-                        .map(Page::progress)
-                        .reduce { x, y -> x + y }
+                val progress = download.pages.orEmpty().sumOf(Page::progress)
+                // Update the view only if the progress has changed.
+                if (download.totalProgress != progress) {
+                    download.totalProgress = progress
+                    onUpdateProgress(download)
                 }
-                // Keep only the latest emission to avoid backpressure.
-                .onBackpressureLatest()
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe { progress ->
-                    // Update the view only if the progress has changed.
-                    if (download.totalProgress != progress) {
-                        download.totalProgress = progress
-                        onUpdateProgress(download)
-                    }
-                }
-
-        // Avoid leaking subscriptions
-        progressSubscriptions.remove(download)?.unsubscribe()
-
-        progressSubscriptions[download] = subscription
+            }
     }
 
     /**
@@ -199,7 +195,7 @@ class DownloadController :
      * @param download the download to unsubscribe.
      */
     private fun unsubscribeProgress(download: Download) {
-        progressSubscriptions.remove(download)?.unsubscribe()
+        progressJobs.remove(download)?.cancel()
     }
 
     /**

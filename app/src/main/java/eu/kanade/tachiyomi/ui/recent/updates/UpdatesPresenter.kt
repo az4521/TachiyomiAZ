@@ -8,6 +8,8 @@ import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.ui.base.presenter.BasePresenter
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.onEach
 import eu.kanade.tachiyomi.ui.recent.DateSectionItem
 import eu.kanade.tachiyomi.util.chapter.updateTrackChapterMarkedRead
 import eu.kanade.tachiyomi.util.lang.toDateKey
@@ -39,8 +41,8 @@ class UpdatesPresenter(
             .observeOn(AndroidSchedulers.mainThread())
             .subscribeLatestCache(UpdatesController::onNextRecentChapters)
 
-        getChapterStatusObservable()
-            .subscribeLatestCache(UpdatesController::onChapterStatusChange) { _, error ->
+        getChapterStatusFlow()
+            .collectLatestCache(UpdatesController::onChapterStatusChange) { _, error ->
                 Timber.e(error)
             }
     }
@@ -93,10 +95,9 @@ class UpdatesPresenter(
      *
      * @return download object containing download progress.
      */
-    private fun getChapterStatusObservable(): Observable<Download> {
-        return downloadManager.queue.getStatusObservable()
-            .observeOn(AndroidSchedulers.mainThread())
-            .doOnNext { download -> onDownloadStatusChange(download) }
+    private fun getChapterStatusFlow(): Flow<Download> {
+        return downloadManager.queue.getStatusFlow()
+            .onEach { download -> onDownloadStatusChange(download) }
     }
 
     /**

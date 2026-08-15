@@ -5,6 +5,9 @@ import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.download.model.DownloadQueue
 import eu.kanade.tachiyomi.ui.base.presenter.BasePresenter
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 import rx.Observable
 import rx.android.schedulers.AndroidSchedulers
 import timber.log.Timber
@@ -25,22 +28,20 @@ class DownloadPresenter : BasePresenter<DownloadController>() {
     override fun onCreate(savedState: Bundle?) {
         super.onCreate(savedState)
 
-        downloadQueue.getUpdatedObservable()
-            .observeOn(AndroidSchedulers.mainThread())
+        downloadQueue.getUpdatedFlow()
             .map { it.map(::DownloadItem) }
-            .subscribeLatestCache(DownloadController::onNextDownloads) { _, error ->
+            .collectLatestCache(DownloadController::onNextDownloads) { _, error ->
                 Timber.e(error)
             }
     }
 
-    fun getDownloadStatusObservable(): Observable<Download> {
-        return downloadQueue.getStatusObservable()
-            .startWith(downloadQueue.getActiveDownloads())
+    fun getDownloadStatusFlow(): Flow<Download> {
+        return downloadQueue.getStatusFlow()
+            .onStart { downloadQueue.getActiveDownloads().forEach { emit(it) } }
     }
 
-    fun getDownloadProgressObservable(): Observable<Download> {
-        return downloadQueue.getProgressObservable()
-            .onBackpressureBuffer()
+    fun getDownloadProgressFlow(): Flow<Download> {
+        return downloadQueue.getProgressFlow()
     }
 
     /**
