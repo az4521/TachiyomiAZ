@@ -14,18 +14,20 @@ import eu.kanade.tachiyomi.source.online.all.MergedSource
 import eu.kanade.tachiyomi.ui.base.presenter.BasePresenter
 import eu.kanade.tachiyomi.ui.manga.MangaUpdateCoordinator
 import eu.kanade.tachiyomi.ui.source.SourceController
-import eu.kanade.tachiyomi.util.lang.isNullOrUnsubscribed
-import eu.kanade.tachiyomi.util.lang.runAsObservable
+import eu.kanade.tachiyomi.util.lang.asFlow
+import eu.kanade.tachiyomi.util.system.withIOContext
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.launch
 import eu.kanade.tachiyomi.util.removeCovers
 import exh.MERGED_SOURCE_ID
 import exh.util.await
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
-import rx.Observable
-import rx.Subscription
-import rx.android.schedulers.AndroidSchedulers
-import rx.schedulers.Schedulers
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.util.Date
@@ -51,61 +53,59 @@ class MangaInfoPresenter(
     /**
      * Subscription to update the manga from the source.
      */
-    private var fetchMangaSubscription: Subscription? = null
+    private var fetchMangaJob: Job? = null
 
     override fun onCreate(savedState: Bundle?) {
         super.onCreate(savedState)
 
-        getMangaObservable()
-            .subscribeLatestCache({ view, manga -> view.onNextManga(manga, source) })
+        getMangaFlow()
+            .collectLatestCache(onNext = { view, manga -> view.onNextManga(manga, source) })
 
         // Update chapter count
         chapterCountRelay
-            .observeOn(AndroidSchedulers.mainThread())
-            .subscribeLatestCache(MangaInfoController::setChapterCount)
+            .asFlow()
+            .collectLatestCache(MangaInfoController::setChapterCount)
 
         // Update favorite status
-        mangaFavoriteRelay.observeOn(AndroidSchedulers.mainThread())
-            .subscribe { setFavorite(it) }
-            .apply { add(this) }
+        mangaFavoriteRelay
+            .asFlow()
+            .onEach { setFavorite(it) }
+            .launchIn(presenterScope)
 
         // update last update date
         lastUpdateRelay
-            .observeOn(AndroidSchedulers.mainThread())
-            .subscribeLatestCache(MangaInfoController::setLastUpdateDate)
+            .asFlow()
+            .collectLatestCache(MangaInfoController::setLastUpdateDate)
     }
 
-    private fun getMangaObservable(): Observable<Manga> {
+    private fun getMangaFlow(): Flow<Manga> {
         return db.getManga(manga.url, manga.source).asRxObservable()
+            .asFlow()
             // StorIO transiently emits null while the row is being (re)written elsewhere, and
             // onNextManga needs a non-null Manga. Fall back to the manga this presenter already
             // holds so the view always gets valid, current info instead of an empty screen;
             // the fresh DB copy replaces it as soon as StorIO re-emits the persisted row.
             .map { it ?: manga }
-            .observeOn(AndroidSchedulers.mainThread())
     }
 
     /**
      * Fetch manga information from source.
      */
     fun fetchMangaFromSource(manualFetch: Boolean = false) {
-        if (!fetchMangaSubscription.isNullOrUnsubscribed()) return
-        fetchMangaSubscription =
-            Observable.defer {
-                runAsObservable({
-                    // The coordinator saves both halves of the update; the view picks the manga
-                    // back up from the db observable.
-                    updateCoordinator.awaitUpdate(force = manualFetch)
-                })
+        if (fetchMangaJob?.isActive == true) return
+        fetchMangaJob =
+            presenterScope.launch {
+                try {
+                    withIOContext {
+                        // The coordinator saves both halves of the update; the view picks the
+                        // manga back up from the db flow.
+                        updateCoordinator.awaitUpdate(force = manualFetch)
+                    }
+                    view?.onFetchMangaDone()
+                } catch (e: Throwable) {
+                    view?.onFetchMangaError(e)
+                }
             }
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribeFirst(
-                    { view, _ ->
-                        view.onFetchMangaDone()
-                    },
-                    MangaInfoController::onFetchMangaError
-                )
     }
 
     /**

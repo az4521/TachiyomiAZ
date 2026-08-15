@@ -7,7 +7,9 @@ import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.ui.base.presenter.BasePresenter
-import rx.android.schedulers.AndroidSchedulers
+import eu.kanade.tachiyomi.util.lang.asFlow
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.take
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -29,10 +31,10 @@ class VideoPresenter(
         if (!needsInit()) return
 
         db.getChapter(episodeId).asRxObservable()
-            .first()
-            .observeOn(AndroidSchedulers.mainThread())
-            .doOnNext { init(it) }
-            .subscribeFirst(
+            .asFlow()
+            .take(1)
+            .onEach { init(it) }
+            .collectLatestCache(
                 { _, _ ->
                     // Ignore onNext event
                 },
