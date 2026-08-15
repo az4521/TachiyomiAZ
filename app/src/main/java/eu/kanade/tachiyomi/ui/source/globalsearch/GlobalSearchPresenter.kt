@@ -13,12 +13,19 @@ import eu.kanade.tachiyomi.source.model.MangasPage
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.ui.base.presenter.BasePresenter
 import eu.kanade.tachiyomi.ui.source.browse.BrowseSourcePresenter
-import eu.kanade.tachiyomi.util.lang.runAsObservable
-import rx.Observable
-import rx.Subscription
-import rx.android.schedulers.AndroidSchedulers
-import rx.schedulers.Schedulers
-import rx.subjects.PublishSubject
+import eu.kanade.tachiyomi.util.system.withUIContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import timber.log.Timber
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -54,17 +61,17 @@ open class GlobalSearchPresenter(
     /**
      * Fetches the different sources by user settings.
      */
-    private var fetchSourcesSubscription: Subscription? = null
+    private var fetchSourcesJob: Job? = null
 
     /**
-     * Subject which fetches image of given manga.
+     * Flow which fetches image of given manga.
      */
-    private val fetchImageSubject = PublishSubject.create<Pair<List<Manga>, Source>>()
+    private val fetchImageFlow = MutableSharedFlow<Pair<List<Manga>, Source>>(extraBufferCapacity = 64)
 
     /**
-     * Subscription for fetching images of manga.
+     * Job for fetching images of manga.
      */
-    private var fetchImageSubscription: Subscription? = null
+    private var fetchImageJob: Job? = null
 
     private val extensionManager by injectLazy<ExtensionManager>()
 
@@ -84,8 +91,8 @@ open class GlobalSearchPresenter(
     }
 
     override fun onDestroy() {
-        fetchSourcesSubscription?.unsubscribe()
-        fetchImageSubscription?.unsubscribe()
+        fetchSourcesJob?.cancel()
+        fetchImageJob?.cancel()
         super.onDestroy()
     }
 
@@ -176,22 +183,32 @@ open class GlobalSearchPresenter(
 
         val pinnedSourceIds = preferences.pinnedCatalogues().get()
 
-        fetchSourcesSubscription?.unsubscribe()
-        fetchSourcesSubscription =
-            Observable.from(sources)
-                .flatMap(
-                    { source ->
-                        Observable.defer { runAsObservable({ source.getSearchManga(1, query, FilterList()) }) }
-                            .subscribeOn(Schedulers.io())
-                            .onErrorReturn { MangasPage(emptyList(), false) } // Ignore timeouts or other exceptions
-                            .map { it.mangas.take(10) } // Get at most 10 manga from search result.
-                            .map { list -> list.map { networkToLocalManga(it, source.id) } } // Convert to local manga.
-                            .doOnNext { fetchImage(it, source) } // Load manga covers.
-                            .map { list -> createCatalogueSearchItem(source, list.map { GlobalSearchCardItem(it) }) }
-                    },
-                    5
-                )
-                .observeOn(AndroidSchedulers.mainThread())
+        fetchSourcesJob?.cancel()
+        fetchSourcesJob =
+            channelFlow {
+                // Search every source, at most 5 at a time, emitting each source's results as
+                // soon as they arrive. This is what flatMap(..., 5) provided.
+                val semaphore = Semaphore(5)
+                sources.forEach { source ->
+                    launch {
+                        semaphore.withPermit {
+                            val page =
+                                try {
+                                    source.getSearchManga(1, query, FilterList())
+                                } catch (e: Throwable) {
+                                    // Ignore timeouts or other exceptions
+                                    MangasPage(emptyList(), false)
+                                }
+                            // Get at most 10 manga from search result, converted to local manga.
+                            val localManga = page.mangas.take(10).map { networkToLocalManga(it, source.id) }
+                            // Load manga covers.
+                            fetchImage(localManga, source)
+                            send(createCatalogueSearchItem(source, localManga.map { GlobalSearchCardItem(it) }))
+                        }
+                    }
+                }
+            }
+                .flowOn(Dispatchers.IO)
                 // Update matching source with the obtained results
                 .map { result ->
                     items
@@ -207,10 +224,11 @@ open class GlobalSearchPresenter(
                         )
                 }
                 // Update current state
-                .doOnNext { items = it }
-                // Deliver initial state
-                .startWith(initialItems)
-                .subscribeLatestCache(
+                .onEach { items = it }
+                // Deliver initial state. onStart sits downstream of onEach, so the initial list
+                // is shown without being written back into `items`, matching startWith's position.
+                .onStart { emit(initialItems) }
+                .collectLatestCache(
                     { view, manga ->
                         view.setItems(manga)
                     },
@@ -229,34 +247,36 @@ open class GlobalSearchPresenter(
         manga: List<Manga>,
         source: Source
     ) {
-        fetchImageSubject.onNext(Pair(manga, source))
+        fetchImageFlow.tryEmit(Pair(manga, source))
     }
 
     /**
      * Subscribes to the initializer of manga details and updates the view if needed.
      */
     private fun initializeFetchImageSubscription() {
-        fetchImageSubscription?.unsubscribe()
-        fetchImageSubscription =
-            fetchImageSubject.observeOn(Schedulers.io())
-                .flatMap { pair ->
-                    val source = pair.second
-                    Observable.from(pair.first).filter { it.thumbnail_url == null && !it.initialized }
-                        .map { Pair(it, source) }
-                        .concatMap { getMangaDetailsObservable(it.first, it.second) }
-                        .map { Pair(source as CatalogueSource, it) }
-                }
-                .onBackpressureBuffer()
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(
-                    { (source, manga) ->
-                        @Suppress("DEPRECATION")
-                        view?.onMangaInitialized(source, manga)
-                    },
-                    { error ->
-                        Timber.e(error)
+        fetchImageJob?.cancel()
+        fetchImageJob =
+            presenterScope.launch {
+                fetchImageFlow.collect { (mangaList, source) ->
+                    // One coroutine per batch keeps batches concurrent (the old flatMap) while
+                    // the manga inside a batch stay sequential (the old concatMap).
+                    launch(Dispatchers.IO) {
+                        try {
+                            mangaList
+                                .filter { it.thumbnail_url == null && !it.initialized }
+                                .forEach { manga ->
+                                    val initialized = getMangaDetails(manga, source)
+                                    withUIContext {
+                                        @Suppress("DEPRECATION")
+                                        view?.onMangaInitialized(source as CatalogueSource, initialized)
+                                    }
+                                }
+                        } catch (error: Throwable) {
+                            Timber.e(error)
+                        }
                     }
-                )
+                }
+            }
     }
 
     /**
@@ -265,18 +285,20 @@ open class GlobalSearchPresenter(
      * @param manga the manga to initialize.
      * @return an observable of the manga to initialize
      */
-    private fun getMangaDetailsObservable(
+    private suspend fun getMangaDetails(
         manga: Manga,
         source: Source
-    ): Observable<Manga> {
-        return runAsObservable({
+    ): Manga {
+        return try {
             val networkManga = source.getMangaUpdate(manga, emptyList(), fetchDetails = true, fetchChapters = false).manga
             manga.copyFrom(networkManga)
             manga.initialized = true
             db.insertManga(manga).executeAsBlocking()
             manga
-        })
-            .onErrorResumeNext { Observable.just(manga) }
+        } catch (e: Throwable) {
+            // Matches the previous onErrorResumeNext: fall back to the uninitialized manga.
+            manga
+        }
     }
 
     /**
