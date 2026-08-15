@@ -7,10 +7,12 @@ import eu.kanade.tachiyomi.data.database.models.History
 import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.data.database.models.MangaChapterHistory
 import eu.kanade.tachiyomi.ui.base.presenter.BasePresenter
+import eu.kanade.tachiyomi.util.lang.asFlow
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.take
 import eu.kanade.tachiyomi.ui.recent.DateSectionItem
 import eu.kanade.tachiyomi.util.lang.toDateKey
-import rx.Observable
-import rx.android.schedulers.AndroidSchedulers
 import uy.kohesive.injekt.injectLazy
 import java.util.Calendar
 import java.util.Comparator
@@ -43,8 +45,8 @@ class HistoryPresenter : BasePresenter<HistoryController>() {
     ) {
         lastCount = offset
         lastSearch = search
-        getRecentMangaObservable((offset), search)
-            .subscribeLatestCache(
+        getRecentMangaFlow(offset, search)
+            .collectLatestCache(
                 { view, mangas ->
                     view.onNextManga(mangas)
                 },
@@ -56,16 +58,17 @@ class HistoryPresenter : BasePresenter<HistoryController>() {
      * Get recent manga observable
      * @return list of history
      */
-    private fun getRecentMangaObservable(
+    private fun getRecentMangaFlow(
         offset: Int = 0,
         search: String = ""
-    ): Observable<List<HistoryItem>> {
+    ): Flow<List<HistoryItem>> {
         // Set date for recent manga
         val cal = Calendar.getInstance()
         cal.time = Date()
         cal.add(Calendar.YEAR, -50)
 
         return db.getRecentManga(cal.time, offset, search).asRxObservable()
+            .asFlow()
             .map { recents ->
                 val map = TreeMap<Date, MutableList<MangaChapterHistory>> { d1, d2 -> d2.compareTo(d1) }
                 val byDay =
@@ -76,23 +79,23 @@ class HistoryPresenter : BasePresenter<HistoryController>() {
                     it.value.map { HistoryItem(it, dateItem) }
                 }
             }
-            .observeOn(AndroidSchedulers.mainThread())
     }
 
     /**
      * Get recent manga observable
      * @return list of history
      */
-    private fun getRecentMangaLimitObservable(
+    private fun getRecentMangaLimitFlow(
         offset: Int = 0,
         search: String = ""
-    ): Observable<List<HistoryItem>> {
+    ): Flow<List<HistoryItem>> {
         // Set limit for recent manga
         val cal = Calendar.getInstance()
         cal.time = Date()
         cal.add(Calendar.YEAR, -50)
 
         return db.getRecentMangaLimit(cal.time, lastCount, search).asRxObservable()
+            .asFlow()
             .map { recents ->
                 val map = TreeMap<Date, MutableList<MangaChapterHistory>> { d1, d2 -> d2.compareTo(d1) }
                 val byDay =
@@ -103,7 +106,6 @@ class HistoryPresenter : BasePresenter<HistoryController>() {
                     entry.value.map { HistoryItem(it, dateItem) }
                 }
             }
-            .observeOn(AndroidSchedulers.mainThread())
     }
 
     /**
@@ -118,8 +120,8 @@ class HistoryPresenter : BasePresenter<HistoryController>() {
 
     fun updateList(search: String? = null) {
         lastSearch = search ?: lastSearch
-        getRecentMangaLimitObservable(lastCount, lastSearch).take(1)
-            .subscribeLatestCache(
+        getRecentMangaLimitFlow(lastCount, lastSearch).take(1)
+            .collectLatestCache(
                 { view, mangas ->
                     view.onNextManga(mangas, true)
                 },

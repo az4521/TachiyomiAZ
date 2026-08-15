@@ -11,8 +11,6 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import rx.Observable
-import rx.android.schedulers.AndroidSchedulers
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -42,10 +40,8 @@ class RepoPresenter(
         preferences.extensionRepos().asFlow().onEach { repos ->
             this.repos = repos.toList().sortedBy { it.lowercase() }
 
-            Observable.just(this.repos)
-                .map { it.map(::RepoItem) }
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribeLatestCache(RepoController::setRepos)
+            val items = this.repos.map(::RepoItem)
+            deliverToView { it.setRepos(items) }
         }.launchIn(scope)
     }
 
@@ -57,13 +53,13 @@ class RepoPresenter(
     fun createRepo(name: String) {
         // Do not allow duplicate repos.
         if (repoExists(name)) {
-            Observable.just(Unit).subscribeFirst({ view, _ -> view.onRepoExistsError() })
+            deliverToView { it.onRepoExistsError() }
             return
         }
 
         // Do not allow invalid formats
         if (!name.matches(repoRegex) && !name.matches(urlRegex)) {
-            Observable.just(Unit).subscribeFirst({ view, _ -> view.onRepoInvalidNameError() })
+            deliverToView { it.onRepoInvalidNameError() }
             return
         }
 
@@ -80,7 +76,7 @@ class RepoPresenter(
             if (withContext(Dispatchers.IO) { api.isRepoIndexUrl(name) }) {
                 addRepo(name)
             } else {
-                Observable.just(Unit).subscribeFirst({ view, _ -> view.onRepoInvalidUrlError() })
+                deliverToView { it.onRepoInvalidUrlError() }
             }
         }
     }

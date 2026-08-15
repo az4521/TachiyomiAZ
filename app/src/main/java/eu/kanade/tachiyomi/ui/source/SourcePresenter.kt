@@ -13,8 +13,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
-import rx.Observable
-import rx.Subscription
+import kotlinx.coroutines.Job
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.util.TreeMap
@@ -38,7 +37,7 @@ class SourcePresenter(
     /**
      * Subscription for retrieving enabled sources.
      */
-    private var sourceSubscription: Subscription? = null
+    private var sourceJob: Job? = null
 
     override fun onCreate(savedState: Bundle?) {
         super.onCreate(savedState)
@@ -51,7 +50,7 @@ class SourcePresenter(
      * Unsubscribe and create a new subscription to fetch enabled sources.
      */
     private fun loadSources() {
-        sourceSubscription?.unsubscribe()
+        sourceJob?.cancel()
 
         val pinnedSources = mutableListOf<SourceItem>()
         val pinnedCatalogues = preferences.pinnedCatalogues().get()
@@ -82,9 +81,8 @@ class SourcePresenter(
             sourceItems = pinnedSources + sourceItems
         }
 
-        sourceSubscription =
-            Observable.just(sourceItems)
-                .subscribeLatestCache(SourceController::setSources)
+        val items = sourceItems
+        sourceJob = deliverToView { it.setSources(items) }
     }
 
     private fun loadLastUsedSource() {
@@ -101,14 +99,14 @@ class SourcePresenter(
 
     private fun updateLastUsedSource(sourceId: Long) {
         if (preferences.hideLastUsedSource().get()) {
-            view().subscribe { view -> view?.setLastUsedSource(null) }
+            deliverToView { it.setLastUsedSource(null) }
         } else {
             val source =
                 (sourceManager.get(sourceId) as? CatalogueSource)?.let {
                     SourceItem(it, showButtons = controllerMode == SourceController.Mode.CATALOGUE)
                 }
             source?.let {
-                view().subscribe { view -> view?.setLastUsedSource(it) }
+                deliverToView { view -> view.setLastUsedSource(it) }
             }
         }
     }

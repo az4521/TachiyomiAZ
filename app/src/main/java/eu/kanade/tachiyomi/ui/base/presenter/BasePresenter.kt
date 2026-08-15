@@ -7,6 +7,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import nucleus.presenter.RxPresenter
@@ -50,11 +51,13 @@ open class BasePresenter<V> : RxPresenter<V>() {
      * the attached view, holding the newest value while no view is attached and dropping any it
      * supersedes. Cancelled with [presenterScope].
      */
-    fun <T> Flow<T>.collectLatestCache(onNext: (V, T) -> Unit): Job =
+    fun <T> Flow<T>.collectLatestCache(
+        onNext: (V, T) -> Unit,
+        onError: ((V, Throwable) -> Unit)? = null
+    ): Job =
         presenterScope.launch {
-            collectLatest { value ->
-                onNext(awaitAttachedView(), value)
-            }
+            catch { e -> onError?.invoke(awaitAttachedView(), e) }
+                .collectLatest { value -> onNext(awaitAttachedView(), value) }
         }
 
     /**
