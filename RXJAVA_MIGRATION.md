@@ -1,7 +1,16 @@
 # Migrating TachiyomiAZ off RxJava
 
-Status: proposal
+Status: in progress — Phases 0 and 1 done, Phases 2-6 outstanding
 Last updated: 2026-08-15
+Branch: `rxjava-migration`
+
+Files importing `rx.*`: **103 at start, 88 now.** Of the remaining 88, six must
+keep RxJava permanently as the extension shim: `Source.kt`, `CatalogueSource.kt`,
+`HttpSource.kt`, `source/model/Page.kt`, `network/OkHttpExtensions.kt`, and
+`util/lang/RxCoroutineBridge.kt`.
+
+Remaining by area: `ui/` 33, `ui/reader/` 18, `data/` 14, `source/` 12, `exh/` 6,
+`util/` 4, `extension/` 2, `network/` 1.
 
 ## 1. The goal has to be restated
 
@@ -151,7 +160,11 @@ instead.
 `RxCoroutineBridge.kt` stays. It is the migration tool and the permanent
 extension shim; it goes last, and partly never.
 
-### Phase 1 — trackers
+### Phase 1 — trackers — DONE (`92f7ee0b71`, `024925d41d`)
+
+`data/track` is free of RxJava. Notes below kept as the record of what the
+conversion involved.
+
 
 Calling this "leaves" was wrong. `TrackService` declares `add`, `update`,
 `bind`, `search`, `refresh` (all `Observable`) and `login` (`Completable`) as
