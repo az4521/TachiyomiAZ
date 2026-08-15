@@ -10,8 +10,6 @@ import eu.kanade.tachiyomi.data.track.mangaupdates.dto.MURating
 import eu.kanade.tachiyomi.data.track.mangaupdates.dto.copyTo
 import eu.kanade.tachiyomi.data.track.mangaupdates.dto.toTrackSearch
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
-import eu.kanade.tachiyomi.util.lang.runAsObservable
-import rx.Completable
 
 class MangaUpdates(private val context: Context, id: Int) : TrackService(id) {
     override val name = "MangaUpdates"

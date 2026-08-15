@@ -46,7 +46,7 @@ fun updateTrackChapterMarkedRead(
                                 .toCompletable()
                                 .onErrorComplete()
                         } else {
-                            Observable.defer { delayedTrackingStore.addItem(track) }
+                            Observable.fromCallable { delayedTrackingStore.addItem(track) }
                                 .map { DelayedTrackingUpdateJob.setupTask(context) }
                                 .toCompletable()
                                 .onErrorComplete()

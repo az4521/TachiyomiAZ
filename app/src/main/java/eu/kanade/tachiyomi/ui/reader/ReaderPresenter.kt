@@ -673,7 +673,7 @@ class ReaderPresenter(
                                     .onErrorComplete()
                             } else {
                                 Timber.d("Tracking OFFLINE")
-                                Observable.defer { delayedTrackingStore.addItem(track) }
+                                Observable.fromCallable { delayedTrackingStore.addItem(track) }
                                     .map { DelayedTrackingUpdateJob.setupTask(context) }
                                     .toCompletable()
                                     .onErrorComplete()
