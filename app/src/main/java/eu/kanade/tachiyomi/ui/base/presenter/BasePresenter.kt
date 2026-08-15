@@ -1,9 +1,14 @@
 package eu.kanade.tachiyomi.ui.base.presenter
 
 import android.os.Bundle
+import eu.kanade.tachiyomi.util.lang.awaitSingle
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import nucleus.presenter.RxPresenter
 import nucleus.presenter.delivery.Delivery
 import rx.Observable
@@ -30,6 +35,36 @@ open class BasePresenter<V> : RxPresenter<V>() {
         super.onDestroy()
         presenterScope.cancel()
     }
+
+    /**
+     * Suspends until a view is attached, then returns it.
+     *
+     * Nucleus exposes the view as a [rx.subjects.BehaviorSubject] that emits null while detached,
+     * which is what the `deliver*` transformers key off. This is the coroutine equivalent of
+     * waiting for that emission.
+     */
+    private suspend fun awaitAttachedView(): V = view ?: view().filter { it != null }.take(1).awaitSingle()
+
+    /**
+     * Coroutine equivalent of [subscribeLatestCache]: collects this flow and hands each value to
+     * the attached view, holding the newest value while no view is attached and dropping any it
+     * supersedes. Cancelled with [presenterScope].
+     */
+    fun <T> Flow<T>.collectLatestCache(onNext: (V, T) -> Unit): Job =
+        presenterScope.launch {
+            collectLatest { value ->
+                onNext(awaitAttachedView(), value)
+            }
+        }
+
+    /**
+     * Coroutine equivalent of a one-shot [subscribeFirst]: runs [block] against the view once one
+     * is attached.
+     */
+    fun deliverToView(block: (V) -> Unit): Job =
+        presenterScope.launch {
+            block(awaitAttachedView())
+        }
 
     /**
      * Subscribes an observable with [deliverFirst] and adds it to the presenter's lifecycle
