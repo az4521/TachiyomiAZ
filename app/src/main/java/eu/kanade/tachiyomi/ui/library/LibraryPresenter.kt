@@ -3,7 +3,6 @@ package eu.kanade.tachiyomi.ui.library
 import android.content.Context
 import android.net.Uri
 import android.os.Bundle
-import com.jakewharton.rxrelay.BehaviorRelay
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.database.DatabaseHelper
 import eu.kanade.tachiyomi.data.database.models.Category
@@ -23,10 +22,18 @@ import eu.kanade.tachiyomi.ui.migration.MigrationFlags
 import eu.kanade.tachiyomi.util.chapter.syncChaptersWithSource
 import eu.kanade.tachiyomi.util.isLocal
 import eu.kanade.tachiyomi.util.lang.combineLatest
-import eu.kanade.tachiyomi.util.lang.isNullOrUnsubscribed
 import eu.kanade.tachiyomi.util.system.launchIO
 import eu.kanade.tachiyomi.util.lang.removeArticles
-import eu.kanade.tachiyomi.util.lang.runAsObservable
+import eu.kanade.tachiyomi.util.lang.asFlow
+import eu.kanade.tachiyomi.util.system.withIOContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import eu.kanade.tachiyomi.util.removeCovers
 import eu.kanade.tachiyomi.util.updateCoverLastModified
 import eu.kanade.tachiyomi.widget.ExtendedNavigationView.Item.TriStateGroup.Companion.STATE_EXCLUDE
@@ -36,10 +43,6 @@ import exh.EH_SOURCE_ID
 import exh.EXH_SOURCE_ID
 import exh.favorites.FavoritesSyncHelper
 import exh.util.isLewd
-import rx.Observable
-import rx.Subscription
-import rx.android.schedulers.AndroidSchedulers
-import rx.schedulers.Schedulers
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.util.ArrayList
@@ -77,22 +80,24 @@ class LibraryPresenter(
     /**
      * Relay used to apply the UI filters to the last emission of the library.
      */
-    private val filterTriggerRelay = BehaviorRelay.create(Unit)
+    // A counter rather than Unit: StateFlow conflates equal values, so re-emitting Unit
+    // would never notify collectors the way BehaviorRelay.call(Unit) did.
+    private val filterTriggerFlow = MutableStateFlow(0)
 
     /**
      * Relay used to apply the UI update to the last emission of the library.
      */
-    private val badgeTriggerRelay = BehaviorRelay.create(Unit)
+    private val badgeTriggerFlow = MutableStateFlow(0)
 
     /**
      * Relay used to apply the selected sorting method to the last emission of the library.
      */
-    private val sortTriggerRelay = BehaviorRelay.create(Unit)
+    private val sortTriggerFlow = MutableStateFlow(0)
 
     /**
      * Library subscription.
      */
-    private var librarySubscription: Subscription? = null
+    private var libraryJob: Job? = null
 
     // --> EXH
     val favoritesSync = FavoritesSyncHelper(context)
@@ -107,20 +112,22 @@ class LibraryPresenter(
      * Subscribes to library if needed.
      */
     fun subscribeLibrary() {
-        if (librarySubscription.isNullOrUnsubscribed()) {
-            librarySubscription =
-                getLibraryObservable()
-                    .combineLatest(badgeTriggerRelay.observeOn(Schedulers.io())) { lib, _ ->
+        if (libraryJob?.isActive != true) {
+            libraryJob =
+                getLibraryFlow()
+                    .combine(badgeTriggerFlow) { lib, _ ->
                         lib.apply { setBadges(mangaMap) }
                     }
-                    .combineLatest(filterTriggerRelay.observeOn(Schedulers.io())) { lib, _ ->
+                    .combine(filterTriggerFlow) { lib, _ ->
                         lib.copy(mangaMap = applyFilters(lib.mangaMap))
                     }
-                    .combineLatest(sortTriggerRelay.observeOn(Schedulers.io())) { lib, _ ->
+                    .combine(sortTriggerFlow) { lib, _ ->
                         lib.copy(mangaMap = applySort(lib.mangaMap))
                     }
-                    .observeOn(AndroidSchedulers.mainThread())
-                    .subscribeLatestCache({ view, (categories, mangaMap) ->
+                    // Badging, filtering and sorting all walk the whole library, so they stay
+                    // off the main thread as the observeOn(Schedulers.io()) hops did.
+                    .flowOn(Dispatchers.IO)
+                    .collectLatestCache(onNext = { view, (categories, mangaMap) ->
                         view.onNextLibraryUpdate(categories, mangaMap)
                     })
         }
@@ -303,8 +310,8 @@ class LibraryPresenter(
      *
      * @return an observable of the categories and its manga.
      */
-    private fun getLibraryObservable(): Observable<Library> {
-        return Observable.combineLatest(getCategoriesObservable(), getLibraryMangasObservable()) { dbCategories, libraryManga ->
+    private fun getLibraryFlow(): Flow<Library> {
+        return combine(getCategoriesFlow(), getLibraryMangasFlow()) { dbCategories, libraryManga ->
             val categories =
                 if (libraryManga.containsKey(0)) {
                     arrayListOf(Category.createDefault()) + dbCategories
@@ -322,8 +329,8 @@ class LibraryPresenter(
      *
      * @return an observable of the categories.
      */
-    private fun getCategoriesObservable(): Observable<List<Category>> {
-        return db.getCategories().asRxObservable()
+    private fun getCategoriesFlow(): Flow<List<Category>> {
+        return db.getCategories().asRxObservable().asFlow()
     }
 
     /**
@@ -332,9 +339,10 @@ class LibraryPresenter(
      * @return an observable containing a map with the category id as key and a list of manga as the
      * value.
      */
-    private fun getLibraryMangasObservable(): Observable<LibraryMap> {
+    private fun getLibraryMangasFlow(): Flow<LibraryMap> {
         val libraryDisplayMode = preferences.libraryDisplayMode()
         return db.getLibraryMangas().asRxObservable()
+            .asFlow()
             .map { list ->
                 list.map { LibraryItem(it, libraryDisplayMode) }.groupBy { it.manga.category }
             }
@@ -344,21 +352,21 @@ class LibraryPresenter(
      * Requests the library to be filtered.
      */
     fun requestFilterUpdate() {
-        filterTriggerRelay.call(Unit)
+        filterTriggerFlow.value++
     }
 
     /**
      * Requests the library to have download badges added.
      */
     fun requestBadgesUpdate() {
-        badgeTriggerRelay.call(Unit)
+        badgeTriggerFlow.value++
     }
 
     /**
      * Requests the library to be sorted.
      */
     fun requestSortUpdate() {
-        sortTriggerRelay.call(Unit)
+        sortTriggerFlow.value++
     }
 
     /**
@@ -366,7 +374,7 @@ class LibraryPresenter(
      */
     fun onOpenManga() {
         // Avoid further db updates for the library when it's not needed
-        librarySubscription?.let { remove(it) }
+        libraryJob?.cancel()
     }
 
     /**
@@ -494,14 +502,22 @@ class LibraryPresenter(
 
         // state = state.copy(isReplacingManga = true)
 
-        Observable.defer { runAsObservable({ source.getMangaUpdate(manga, emptyList(), fetchDetails = false, fetchChapters = true).chapters }) }
-            .onErrorReturn { emptyList() }
-            .doOnNext { migrateMangaInternal(source, it, prevManga, manga, replace) }
-            .onErrorReturn { emptyList() }
-            .subscribeOn(Schedulers.io())
-            .observeOn(AndroidSchedulers.mainThread())
-            // .doOnUnsubscribe { state = state.copy(isReplacingManga = false) }
-            .subscribe()
+        presenterScope.launch {
+            val chapters =
+                try {
+                    withIOContext {
+                        source.getMangaUpdate(manga, emptyList(), fetchDetails = false, fetchChapters = true).chapters
+                    }
+                } catch (e: Throwable) {
+                    // Matches the previous onErrorReturn { emptyList() }.
+                    emptyList()
+                }
+            try {
+                migrateMangaInternal(source, chapters, prevManga, manga, replace)
+            } catch (e: Throwable) {
+                // The second onErrorReturn swallowed failures from the migration itself.
+            }
+        }
     }
 
     private fun migrateMangaInternal(
@@ -578,38 +594,38 @@ class LibraryPresenter(
         context: Context,
         data: Uri
     ) {
-        Observable
-            .fromCallable {
-                context.contentResolver.openInputStream(data)?.use {
-                    if (manga.isLocal()) {
-                        LocalSource.updateCover(context, manga, it)
-                        manga.updateCoverLastModified(db)
-                    } else if (manga.favorite) {
-                        coverCache.setCustomCoverToCache(manga, it)
-                        manga.updateCoverLastModified(db)
+        presenterScope.launch {
+            try {
+                withIOContext {
+                    context.contentResolver.openInputStream(data)?.use {
+                        if (manga.isLocal()) {
+                            LocalSource.updateCover(context, manga, it)
+                            manga.updateCoverLastModified(db)
+                        } else if (manga.favorite) {
+                            coverCache.setCustomCoverToCache(manga, it)
+                            manga.updateCoverLastModified(db)
+                        }
                     }
                 }
+                view?.onSetCoverSuccess()
+            } catch (e: Throwable) {
+                view?.onSetCoverError(e)
             }
-            .subscribeOn(Schedulers.io())
-            .observeOn(AndroidSchedulers.mainThread())
-            .subscribeFirst(
-                { view, _ -> view.onSetCoverSuccess() },
-                { view, e -> view.onSetCoverError(e) }
-            )
+        }
     }
 
     fun deleteCustomCover(manga: Manga) {
-        Observable
-            .fromCallable {
-                coverCache.deleteCustomCover(manga)
-                manga.updateCoverLastModified(db)
+        presenterScope.launch {
+            try {
+                withIOContext {
+                    coverCache.deleteCustomCover(manga)
+                    manga.updateCoverLastModified(db)
+                }
+                view?.onSetCoverSuccess()
+            } catch (e: Throwable) {
+                view?.onSetCoverError(e)
             }
-            .subscribeOn(Schedulers.io())
-            .observeOn(AndroidSchedulers.mainThread())
-            .subscribeFirst(
-                { view, _ -> view.onSetCoverSuccess() },
-                { view, e -> view.onSetCoverError(e) }
-            )
+        }
     }
     // SY -->
 
