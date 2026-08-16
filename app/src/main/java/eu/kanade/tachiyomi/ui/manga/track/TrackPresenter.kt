@@ -150,7 +150,7 @@ class TrackPresenter(
     }
 
     fun unregisterTracking(service: TrackService) {
-        db.deleteTrackForManga(manga, service)
+        db.deleteTrackForManga(manga, service.id)
     }
 
     private fun updateRemote(

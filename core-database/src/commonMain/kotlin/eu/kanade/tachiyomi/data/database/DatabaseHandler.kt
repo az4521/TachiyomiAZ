@@ -5,6 +5,7 @@ import eu.kanade.tachiyomi.data.database.queries.ChapterQueries
 import eu.kanade.tachiyomi.data.database.queries.HistoryQueries
 import eu.kanade.tachiyomi.data.database.queries.MangaCategoryQueries
 import eu.kanade.tachiyomi.data.database.queries.MangaQueries
+import eu.kanade.tachiyomi.data.database.queries.TrackQueries
 
 /**
  * The database as shared code sees it.
@@ -17,15 +18,17 @@ import eu.kanade.tachiyomi.data.database.queries.MangaQueries
  * `DatabaseHelper` implements this on Android. On iOS the same queries are reached through
  * [IosDatabaseFactory]'s `Database`.
  *
- * Deliberately excludes TrackQueries and the exh search-metadata queries: the first depends on
- * TrackService and the second on the exh models, and both stay JVM-side.
+ * Excludes only the exh search-metadata queries, which depend on the exh models and stay
+ * Android-side. TrackQueries used to be excluded too, until its one TrackService parameter was
+ * reduced to the service id it actually read.
  */
 interface DatabaseHandler :
     MangaQueries,
     ChapterQueries,
     CategoryQueries,
     MangaCategoryQueries,
-    HistoryQueries {
+    HistoryQueries,
+    TrackQueries {
     /** Runs [block] in a single database transaction. */
     fun inTransaction(block: () -> Unit)
 }

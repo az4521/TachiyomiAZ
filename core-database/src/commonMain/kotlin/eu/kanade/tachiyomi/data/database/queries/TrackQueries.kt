@@ -6,7 +6,6 @@ import eu.kanade.tachiyomi.data.database.DbProvider
 import eu.kanade.tachiyomi.data.database.mapTrack
 import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.data.database.models.Track
-import eu.kanade.tachiyomi.data.track.TrackService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 
@@ -77,10 +76,14 @@ interface TrackQueries : DbProvider {
         }
     }
 
+    /**
+     * @param syncId the tracking service's id. Taken as a plain value rather than a TrackService
+     *  so this stays free of the tracking layer, which is Android/JVM-side.
+     */
     fun deleteTrackForManga(
         manga: Manga,
-        sync: TrackService
+        syncId: Int
     ) {
-        sqlDatabase.manga_syncQueries.deleteTrackForManga(manga.id ?: 0L, sync.id.toLong())
+        sqlDatabase.manga_syncQueries.deleteTrackForManga(manga.id ?: 0L, syncId.toLong())
     }
 }
