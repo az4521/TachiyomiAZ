@@ -34,8 +34,8 @@ import eu.kanade.tachiyomi.util.system.withUIContext
 import eu.kanade.tachiyomi.util.updateCoverLastModified
 import exh.util.defaultReaderType
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first

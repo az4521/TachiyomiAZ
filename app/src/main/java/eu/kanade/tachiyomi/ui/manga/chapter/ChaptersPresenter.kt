@@ -22,8 +22,8 @@ import exh.EXH_SOURCE_ID
 import exh.debug.DebugToggles
 import exh.eh.EHentaiUpdateHelper
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
@@ -61,13 +61,25 @@ class ChaptersPresenter(
      * Subject of list of chapters to allow updating the view without going to DB.
      */
     /**
-     * StateFlow rather than SharedFlow: it is conflated and always holds the newest value, so a
-     * burst of database notifications cannot overflow a buffer and make tryEmit silently drop
-     * the final, correct list -- which left the chapter list stuck empty after a refresh. It
-     * also replays to a collector that subscribes late.
+     * replay = 1, and deliberately NOT a StateFlow.
+     *
+     * StateFlow conflates by equality, and [ChapterItem.equals] compares only the chapter id --
+     * on purpose, so FlexibleAdapter can diff. Two lists holding the same chapters therefore
+     * compare equal however much their read state, bookmarks or download status differ, so a
+     * StateFlow silently dropped the list the reader had just updated and the chapter list kept
+     * showing stale read markers until the screen was rebuilt.
+     *
+     * replay = 1 keeps the property that made StateFlow attractive here -- a collector that
+     * subscribes late still gets the current list, so a burst of database notifications cannot
+     * leave the list empty -- without conflating.
      */
-    val chaptersFlow: MutableStateFlow<List<ChapterItem>>
-        by lazy { MutableStateFlow(emptyList()) }
+    val chaptersFlow: MutableSharedFlow<List<ChapterItem>>
+        by lazy {
+            MutableSharedFlow(
+                replay = 1,
+                onBufferOverflow = BufferOverflow.DROP_OLDEST
+            )
+        }
 
     /**
      * Whether the chapter list has been requested to the source.
@@ -158,7 +170,7 @@ class ChaptersPresenter(
                 }
                 // EXH <--
             }
-            .onEach { chaptersFlow.value = it }
+            .onEach { chaptersFlow.tryEmit(it) }
             .launchIn(presenterScope)
     }
 
@@ -243,7 +255,7 @@ class ChaptersPresenter(
      * Updates the UI after applying the filters.
      */
     private fun refreshChapters() {
-        chaptersFlow.value = chapters
+        chaptersFlow.tryEmit(chapters)
     }
 
     /**
