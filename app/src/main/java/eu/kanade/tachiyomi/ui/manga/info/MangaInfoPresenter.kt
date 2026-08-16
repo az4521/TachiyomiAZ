@@ -92,7 +92,9 @@ class MangaInfoPresenter(
                     withIOContext {
                         // The coordinator saves both halves of the update; the view picks the
                         // manga back up from the db flow.
-                        updateCoordinator.awaitUpdate(force = manualFetch)
+                        // This tab is the one showing the details, so it is the one that asks for
+                        // them to be persisted; a chapters-tab refresh only touches the memo.
+                        updateCoordinator.awaitUpdate(force = manualFetch, updateMetadata = true)
                     }
                     view?.onFetchMangaDone()
                 } catch (e: Throwable) {
