@@ -1,19 +1,21 @@
 package eu.kanade.tachiyomi.source.model
 
-import android.net.Uri
 import eu.kanade.tachiyomi.network.ProgressListener
+import kotlin.concurrent.Volatile
 import kotlinx.coroutines.flow.MutableSharedFlow
 
 open class Page(
     val index: Int,
     var url: String = "",
     var imageUrl: String? = null,
-    @Transient var uri: Uri? = null // Deprecated but can't be deleted due to extensions
+    // Android-only, and deprecated there: it points at a downloaded file. Kept because old
+    // extensions construct pages with it. @Transient is dropped -- Page is not Serializable, so
+    // it never had an effect.
+    var uri: PlatformUri? = null
 ) : ProgressListener {
     val number: Int
         get() = index + 1
 
-    @Transient
     @Volatile
     var status: Int = 0
         set(value) {
@@ -22,7 +24,6 @@ open class Page(
             statusCallback?.invoke(this)
         }
 
-    @Transient
     @Volatile
     var progress: Int = 0
         set(value) {
@@ -30,10 +31,8 @@ open class Page(
             statusCallback?.invoke(this)
         }
 
-    @Transient
     private var statusFlow: MutableSharedFlow<Int>? = null
 
-    @Transient
     private var statusCallback: ((Page) -> Unit)? = null
 
     override fun update(
