@@ -48,8 +48,10 @@ kotlin {
     sourceSets {
         val commonMain by getting {
             dependencies {
-                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
+                // api: SManga.memo and SChapter.memo are JsonObject, so this is part of the public API.
+            api("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
+                // api: Page.setStatusFlow takes a MutableSharedFlow.
+            api("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
             }
         }
 

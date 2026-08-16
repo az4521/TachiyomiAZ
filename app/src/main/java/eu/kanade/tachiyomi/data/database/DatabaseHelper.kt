@@ -18,6 +18,7 @@ import io.requery.android.database.sqlite.RequerySQLiteOpenHelperFactory
  * This class provides operations to manage the database through its interfaces.
  */
 open class DatabaseHelper(context: Context) :
+    DatabaseHandler,
     MangaQueries,
     ChapterQueries,
     TrackQueries,
@@ -88,5 +89,5 @@ open class DatabaseHelper(context: Context) :
      * and without it a delete-then-insert sync (syncChaptersWithSource) notifies after the
      * delete, briefly publishing an empty list to anything observing that table.
      */
-    fun inTransaction(block: () -> Unit) = sqlDatabase.mangasQueries.transaction { block() }
+    override fun inTransaction(block: () -> Unit) = sqlDatabase.mangasQueries.transaction { block() }
 }

@@ -356,6 +356,7 @@ dependencies {
 
     implementation project(":core-model")
     implementation project(":core-database")
+    implementation project(":core-domain")
 
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
     implementation "org.jetbrains.kotlin:kotlin-reflect:$kotlin_version"
