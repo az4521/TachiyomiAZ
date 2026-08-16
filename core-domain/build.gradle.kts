@@ -1,6 +1,7 @@
 plugins {
     kotlin("multiplatform")
     id("com.android.library")
+    kotlin("plugin.serialization")
 }
 
 // Shared domain logic: the rules that decide what happens, with no opinion on how the platform
@@ -46,6 +47,8 @@ kotlin {
             api(project(":core-database"))
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
             implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.2")
+            // The backup format is protobuf; this is what makes it identical on both platforms.
+            api("org.jetbrains.kotlinx:kotlinx-serialization-protobuf:1.11.0")
         }
     }
 }

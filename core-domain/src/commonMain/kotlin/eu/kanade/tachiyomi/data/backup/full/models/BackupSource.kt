@@ -1,6 +1,5 @@
 package eu.kanade.tachiyomi.data.backup.full.models
 
-import eu.kanade.tachiyomi.source.Source
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoNumber
@@ -11,14 +10,8 @@ data class BackupSource(
     @ProtoNumber(1) var name: String = "",
     @ProtoNumber(2) var sourceId: Long
 ) {
-    companion object {
-        fun copyFrom(source: Source): BackupSource {
-            return BackupSource(
-                name = source.name,
-                sourceId = source.id
-            )
-        }
-    }
+    // copyFrom(Source) lives in :app: Source is the extension API and stays JVM-side.
+    companion object
 }
 
 @Serializable
