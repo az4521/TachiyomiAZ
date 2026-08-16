@@ -289,8 +289,6 @@ dependencies {
 
     // Database
     implementation 'androidx.sqlite:sqlite-ktx:2.1.0'
-    implementation 'com.github.inorichi.storio:storio-common:8be19de@aar'
-    implementation 'com.github.inorichi.storio:storio-sqlite:8be19de@aar'
     implementation 'com.github.requery:sqlite-android:3.49.0'
     implementation "app.cash.sqldelight:android-driver:${BuildPluginsVersion.SQLDELIGHT}"
     implementation "app.cash.sqldelight:coroutines-extensions:${BuildPluginsVersion.SQLDELIGHT}"

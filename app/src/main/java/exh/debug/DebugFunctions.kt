@@ -1,7 +1,6 @@
 package exh.debug
 
 import android.app.Application
-import com.pushtorefresh.storio.sqlite.queries.RawQuery
 import eu.kanade.tachiyomi.data.database.DatabaseHelper
 import eu.kanade.tachiyomi.data.database.tables.MangaTable
 import eu.kanade.tachiyomi.data.download.DownloadManager
@@ -150,17 +149,12 @@ object DebugFunctions {
 
     fun addAllMangaInDatabaseToLibrary() {
         db.inTransaction {
-            db.lowLevel().executeSQL(
-                RawQuery.builder()
-                    .query(
-                        """
+            db.executeSQL(
+"""
                         UPDATE ${MangaTable.TABLE}
                             SET ${MangaTable.COL_FAVORITE} = 1
                         """.trimIndent()
-                    )
-                    .affectsTables(MangaTable.TABLE)
-                    .build()
-            )
+)
         }
     }
 
@@ -254,18 +248,13 @@ object DebugFunctions {
         from: Long,
         to: Long
     ) {
-        db.lowLevel().executeSQL(
-            RawQuery.builder()
-                .query(
-                    """
+        db.executeSQL(
+"""
                     UPDATE ${MangaTable.TABLE}
                         SET ${MangaTable.COL_SOURCE} = $to
                         WHERE ${MangaTable.COL_SOURCE} = $from
                     """.trimIndent()
-                )
-                .affectsTables(MangaTable.TABLE)
-                .build()
-        )
+)
     }
 
     class CrashButtonException() : RuntimeException("Crash Button Pressed!")

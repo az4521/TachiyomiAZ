@@ -2,11 +2,10 @@ package exh
 
 import android.content.Context
 import com.elvishew.xlog.XLog
-import com.pushtorefresh.storio.sqlite.queries.Query
-import com.pushtorefresh.storio.sqlite.queries.RawQuery
 import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.data.backup.BackupCreatorJob
 import eu.kanade.tachiyomi.data.backup.legacy.models.DHistory
+import eu.kanade.tachiyomi.data.database.DbOpenCallback
 import eu.kanade.tachiyomi.data.database.DatabaseHelper
 import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.data.database.models.Manga
@@ -47,18 +46,13 @@ object EXHMigrations {
                 if (oldVersion < 1) {
                     db.inTransaction {
                         // Migrate HentaiCafe source IDs
-                        db.lowLevel().executeSQL(
-                            RawQuery.builder()
-                                .query(
-                                    """
+                        db.executeSQL(
+"""
                                     UPDATE ${MangaTable.TABLE}
                                         SET ${MangaTable.COL_SOURCE} = $HENTAI_CAFE_SOURCE_ID
                                         WHERE ${MangaTable.COL_SOURCE} = 6908
                                     """.trimIndent()
-                                )
-                                .affectsTables(MangaTable.TABLE)
-                                .build()
-                        )
+)
 
                         // Migrate nhentai URLs
                         val nhentaiManga =
@@ -80,18 +74,13 @@ object EXHMigrations {
                 if (oldVersion < 8405) {
                     db.inTransaction {
                         // Migrate HBrowse source IDs
-                        db.lowLevel().executeSQL(
-                            RawQuery.builder()
-                                .query(
-                                    """
+                        db.executeSQL(
+"""
                                     UPDATE ${MangaTable.TABLE}
                                         SET ${MangaTable.COL_SOURCE} = 6912
                                         WHERE ${MangaTable.COL_SOURCE} = 1401584337232758222
                                     """.trimIndent()
-                                )
-                                .affectsTables(MangaTable.TABLE)
-                                .build()
-                        )
+)
                     }
 
                     // Cancel old scheduler jobs with old ids
@@ -100,18 +89,13 @@ object EXHMigrations {
                 if (oldVersion < 8408) {
                     db.inTransaction {
                         // Migrate Tsumino source IDs
-                        db.lowLevel().executeSQL(
-                            RawQuery.builder()
-                                .query(
-                                    """
+                        db.executeSQL(
+"""
                                     UPDATE ${MangaTable.TABLE}
                                         SET ${MangaTable.COL_SOURCE} = $TSUMINO_SOURCE_ID
                                         WHERE ${MangaTable.COL_SOURCE} = 6909
                                     """.trimIndent()
-                                )
-                                .affectsTables(MangaTable.TABLE)
-                                .build()
-                        )
+)
                     }
                 }
                 if (oldVersion < 8409) {
@@ -152,31 +136,21 @@ object EXHMigrations {
                 if (oldVersion < 8810) {
                     db.inTransaction {
                         // Migrate 8Muses source IDs
-                        db.lowLevel().executeSQL(
-                            RawQuery.builder()
-                                .query(
-                                    """
+                        db.executeSQL(
+"""
                                     UPDATE ${MangaTable.TABLE}
                                         SET ${MangaTable.COL_SOURCE} = $EIGHTMUSES_SOURCE_ID
                                         WHERE ${MangaTable.COL_SOURCE} = 6911
                                     """.trimIndent()
-                                )
-                                .affectsTables(MangaTable.TABLE)
-                                .build()
-                        )
+)
                         // Migrate Hitomi source IDs
-                        db.lowLevel().executeSQL(
-                            RawQuery.builder()
-                                .query(
-                                    """
+                        db.executeSQL(
+"""
                                     UPDATE ${MangaTable.TABLE}
                                         SET ${MangaTable.COL_SOURCE} = $HITOMI_SOURCE_ID
                                         WHERE ${MangaTable.COL_SOURCE} = 6910
                                     """.trimIndent()
-                                )
-                                .affectsTables(MangaTable.TABLE)
-                                .build()
-                        )
+)
                     }
                 }
 
@@ -238,7 +212,7 @@ object EXHMigrations {
         val backupLocation = File(File(context.filesDir, "exh_db_bck"), "$oldMigrationVersion.bck.db")
         if (backupLocation.exists()) return // Do not backup same version twice
 
-        val dbLocation = context.getDatabasePath(db.lowLevel().sqliteOpenHelper().databaseName)
+        val dbLocation = context.getDatabasePath(DbOpenCallback.DATABASE_NAME)
         try {
             dbLocation.copyTo(backupLocation, overwrite = true)
         } catch (t: Throwable) {

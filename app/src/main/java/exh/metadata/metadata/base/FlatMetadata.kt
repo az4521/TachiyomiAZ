@@ -1,6 +1,5 @@
 package exh.metadata.metadata.base
 
-import com.pushtorefresh.storio.operations.PreparedOperation
 import eu.kanade.tachiyomi.data.database.DatabaseHelper
 import exh.metadata.metadata.RaisedSearchMetadata
 import exh.metadata.sql.models.SearchMetadata

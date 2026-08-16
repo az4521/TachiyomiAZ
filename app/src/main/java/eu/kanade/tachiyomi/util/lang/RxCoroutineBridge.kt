@@ -1,7 +1,5 @@
 package eu.kanade.tachiyomi.util.lang
 
-import com.pushtorefresh.storio.operations.PreparedOperation
-import com.pushtorefresh.storio.sqlite.operations.get.PreparedGetObject
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineStart
@@ -57,10 +55,6 @@ suspend fun <T> Single<T>.await(subscribeOn: Scheduler? = null): T {
         }
     }
 }
-
-suspend fun <T> PreparedOperation<T>.await(): T = asRxSingle().await()
-
-suspend fun <T> PreparedGetObject<T>.await(): T? = asRxSingle().await()
 
 @ExperimentalCoroutinesApi
 suspend fun Completable.awaitSuspending(subscribeOn: Scheduler? = null) {
