@@ -12,13 +12,13 @@ import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.databinding.MigrationControllerBinding
 import eu.kanade.tachiyomi.ui.base.controller.NucleusController
 import eu.kanade.tachiyomi.ui.migration.manga.design.PreMigrationController
+import eu.kanade.tachiyomi.util.system.withIOContext
 import eu.kanade.tachiyomi.util.system.launchUI
 import exh.util.RecyclerWindowInsetsListener
 import exh.util.applyWindowInsetsForController
 import exh.util.await
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import rx.schedulers.Schedulers
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -129,9 +129,7 @@ class MigrationController :
 
         launchUI {
             val manga =
-                Injekt.get<DatabaseHelper>().getFavoriteMangas().asRxSingle().await(
-                    Schedulers.io()
-                )
+                withIOContext { Injekt.get<DatabaseHelper>().getFavoriteMangas().executeAsBlocking() }
             val sourceMangas =
                 manga.asSequence().filter { it.source == item.source.id }.map { it.id!! }.toList()
             withContext(Dispatchers.Main) {
