@@ -21,6 +21,7 @@ import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.flowOn
@@ -180,7 +181,14 @@ class HttpPageLoader(
                 page.status = Page.QUEUE
             }
 
-            val statusFlow = MutableSharedFlow<Int>(extraBufferCapacity = 8)
+            // DROP_OLDEST rather than the default: losing the newest status (READY) would
+            // leave the page spinning forever, whereas losing an older intermediate status is
+            // harmless.
+            val statusFlow =
+                MutableSharedFlow<Int>(
+                    extraBufferCapacity = 8,
+                    onBufferOverflow = BufferOverflow.DROP_OLDEST
+                )
             page.setStatusFlow(statusFlow)
 
             val queuedPages = mutableListOf<PriorityPage>()

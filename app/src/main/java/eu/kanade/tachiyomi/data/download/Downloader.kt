@@ -144,7 +144,11 @@ class Downloader(
 
         notifier.paused = false
 
-        downloadsFlow.tryEmit(pending)
+        // Dropping here would mean queued chapters silently never download, so make a full
+        // buffer visible rather than losing the work quietly.
+        if (!downloadsFlow.tryEmit(pending)) {
+            Timber.e("Download queue buffer full; ${pending.size} downloads were not dispatched")
+        }
         return pending.isNotEmpty()
     }
 
@@ -288,7 +292,9 @@ class Downloader(
 
             if (isRunning) {
                 // Send the list of downloads to the downloader.
-                downloadsFlow.tryEmit(chaptersToQueue)
+                if (!downloadsFlow.tryEmit(chaptersToQueue)) {
+                    Timber.e("Download queue buffer full; ${chaptersToQueue.size} downloads were not dispatched")
+                }
             }
 
             // Start downloader if needed

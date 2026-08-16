@@ -61,19 +61,22 @@ class MigrationProcessAdapter(
 
     suspend fun performMigrations(copy: Boolean) {
         withContext(Dispatchers.IO) {
-            db.inTransaction {
-                currentItems.forEach { migratingManga ->
+            // searchResult.get() and manga() suspend, so resolve them before opening the
+            // transaction. That also stops a DB transaction being held open across
+            // suspension points, which the previous version did.
+            val pending =
+                currentItems.mapNotNull { migratingManga ->
                     val manga = migratingManga.manga
-                    if (manga.searchResult.initialized) {
-                        val toMangaObj =
-                            db.getManga(manga.searchResult.get() ?: return@forEach)
-                                ?: return@forEach
-                        migrateMangaInternal(
-                            manga.manga() ?: return@forEach,
-                            toMangaObj,
-                            !copy
-                        )
-                    }
+                    if (!manga.searchResult.initialized) return@mapNotNull null
+                    val targetId = manga.searchResult.get() ?: return@mapNotNull null
+                    val toMangaObj = db.getManga(targetId) ?: return@mapNotNull null
+                    val fromManga = manga.manga() ?: return@mapNotNull null
+                    fromManga to toMangaObj
+                }
+
+            db.inTransaction {
+                pending.forEach { (fromManga, toMangaObj) ->
+                    migrateMangaInternal(fromManga, toMangaObj, !copy)
                 }
             }
         }
@@ -85,15 +88,11 @@ class MigrationProcessAdapter(
     ) {
         launchUI {
             val manga = getItem(position)?.manga ?: return@launchUI
+            val targetId = manga.searchResult.get() ?: return@launchUI
+            val toMangaObj = db.getManga(targetId) ?: return@launchUI
+            val fromManga = manga.manga() ?: return@launchUI
             db.inTransaction {
-                val toMangaObj =
-                    db.getManga(manga.searchResult.get() ?: return@launchUI)
-                        ?: return@launchUI
-                migrateMangaInternal(
-                    manga.manga() ?: return@launchUI,
-                    toMangaObj,
-                    !copy
-                )
+                migrateMangaInternal(fromManga, toMangaObj, !copy)
             }
             removeManga(position)
         }

@@ -31,6 +31,7 @@ import eu.kanade.tachiyomi.ui.manga.track.TrackController
 import eu.kanade.tachiyomi.ui.source.SourceController
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -104,7 +105,11 @@ class MangaController : RxController<MangaControllerBinding>, TabbedController {
     val chapterCountFlow = MutableSharedFlow<Float>(replay = 1, extraBufferCapacity = 4)
 
     // PublishRelay had no replay, so neither does this.
-    val mangaFavoriteFlow = MutableSharedFlow<Boolean>(extraBufferCapacity = 4)
+    val mangaFavoriteFlow =
+        MutableSharedFlow<Boolean>(
+            extraBufferCapacity = 4,
+            onBufferOverflow = BufferOverflow.DROP_OLDEST
+        )
 
     private val trackingIconFlow = MutableSharedFlow<Boolean>(replay = 1, extraBufferCapacity = 4)
 

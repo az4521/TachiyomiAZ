@@ -23,6 +23,7 @@ import exh.debug.DebugToggles
 import exh.eh.EHentaiUpdateHelper
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
@@ -59,8 +60,14 @@ class ChaptersPresenter(
     /**
      * Subject of list of chapters to allow updating the view without going to DB.
      */
-    val chaptersFlow: MutableSharedFlow<List<ChapterItem>>
-        by lazy { MutableSharedFlow(extraBufferCapacity = 8) }
+    /**
+     * StateFlow rather than SharedFlow: it is conflated and always holds the newest value, so a
+     * burst of database notifications cannot overflow a buffer and make tryEmit silently drop
+     * the final, correct list -- which left the chapter list stuck empty after a refresh. It
+     * also replays to a collector that subscribes late.
+     */
+    val chaptersFlow: MutableStateFlow<List<ChapterItem>>
+        by lazy { MutableStateFlow(emptyList()) }
 
     /**
      * Whether the chapter list has been requested to the source.
@@ -151,7 +158,7 @@ class ChaptersPresenter(
                 }
                 // EXH <--
             }
-            .onEach { chaptersFlow.tryEmit(it) }
+            .onEach { chaptersFlow.value = it }
             .launchIn(presenterScope)
     }
 
@@ -227,7 +234,7 @@ class ChaptersPresenter(
      * Updates the UI after applying the filters.
      */
     private fun refreshChapters() {
-        chaptersFlow.tryEmit(chapters)
+        chaptersFlow.value = chapters
     }
 
     /**

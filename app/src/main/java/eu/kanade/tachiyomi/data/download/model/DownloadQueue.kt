@@ -6,6 +6,7 @@ import eu.kanade.tachiyomi.data.download.DownloadStore
 import eu.kanade.tachiyomi.source.model.Page
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.filter
@@ -19,12 +20,21 @@ class DownloadQueue(
     private val store: DownloadStore,
     private val queue: MutableList<Download> = CopyOnWriteArrayList()
 ) : List<Download> by queue {
-    // extraBufferCapacity stands in for the onBackpressureBuffer these streams used to carry:
-    // emitters are non-suspending (tryEmit from a @Volatile setter), so they need somewhere to
-    // put values when a collector is slow.
-    private val statusFlow = MutableSharedFlow<Download>(extraBufferCapacity = 64)
+    // These replace RxJava subjects that carried an unbounded onBackpressureBuffer, so they
+    // never dropped. tryEmit cannot suspend, and the default SUSPEND policy makes it drop the
+    // NEWEST value once the buffer fills -- which would leave the queue UI showing stale state
+    // forever. DROP_OLDEST keeps the newest instead.
+    private val statusFlow =
+        MutableSharedFlow<Download>(
+            extraBufferCapacity = 64,
+            onBufferOverflow = BufferOverflow.DROP_OLDEST
+        )
 
-    private val updatedFlow = MutableSharedFlow<Unit>(extraBufferCapacity = 8)
+    private val updatedFlow =
+        MutableSharedFlow<Unit>(
+            extraBufferCapacity = 8,
+            onBufferOverflow = BufferOverflow.DROP_OLDEST
+        )
 
     fun addAll(downloads: List<Download>) {
         downloads.forEach { download ->
@@ -98,7 +108,11 @@ class DownloadQueue(
             .onStart { getActiveDownloads().forEach { emit(it) } }
             .flatMapMerge { download ->
                 if (download.status == Download.DOWNLOADING) {
-                    val pageStatusFlow = MutableSharedFlow<Int>(extraBufferCapacity = 64)
+                    val pageStatusFlow =
+                        MutableSharedFlow<Int>(
+                            extraBufferCapacity = 64,
+                            onBufferOverflow = BufferOverflow.DROP_OLDEST
+                        )
                     setPagesFlow(download.pages, pageStatusFlow)
                     return@flatMapMerge pageStatusFlow
                         .filter { it == Page.READY }

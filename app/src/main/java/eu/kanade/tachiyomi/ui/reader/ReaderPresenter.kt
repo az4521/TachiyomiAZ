@@ -35,10 +35,10 @@ import eu.kanade.tachiyomi.util.updateCoverLastModified
 import exh.util.defaultReaderType
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import uy.kohesive.injekt.Injekt

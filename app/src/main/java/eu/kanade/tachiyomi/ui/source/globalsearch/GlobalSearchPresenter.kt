@@ -16,6 +16,7 @@ import eu.kanade.tachiyomi.ui.source.browse.BrowseSourcePresenter
 import eu.kanade.tachiyomi.util.system.withUIContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.flowOn
@@ -65,7 +66,11 @@ open class GlobalSearchPresenter(
     /**
      * Flow which fetches image of given manga.
      */
-    private val fetchImageFlow = MutableSharedFlow<Pair<List<Manga>, Source>>(extraBufferCapacity = 64)
+    private val fetchImageFlow =
+        MutableSharedFlow<Pair<List<Manga>, Source>>(
+            extraBufferCapacity = 64,
+            onBufferOverflow = BufferOverflow.DROP_OLDEST
+        )
 
     /**
      * Job for fetching images of manga.

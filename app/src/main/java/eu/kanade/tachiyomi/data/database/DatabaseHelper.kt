@@ -81,19 +81,12 @@ open class DatabaseHelper(context: Context) :
     }
 
     /**
-     * Runs [block] in a single transaction on the shared connection.
+     * Runs [block] in a single transaction.
      *
-     * Kept `inline` because callers invoke suspend functions inside it; SQLDelight's own
-     * transaction takes a non-inline lambda, which would not allow that.
+     * Goes through SQLDelight's transacter rather than the raw open helper so query
+     * notifications are deferred until the outermost transaction commits. storio did the same,
+     * and without it a delete-then-insert sync (syncChaptersWithSource) notifies after the
+     * delete, briefly publishing an empty list to anything observing that table.
      */
-    inline fun inTransaction(block: () -> Unit) {
-        val database = openHelper.writableDatabase
-        database.beginTransaction()
-        try {
-            block()
-            database.setTransactionSuccessful()
-        } finally {
-            database.endTransaction()
-        }
-    }
+    fun inTransaction(block: () -> Unit) = sqlDatabase.mangasQueries.transaction { block() }
 }
