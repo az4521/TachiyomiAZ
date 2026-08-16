@@ -14,6 +14,7 @@ import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.ui.base.presenter.BasePresenter
 import eu.kanade.tachiyomi.ui.source.browse.BrowseSourcePresenter
 import eu.kanade.tachiyomi.util.system.withUIContext
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
@@ -260,7 +261,11 @@ open class GlobalSearchPresenter(
     private fun initializeFetchImageSubscription() {
         fetchImageJob?.cancel()
         fetchImageJob =
-            presenterScope.launch {
+            // UNDISPATCHED so collect() subscribes before this returns. fetchImage() tryEmits into
+            // a replay-less SharedFlow, which silently discards a value that has no subscriber
+            // yet; a search answered from cache could otherwise beat the collector and leave
+            // covers unloaded.
+            presenterScope.launch(start = CoroutineStart.UNDISPATCHED) {
                 fetchImageFlow.collect { (mangaList, source) ->
                     // One coroutine per batch keeps batches concurrent (the old flatMap) while
                     // the manga inside a batch stay sequential (the old concatMap).

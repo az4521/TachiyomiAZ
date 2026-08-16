@@ -22,6 +22,7 @@ import eu.kanade.tachiyomi.util.system.withUIContext
 import exh.isEhBasedSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -213,7 +214,14 @@ class Downloader(
 
         downloaderJob?.cancel()
         downloaderJob =
-            scope.launch {
+            // UNDISPATCHED so collect() registers as a subscriber synchronously, before this
+            // function returns. A default launch only schedules the body, so start() would go on
+            // to tryEmit with no subscriber attached -- and a replay-less SharedFlow drops a value
+            // that has nobody to deliver to while still returning true. That lost the initial
+            // batch, and since isRunning is already set above, every later start() returned early
+            // and nothing ever re-sent it: downloads simply never began. The RxJava original had
+            // this for free because subscribing to the relay was synchronous.
+            scope.launch(start = CoroutineStart.UNDISPATCHED) {
                 downloadsFlow.collect { downloads ->
                     downloads.forEach { download ->
                         launch {
