@@ -28,6 +28,8 @@ import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.data.database.models.History
 import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.domain.backup.mergeBackupChapters
+import eu.kanade.tachiyomi.domain.backup.mergeBackupCategories
+import eu.kanade.tachiyomi.domain.backup.mergeBackupManga
 import eu.kanade.tachiyomi.data.database.models.MangaCategory
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.source.Source
@@ -231,25 +233,11 @@ class FullBackupManager(context: Context) : AbstractBackupManager(context) {
         return mangaObject
     }
 
-    /**
-     * Merges a backup manga onto one already in the database.
-     *
-     * favorite and initialized are OR-ed rather than overwritten, following Mihon's
-     * MangaRestorer.copyFrom. Restoring must never take a manga out of the library: the backup is
-     * a snapshot of one moment, and this manga is in the library now.
-     *
-     * The line that OR-ed favorite was lost from this fork at some point -- TachiyomiEH still
-     * carries `manga.favorite = true` here -- so a backup whose favorite flag was false silently
-     * unfavorited an existing library entry.
-     */
     fun restoreMangaNoFetch(
         manga: Manga,
         dbManga: Manga
     ) {
-        manga.id = dbManga.id
-        manga.copyFrom(dbManga)
-        manga.favorite = manga.favorite || dbManga.favorite
-        manga.initialized = manga.initialized || dbManga.initialized
+        mergeBackupManga(manga, dbManga)
         insertManga(manga)
     }
 
@@ -290,31 +278,15 @@ class FullBackupManager(context: Context) : AbstractBackupManager(context) {
      * @param backupCategories list containing categories
      */
     internal fun restoreCategories(backupCategories: List<BackupCategory>) {
-        // Get categories from file and from db
-        val dbCategories = databaseHelper.getCategories()
+        val merged =
+            mergeBackupCategories(
+                backupCategories.map { it.getCategoryImpl() },
+                databaseHelper.getCategories()
+            )
 
-        // Iterate over them
-        backupCategories.map { it.getCategoryImpl() }.forEach { category ->
-            // Used to know if the category is already in the db
-            var found = false
-            for (dbCategory in dbCategories) {
-                // If the category is already in the db, assign the id to the file's category
-                // and do nothing
-                if (category.name == dbCategory.name) {
-                    category.id = dbCategory.id
-                    found = true
-                    break
-                }
-            }
-            // If the category isn't in the db, remove the id and insert a new category
-            // Store the inserted id in the category
-            if (!found) {
-                // Let the db assign the id
-                category.id = null
-                // insertCategory assigns the generated id back onto the category.
-                databaseHelper.insertCategory(category)
-            }
-        }
+        // Matched ones already carry the stored id, so only the new ones need writing.
+        // insertCategory assigns the generated id back onto the category.
+        merged.toInsert.forEach { databaseHelper.insertCategory(it) }
     }
 
     /**
