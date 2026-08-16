@@ -13,7 +13,12 @@ import android.os.PowerManager
 import androidx.core.content.ContextCompat
 import com.github.pwittchen.reactivenetwork.library.Connectivity
 import com.github.pwittchen.reactivenetwork.library.ReactiveNetwork
-import com.jakewharton.rxrelay.BehaviorRelay
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
@@ -37,7 +42,7 @@ class DownloadService : Service() {
         /**
          * Relay used to know when the service is running.
          */
-        val runningRelay: BehaviorRelay<Boolean> = BehaviorRelay.create(false)
+        val runningFlow = MutableStateFlow(false)
 
         /**
          * Starts this service.
@@ -73,6 +78,8 @@ class DownloadService : Service() {
      */
     private lateinit var subscriptions: CompositeSubscription
 
+    private val scope = MainScope()
+
     /**
      * Called when the service is created.
      */
@@ -81,7 +88,7 @@ class DownloadService : Service() {
         super.onCreate()
         startForeground(Notifications.ID_DOWNLOAD_CHAPTER_PROGRESS, getPlaceholderNotification())
         wakeLock = acquireWakeLock(javaClass.name)
-        runningRelay.call(true)
+        runningFlow.value = true
         subscriptions = CompositeSubscription()
         listenDownloaderState()
         listenNetworkChanges()
@@ -91,8 +98,9 @@ class DownloadService : Service() {
      * Called when the service is destroyed.
      */
     override fun onDestroy() {
-        runningRelay.call(false)
+        runningFlow.value = false
         subscriptions.unsubscribe()
+        scope.cancel()
         downloadManager.stopDownloads()
         wakeLock.releaseIfNeeded()
         super.onDestroy()
@@ -165,14 +173,15 @@ class DownloadService : Service() {
      * Listens to downloader status. Enables or disables the wake lock depending on the status.
      */
     private fun listenDownloaderState() {
-        subscriptions +=
-            downloadManager.runningRelay.subscribe { running ->
+        downloadManager.runningFlow
+            .onEach { running ->
                 if (running) {
                     wakeLock.acquireIfNeeded()
                 } else {
                     wakeLock.releaseIfNeeded()
                 }
             }
+            .launchIn(scope)
     }
 
     /**

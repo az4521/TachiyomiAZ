@@ -2,8 +2,6 @@ package eu.kanade.tachiyomi.data.download
 
 import android.content.Context
 import com.hippo.unifile.UniFile
-import com.jakewharton.rxrelay.BehaviorRelay
-import com.jakewharton.rxrelay.PublishRelay
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.cache.ChapterCache
 import eu.kanade.tachiyomi.data.database.models.Chapter
@@ -14,22 +12,34 @@ import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.online.HttpSource
-import eu.kanade.tachiyomi.source.online.fetchAllImageUrlsFromPageList
+import eu.kanade.tachiyomi.source.online.getAllImageUrlsFromPageList
 import eu.kanade.tachiyomi.util.lang.RetryWithDelay
 import eu.kanade.tachiyomi.util.system.launchNow
 import eu.kanade.tachiyomi.util.system.launchUI
-import eu.kanade.tachiyomi.util.lang.plusAssign
-import eu.kanade.tachiyomi.util.lang.runAsObservable
+import eu.kanade.tachiyomi.util.system.withUIContext
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.withPermit
+import java.util.concurrent.ConcurrentHashMap
 import eu.kanade.tachiyomi.util.storage.DiskUtil
 import eu.kanade.tachiyomi.util.storage.saveTo
 import eu.kanade.tachiyomi.util.system.ImageUtil
 import exh.isEhBasedSource
 import kotlinx.coroutines.async
 import okhttp3.Response
-import rx.Observable
-import rx.android.schedulers.AndroidSchedulers
-import rx.schedulers.Schedulers
-import rx.subscriptions.CompositeSubscription
 import timber.log.Timber
 import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
@@ -39,7 +49,7 @@ import java.io.File
  * This class is the one in charge of downloading chapters.
  *
  * Its [queue] contains the list of chapters to download. In order to download them, the downloader
- * subscriptions must be running and the list of chapters must be sent to them by [downloadsRelay].
+ * subscriptions must be running and the list of chapters must be sent to them by [downloadsFlow].
  *
  * The queue manipulation must be done in one thread (currently the main thread) to avoid unexpected
  * behavior, but it's safe to read it from multiple threads.
@@ -77,17 +87,30 @@ class Downloader(
     /**
      * Downloader subscriptions.
      */
-    private val subscriptions = CompositeSubscription()
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    private var downloaderJob: Job? = null
+
+    /**
+     * Caps concurrent downloads at 5 sources, matching the previous flatMap(..., 5).
+     */
+    private val sourceSemaphore = Semaphore(5)
+
+    /**
+     * One mutex per source so a source's chapters download in order, as the per-source
+     * concatMap did.
+     */
+    private val sourceMutexes = ConcurrentHashMap<Long, Mutex>()
 
     /**
      * Relay to send a list of downloads to the downloader.
      */
-    private val downloadsRelay = PublishRelay.create<List<Download>>()
+    private val downloadsFlow = MutableSharedFlow<List<Download>>(extraBufferCapacity = 64)
 
     /**
      * Relay to subscribe to the downloader status.
      */
-    val runningRelay: BehaviorRelay<Boolean> = BehaviorRelay.create(false)
+    val runningFlow = MutableStateFlow(false)
 
     /**
      * Whether the downloader is running.
@@ -114,7 +137,7 @@ class Downloader(
             return false
         }
 
-        if (!subscriptions.hasSubscriptions()) {
+        if (downloaderJob?.isActive != true) {
             initializeSubscriptions()
         }
 
@@ -123,7 +146,7 @@ class Downloader(
 
         notifier.paused = false
 
-        downloadsRelay.call(pending)
+        downloadsFlow.tryEmit(pending)
         return pending.isNotEmpty()
     }
 
@@ -184,34 +207,38 @@ class Downloader(
     private fun initializeSubscriptions() {
         if (isRunning) return
         isRunning = true
-        runningRelay.call(true)
+        runningFlow.value = true
 
-        subscriptions.clear()
-
-        subscriptions +=
-            downloadsRelay.concatMapIterable { it }
-                // Concurrently download from 5 different sources
-                .groupBy { it.source }
-                .flatMap(
-                    { bySource ->
-                        bySource.concatMap { download ->
-                            downloadChapter(download).subscribeOn(Schedulers.io())
+        downloaderJob?.cancel()
+        downloaderJob =
+            scope.launch {
+                downloadsFlow.collect { downloads ->
+                    downloads.forEach { download ->
+                        launch {
+                            // Order matters: take the source's mutex before a permit, so a
+                            // download waiting its turn within a source does not sit on one of
+                            // the five slots.
+                            val mutex = sourceMutexes.getOrPut(download.source.id) { Mutex() }
+                            mutex.withLock {
+                                sourceSemaphore.withPermit {
+                                    try {
+                                        val result = downloadChapter(download)
+                                        withUIContext { completeDownload(result) }
+                                    } catch (e: CancellationException) {
+                                        throw e
+                                    } catch (error: Throwable) {
+                                        withUIContext {
+                                            DownloadService.stop(context)
+                                            Timber.e(error)
+                                            notifier.onError(error.message)
+                                        }
+                                    }
+                                }
+                            }
                         }
-                    },
-                    5
-                )
-                .onBackpressureLatest()
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(
-                    {
-                        completeDownload(it)
-                    },
-                    { error ->
-                        DownloadService.stop(context)
-                        Timber.e(error)
-                        notifier.onError(error.message)
                     }
-                )
+                }
+            }
     }
 
     /**
@@ -220,9 +247,10 @@ class Downloader(
     private fun destroySubscriptions() {
         if (!isRunning) return
         isRunning = false
-        runningRelay.call(false)
+        runningFlow.value = false
 
-        subscriptions.clear()
+        downloaderJob?.cancel()
+        downloaderJob = null
     }
 
     /**
@@ -262,7 +290,7 @@ class Downloader(
 
             if (isRunning) {
                 // Send the list of downloads to the downloader.
-                downloadsRelay.call(chaptersToQueue)
+                downloadsFlow.tryEmit(chaptersToQueue)
             }
 
             // Start downloader if needed
@@ -277,64 +305,71 @@ class Downloader(
      *
      * @param download the chapter to be downloaded.
      */
-    private fun downloadChapter(download: Download): Observable<Download> =
-        Observable.defer {
-            val mangaDir = provider.getMangaDir(download.manga, download.source)
+    private suspend fun downloadChapter(download: Download): Download {
+        val mangaDir = provider.getMangaDir(download.manga, download.source)
 
-            val availSpace = DiskUtil.getAvailableStorageSpace(mangaDir)
-            if (availSpace != -1L && availSpace < MIN_DISK_SPACE) {
-                download.status = Download.ERROR
-                notifier.onError(context.getString(R.string.download_insufficient_space), download.chapter.name)
-                return@defer Observable.just(download)
-            }
+        val availSpace = DiskUtil.getAvailableStorageSpace(mangaDir)
+        if (availSpace != -1L && availSpace < MIN_DISK_SPACE) {
+            download.status = Download.ERROR
+            notifier.onError(context.getString(R.string.download_insufficient_space), download.chapter.name)
+            return download
+        }
 
-            val chapterDirname = provider.getChapterDirName(download.chapter)
-            val tmpDir = mangaDir.createDirectory(chapterDirname + TMP_DIR_SUFFIX)
+        val chapterDirname = provider.getChapterDirName(download.chapter)
+        val tmpDir = mangaDir.createDirectory(chapterDirname + TMP_DIR_SUFFIX)
 
-            val pageListObservable =
+        try {
+            val pageList =
                 if (download.pages == null) {
                     // Pull page list from network and add them to download object
-                    runAsObservable({ download.source.getPageList(download.chapter) })
-                        .doOnNext { pages ->
-                            if (pages.isEmpty()) {
-                                throw Exception(context.getString(R.string.page_list_empty_error))
-                            }
-                            download.pages = pages
+                    download.source.getPageList(download.chapter).also { pages ->
+                        if (pages.isEmpty()) {
+                            throw Exception(context.getString(R.string.page_list_empty_error))
                         }
+                        download.pages = pages
+                    }
                 } else {
                     // Or if the page list already exists, start from the file
-                    Observable.just(download.pages!!)
+                    download.pages!!
                 }
 
-            pageListObservable
-                .doOnNext { _ ->
-                    // Delete all temporary (unfinished) files
-                    tmpDir.listFiles()
-                        ?.filter { it.name!!.endsWith(".tmp") }
-                        ?.forEach { it.delete() }
+            // Delete all temporary (unfinished) files
+            tmpDir.listFiles()
+                ?.filter { it.name!!.endsWith(".tmp") }
+                ?.forEach { it.delete() }
 
-                    download.downloadedImages = 0
-                    download.status = Download.DOWNLOADING
-                }
-                // Get all the URLs to the source images, fetch pages if necessary
-                .flatMap { download.source.fetchAllImageUrlsFromPageList(it) }
-                // Start downloading images, consider we can have downloaded images already
-                // Concurrently do 5 pages at a time
-                .flatMap({ page -> getOrDownloadImage(page, download, tmpDir) }, 5)
-                .onBackpressureLatest()
-                // Do when page is downloaded.
-                .doOnNext { notifier.onProgressChange(download) }
-                .toList()
-                .map { download }
-                // Do after download completes
-                .doOnNext { ensureSuccessfulDownload(download, mangaDir, tmpDir, chapterDirname) }
-                // If the page list threw, it will resume here
-                .onErrorReturn { error ->
-                    download.status = Download.ERROR
-                    notifier.onError(error.message, download.chapter.name)
-                    download
-                }
+            download.downloadedImages = 0
+            download.status = Download.DOWNLOADING
+
+            // Get all the URLs to the source images, fetch pages if necessary
+            val pages = download.source.getAllImageUrlsFromPageList(pageList)
+
+            // Start downloading images, consider we can have downloaded images already.
+            // Concurrently do 5 pages at a time, as the inner flatMap(..., 5) did.
+            val pageSemaphore = Semaphore(5)
+            coroutineScope {
+                pages.map { page ->
+                    async {
+                        pageSemaphore.withPermit {
+                            getOrDownloadImage(page, download, tmpDir)
+                            // Do when page is downloaded.
+                            notifier.onProgressChange(download)
+                        }
+                    }
+                }.awaitAll()
+            }
+
+            // Do after download completes
+            ensureSuccessfulDownload(download, mangaDir, tmpDir, chapterDirname)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (error: Throwable) {
+            // If the page list threw, it will resume here
+            download.status = Download.ERROR
+            notifier.onError(error.message, download.chapter.name)
         }
+        return download
+    }
 
     /**
      * Returns the observable which gets the image from the filesystem if it exists or downloads it
@@ -344,14 +379,14 @@ class Downloader(
      * @param download the download of the page.
      * @param tmpDir the temporary directory of the download.
      */
-    private fun getOrDownloadImage(
+    private suspend fun getOrDownloadImage(
         page: Page,
         download: Download,
         tmpDir: UniFile
-    ): Observable<Page> {
+    ): Page {
         // If the image URL is empty, do nothing
         if (page.imageUrl == null) {
-            return Observable.just(page)
+            return page
         }
 
         val filename = String.format("%03d", page.number)
@@ -363,31 +398,30 @@ class Downloader(
         // Try to find the image file.
         val imageFile = tmpDir.listFiles()!!.find { it.name!!.startsWith("$filename.") }
 
-        // If the image is already downloaded, do nothing. Otherwise download from network
-        val pageObservable =
-            when {
-                imageFile != null -> Observable.just(imageFile)
-                chapterCache.isImageInCache(
-                    page.imageUrl!!
-                ) -> copyImageFromCache(chapterCache.getImageFile(page.imageUrl!!), tmpDir, filename)
-                else -> downloadImage(page, download.source, tmpDir, filename)
-            }
+        try {
+            // If the image is already downloaded, do nothing. Otherwise download from network
+            val file =
+                when {
+                    imageFile != null -> imageFile
+                    chapterCache.isImageInCache(
+                        page.imageUrl!!
+                    ) -> copyImageFromCache(chapterCache.getImageFile(page.imageUrl!!), tmpDir, filename)
+                    else -> downloadImage(page, download.source, tmpDir, filename)
+                }
 
-        return pageObservable
             // When the image is ready, set image path, progress (just in case) and status
-            .doOnNext { file ->
-                page.uri = file.uri
-                page.progress = 100
-                download.downloadedImages++
-                page.status = Page.READY
-            }
-            .map { page }
+            page.uri = file.uri
+            page.progress = 100
+            download.downloadedImages++
+            page.status = Page.READY
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
             // Mark this page as error and allow to download the remaining
-            .onErrorReturn {
-                page.progress = 0
-                page.status = Page.ERROR
-                page
-            }
+            page.progress = 0
+            page.status = Page.ERROR
+        }
+        return page
     }
 
     /**
@@ -398,30 +432,28 @@ class Downloader(
      * @param tmpDir the temporary directory of the download.
      * @param filename the filename of the image.
      */
-    private fun downloadImage(
+    private suspend fun downloadImage(
         page: Page,
         source: HttpSource,
         tmpDir: UniFile,
         filename: String
-    ): Observable<UniFile> {
+    ): UniFile {
         page.status = Page.DOWNLOAD_IMAGE
         page.progress = 0
-        return /* SY --> If the source is E-Hentai request a new page if null */ Observable.just(Unit)
-            .flatMap {
+
+        // Retry 3 times, waiting 2, 4 and 8 seconds between attempts.
+        var lastError: Throwable? = null
+        repeat(4) { attempt ->
+            if (attempt > 0) {
+                delay((2 shl attempt - 1) * 1000L)
+            }
+            try {
+                // SY --> If the source is E-Hentai request a new page if null
                 if (page.imageUrl == null && source.isEhBasedSource()) {
-                    runAsObservable({ source.getImageUrl(page) })
-                } else {
-                    Observable.just(null)
+                    source.getImageUrl(page)?.let { page.imageUrl = it }
                 }
-            }
-            .doOnNext { imageUrl ->
-                if (imageUrl != null) page.imageUrl = imageUrl
-            }
-            .flatMap {
-                runAsObservable({ source.getImage(page) })
-            }
-            // SY <--
-            .map { response ->
+                // SY <--
+                val response = source.getImage(page)
                 val file = tmpDir.createFile("$filename.tmp")
                 try {
                     response.body.source().saveTo(file.openOutputStream())
@@ -435,10 +467,14 @@ class Downloader(
                     // SY <--
                     throw e
                 }
-                file
+                return file
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                lastError = e
             }
-            // Retry 3 times, waiting 2, 4 and 8 seconds between attempts.
-            .retryWhen(RetryWithDelay(3, { (2 shl it - 1) * 1000 }, Schedulers.trampoline()))
+        }
+        throw lastError ?: Exception("Failed to download image")
     }
 
     /**
@@ -452,19 +488,17 @@ class Downloader(
         cacheFile: File,
         tmpDir: UniFile,
         filename: String
-    ): Observable<UniFile> {
-        return Observable.just(cacheFile).map {
-            val tmpFile = tmpDir.createFile("$filename.tmp")
-            cacheFile.inputStream().use { input ->
-                tmpFile.openOutputStream().use { output ->
-                    input.copyTo(output)
-                }
+    ): UniFile {
+        val tmpFile = tmpDir.createFile("$filename.tmp")
+        cacheFile.inputStream().use { input ->
+            tmpFile.openOutputStream().use { output ->
+                input.copyTo(output)
             }
-            val extension = ImageUtil.findImageType(cacheFile.inputStream()) ?: return@map tmpFile
-            tmpFile.renameTo("$filename.${extension.extension}")
-            cacheFile.delete()
-            tmpFile
         }
+        val extension = ImageUtil.findImageType(cacheFile.inputStream()) ?: return tmpFile
+        tmpFile.renameTo("$filename.${extension.extension}")
+        cacheFile.delete()
+        return tmpFile
     }
 
     /**

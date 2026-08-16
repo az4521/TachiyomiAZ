@@ -16,9 +16,6 @@ import eu.kanade.tachiyomi.ui.base.controller.NucleusController
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flow
-import rx.Observable
-import rx.Subscription
-import rx.android.schedulers.AndroidSchedulers
 import java.util.HashMap
 import java.util.concurrent.TimeUnit
 
@@ -80,9 +77,8 @@ class DownloadController :
         binding.recycler.setHasFixedSize(true)
 
         // Subscribe to changes
-        DownloadService.runningRelay
-            .observeOn(AndroidSchedulers.mainThread())
-            .subscribeUntilDestroy { onQueueStatusChange(it) }
+        DownloadService.runningFlow
+            .collectUntilDestroy { onQueueStatusChange(it) }
 
         presenter.getDownloadStatusFlow()
             .collectUntilDestroy { onStatusChange(it) }
