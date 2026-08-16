@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.data.database
 
 import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.data.database.models.LibraryManga
+import eu.kanade.tachiyomi.data.database.models.MangaChapter
 import eu.kanade.tachiyomi.data.database.models.MangaImpl
 
 @Suppress("LongParameterList")
@@ -95,3 +96,58 @@ fun mapLibraryManga(
         it.unread = unread.toInt()
         it.category = category.toInt()
     }
+
+/**
+ * Maps a manga+chapter join into a [MangaChapter]. Mirrors MangaChapterGetResolver, including
+ * its two fixups: the manga id comes from the chapter's manga_id, and the manga url comes from
+ * the aliased mangaUrl column because both tables have a `url`.
+ */
+@Suppress("LongParameterList")
+fun mapMangaChapter(
+    mangaId: Long,
+    source: Long,
+    mangaUrl: String,
+    artist: String?,
+    author: String?,
+    description: String?,
+    genre: String?,
+    title: String,
+    status: Long,
+    thumbnailUrl: String?,
+    favorite: Long,
+    lastUpdate: Long?,
+    initialized: Long,
+    viewer: Long,
+    chapterFlags: Long,
+    coverLastModified: Long,
+    dateAdded: Long,
+    updateStrategy: Long,
+    mangaMemo: ByteArray,
+    chapterId: Long,
+    chapterMangaId: Long,
+    chapterUrl: String,
+    chapterName: String,
+    scanlator: String?,
+    read: Long,
+    bookmark: Long,
+    lastPageRead: Long,
+    chapterNumber: Double,
+    sourceOrder: Long,
+    dateFetch: Long,
+    dateUpload: Long,
+    chapterMemo: ByteArray
+): MangaChapter {
+    val manga =
+        mapManga(
+            mangaId, source, mangaUrl, artist, author, description, genre, title, status,
+            thumbnailUrl, favorite, lastUpdate, initialized, viewer, chapterFlags,
+            coverLastModified, dateAdded, updateStrategy, mangaMemo
+        )
+    val chapter =
+        mapChapter(
+            chapterId, chapterMangaId, chapterUrl, chapterName, scanlator, read, bookmark,
+            lastPageRead, chapterNumber, sourceOrder, dateFetch, dateUpload, chapterMemo
+        )
+    manga.id = chapter.manga_id
+    return MangaChapter(manga, chapter)
+}

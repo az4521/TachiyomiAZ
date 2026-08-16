@@ -70,3 +70,23 @@ getChaptersByMergedMangaId:
 SELECT chapters.* FROM chapters
 JOIN merged ON chapters.manga_id = merged.mangaID
 WHERE merged.mergeID = ?;
+
+-- Recently updated chapters of favourite manga. Projects both tables so the join can be
+-- mapped into a MangaChapter; mangaUrl is aliased because both tables have a `url` column.
+getRecentChapters:
+SELECT
+    mangas._id AS m_id, mangas.source AS m_source, mangas.url AS mangaUrl,
+    mangas.artist AS m_artist, mangas.author AS m_author, mangas.description AS m_description,
+    mangas.genre AS m_genre, mangas.title AS m_title, mangas.status AS m_status,
+    mangas.thumbnail_url AS m_thumbnail_url, mangas.favorite AS m_favorite,
+    mangas.last_update AS m_last_update, mangas.initialized AS m_initialized,
+    mangas.viewer AS m_viewer, mangas.chapter_flags AS m_chapter_flags,
+    mangas.cover_last_modified AS m_cover_last_modified, mangas.date_added AS m_date_added,
+    mangas.update_strategy AS m_update_strategy, mangas.memo AS m_memo,
+    chapters.*
+FROM mangas
+JOIN chapters ON mangas._id = chapters.manga_id
+WHERE mangas.favorite = 1
+AND chapters.date_upload > ?
+AND chapters.date_fetch > mangas.date_added
+ORDER BY chapters.date_upload DESC;

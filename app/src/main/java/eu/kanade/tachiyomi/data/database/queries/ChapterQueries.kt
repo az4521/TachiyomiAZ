@@ -4,16 +4,14 @@ import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import eu.kanade.tachiyomi.data.database.DbProvider
 import eu.kanade.tachiyomi.data.database.mapChapter
+import eu.kanade.tachiyomi.data.database.mapMangaChapter
 import eu.kanade.tachiyomi.data.database.memoColumnAdapter
 import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.data.database.models.MangaChapter
-import eu.kanade.tachiyomi.data.database.resolvers.MangaChapterGetResolver
-import eu.kanade.tachiyomi.data.database.tables.ChapterTable
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import java.util.Date
-import com.pushtorefresh.storio.sqlite.queries.RawQuery
 
 interface ChapterQueries : DbProvider {
     fun getChapters(manga: Manga): List<Chapter> = getChaptersByMangaId(manga.id)
@@ -37,22 +35,16 @@ interface ChapterQueries : DbProvider {
             .getChaptersByMergedMangaId(mangaId, ::mapChapter)
             .executeAsList()
 
-    /**
-     * Still on storio: this projects a manga+chapter join through MangaChapterGetResolver and
-     * needs its own composite mapper, which the mangas migration will provide.
-     */
-    fun getRecentChapters(date: Date) =
-        db.get()
-            .listOfObjects(MangaChapter::class.java)
-            .withQuery(
-                RawQuery.builder()
-                    .query(getRecentsQuery())
-                    .args(date.time)
-                    .observesTables(ChapterTable.TABLE)
-                    .build()
-            )
-            .withGetResolver(MangaChapterGetResolver.INSTANCE)
-            .prepare()
+    fun getRecentChapters(date: Date): List<MangaChapter> =
+        sqlDatabase.chaptersQueries
+            .getRecentChapters(date.time, ::mapMangaChapter)
+            .executeAsList()
+
+    fun getRecentChaptersAsFlow(date: Date): Flow<List<MangaChapter>> =
+        sqlDatabase.chaptersQueries
+            .getRecentChapters(date.time, ::mapMangaChapter)
+            .asFlow()
+            .mapToList(Dispatchers.IO)
 
     fun getChapter(id: Long): Chapter? =
         sqlDatabase.chaptersQueries.getChapterById(id, ::mapChapter).executeAsOneOrNull()

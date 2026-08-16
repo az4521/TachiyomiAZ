@@ -69,16 +69,6 @@ interface MangaQueries : DbProvider {
     fun getManga(id: Long): Manga? =
         sqlDatabase.mangasQueries.getMangaById(id, ::mapManga).executeAsOneOrNull()
 
-    fun getMergedMangasStorio(id: Long) =
-        db.get()
-            .listOfObjects(Manga::class.java)
-            .withQuery(
-                RawQuery.builder()
-                    .query(getMergedMangaQuery(id))
-                    .build()
-            )
-            .prepare()
-
     fun getMergedMangas(id: Long): List<Manga> =
         sqlDatabase.mangasQueries.getMergedMangas(id, ::mapManga).executeAsList()
 
