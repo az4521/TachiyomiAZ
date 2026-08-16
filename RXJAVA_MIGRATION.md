@@ -1,16 +1,17 @@
 # Migrating TachiyomiAZ off RxJava
 
-Status: in progress — Phases 0, 1 and 2 (separable part) done
+Status: in progress — Phases 0-3 largely done; reader, exh and sources remain
 Last updated: 2026-08-15
 Branch: `rxjava-migration`
 
-Files importing `rx.*`: **103 at start, 81 now.** Of the remaining 88, six must
-keep RxJava permanently as the extension shim: `Source.kt`, `CatalogueSource.kt`,
-`HttpSource.kt`, `source/model/Page.kt`, `network/OkHttpExtensions.kt`, and
-`util/lang/RxCoroutineBridge.kt`.
+Files importing `rx.*`: **103 at start, 60 now.**
 
-Remaining by area: `ui/` 33, `ui/reader/` 18, `data/` 7, `source/` 12, `exh/` 6,
-`util/` 4, `extension/` 2, `network/` 1.
+Six of those 60 must keep RxJava permanently as the extension shim:
+`Source.kt`, `CatalogueSource.kt`, `HttpSource.kt`, `source/model/Page.kt`,
+`network/OkHttpExtensions.kt`, and `util/lang/RxCoroutineBridge.kt`.
+
+Remaining by area: `ui/reader/` 18, `ui/` (other) 13, `source/` 12, `exh/` 6,
+`data/download/` 4, `util/` 4, `extension/` 2, `network/` 1.
 
 ## 1. The goal has to be restated
 
@@ -231,6 +232,64 @@ silently — stalled queues or a source being hammered — rather than crashing.
 
 **Still genuinely independent and not yet done:** the 38 `asRx*` DB call sites.
 These are mostly inside presenters, so they fall out of Phase 3 naturally.
+
+### Phase 3 — presenters — LARGELY DONE
+
+Converted: Category, Repo, Source, History, ExtensionDetails, MangaInfo, Video,
+Migration, Track, Download, Updates, Browse, GlobalSearch, Library, Extension,
+Chapters (partially), plus MangaController, MigrationController,
+MigrationListController and the settings controllers.
+
+**Delivery helpers added to `BasePresenter`**, because dropping Nucleus's
+`deliver*` transformers naively loses behaviour that matters:
+
+| Helper | Replaces | Semantics |
+|---|---|---|
+| `collectLatestCache` | `subscribeLatestCache` | holds the newest value while detached, drops superseded ones |
+| `collectReplay` | `subscribeReplay` | delivers every value in order, for incrementally built lists |
+| `deliverToView` | one-shot `subscribeFirst` | runs once, when a view is attached |
+
+`RxController` and `SettingsController` gained `collectUntilDestroy` /
+`collectUntilDetach` next to the Rx pair, backed by scopes with matching
+lifetimes.
+
+Two traps worth knowing before continuing:
+
+- A trailing lambda on `collectLatestCache` binds to `onError`, not `onNext`,
+  because `onError` is the last parameter. Pass `onNext` by name.
+- `MutableStateFlow(Unit)` never emits on re-set: StateFlow conflates equal
+  values. `BehaviorRelay<Unit>` triggers must become counters (LibraryPresenter)
+  or `MutableSharedFlow`.
+
+Relays converted so far map as: `BehaviorRelay` -> `MutableSharedFlow(replay = 1)`
+(or `MutableStateFlow`), `PublishRelay` -> `MutableSharedFlow` with no replay,
+`onBackpressureBuffer` -> `extraBufferCapacity`.
+
+### Remaining work
+
+**The reader (18 files) is the largest and least referenced chunk.**
+`ReaderPresenter`, `PagerPageHolder`, `WebtoonPageHolder`, `HttpPageLoader`,
+`ChapterLoader` and the page loaders. Upstream only covers these post-Compose,
+against `ReaderViewModel`. `HttpPageLoader` is the subtle one: a priority queue
+with Rx backpressure bounding page preloading, needing an explicit `Channel`
+plus `Semaphore`. It shares `Page`'s status subject with `Downloader`, so those
+two convert together.
+
+**`Downloader` (4 files with `data/download`)** — still the hardest single item;
+see the Phase 2 notes above. Its `groupBy(source) → concatMap` per-source
+serialisation and `flatMap(..., 5)` page cap must both survive.
+
+**`source/online/` (6 fork-specific files)** — `EHentai`, `NHentai`,
+`HentaiCafe`, `Pururin`, `Tsumino`, `LewdSource`, plus `HttpSourceFetcher` and
+`SourceManager`. `EHentai.fetchChapterList` is bridged with `awaitSingle` from
+the backup code today.
+
+**`exh/` (6 files)** — `RxUtil`, `EHentaiUpdateHelper`, and friends. No upstream
+reference at all. Leaving these on RxJava indefinitely remains legitimate.
+
+**Base classes last** — `BasePresenter` and `RxController` keep their Rx halves
+until every subclass is converted; `BasePresenter` cannot stop extending
+`RxPresenter` until Nucleus goes.
 
 ### Revised phase order
 
