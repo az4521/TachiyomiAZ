@@ -18,6 +18,8 @@ import eu.kanade.tachiyomi.data.library.LibraryUpdateRanker.rankingScheme
 import eu.kanade.tachiyomi.data.library.LibraryUpdateService.Companion.start
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
+import eu.kanade.tachiyomi.domain.library.selectLibraryMangaToUpdate
+import eu.kanade.tachiyomi.domain.library.ALL_CATEGORIES
 import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.source.model.SManga
@@ -242,28 +244,16 @@ class LibraryUpdateService(
         intent: Intent,
         target: Target
     ): List<LibraryManga> {
-        val categoryId = intent.getIntExtra(KEY_CATEGORY, -1)
+        val categoryId = intent.getIntExtra(KEY_CATEGORY, ALL_CATEGORIES)
 
-        var listToUpdate =
-            if (categoryId != -1) {
-                db.getLibraryMangas().filter { it.category == categoryId }
-            } else {
-                val categoriesToUpdate = preferences.libraryUpdateCategories().get().map(String::toInt)
-                if (categoriesToUpdate.isNotEmpty()) {
-                    db.getLibraryMangas()
-                        .filter { it.category in categoriesToUpdate }
-                        .distinctBy { it.id }
-                } else {
-                    db.getLibraryMangas().distinctBy { it.id }
-                }
-            }
-        if (target == Target.CHAPTERS && preferences.updateOnlyNonCompleted()) {
-            listToUpdate = listToUpdate.filter { it.status != SManga.COMPLETED }
-        }
-
-        listToUpdate = listToUpdate.filter { it.update_strategy != UpdateStrategy.ONLY_FETCH_ONCE }
-
-        return listToUpdate
+        // The rule itself lives in :core-domain so iOS reaches the same answer; everything
+        // platform-shaped is resolved here first.
+        return selectLibraryMangaToUpdate(
+            library = db.getLibraryMangas(),
+            categoryId = categoryId,
+            categoriesToUpdate = preferences.libraryUpdateCategories().get().map(String::toInt),
+            excludeCompleted = target == Target.CHAPTERS && preferences.updateOnlyNonCompleted()
+        )
     }
 
     /**
