@@ -631,7 +631,7 @@ class SettingsEhController : SettingsController() {
                                         db.getFavoriteMangaWithMetadata().filter {
                                             it.source == EH_SOURCE_ID || it.source == EXH_SOURCE_ID
                                         }.mapNotNull {
-                                            db.getFlatMetadataForManga(it.id!!).await()
+                                            db.getFlatMetadataForManga(it.id!!)
                                                 ?.raise<EHentaiSearchMetadata>()
                                         }.toList()
 

@@ -1,7 +1,6 @@
 package eu.kanade.tachiyomi.ui.library
 
 import android.util.Log
-import com.pushtorefresh.storio.sqlite.queries.RawQuery
 import eu.davidea.flexibleadapter.FlexibleAdapter
 import eu.kanade.tachiyomi.data.database.DatabaseHelper
 import eu.kanade.tachiyomi.data.database.models.Manga
@@ -98,12 +97,11 @@ class LibraryCategoryAdapter(view: LibraryCategoryView, val controller: LibraryC
                             // Prepare filter object
                             val parsedQuery = searchEngine.parseQuery(savedSearchText)
                             val sqlQuery = searchEngine.queryToSql(parsedQuery)
-                            val queryResult =
-                                db.lowLevel().rawQuery(
-                                    RawQuery.builder()
-                                        .query(sqlQuery.first)
-                                        .args(*sqlQuery.second.toTypedArray())
-                                        .build()
+                            val convertedResult =
+                                db.rawQueryIds(
+                                    sqlQuery.first,
+                                    sqlQuery.second,
+                                    SearchMetadataTable.COL_MANGA_ID
                                 )
 
                             ensureActive() // Fail early when cancelled
@@ -111,20 +109,6 @@ class LibraryCategoryAdapter(view: LibraryCategoryView, val controller: LibraryC
                             // SQLDelight returns the ids directly, so the manual cursor walk
                             // this used to need is gone.
                             val mangaWithMetaIds = db.getIdsOfFavoriteMangaWithMetadata().toLongArray()
-
-                            ensureActive() // Fail early when cancelled
-
-                            val convertedResult = LongArray(queryResult.count)
-                            if (convertedResult.isNotEmpty()) {
-                                val mangaIdCol = queryResult.getColumnIndex(SearchMetadataTable.COL_MANGA_ID)
-                                queryResult.moveToFirst()
-                                while (!queryResult.isAfterLast) {
-                                    ensureActive() // Fail early when cancelled
-
-                                    convertedResult[queryResult.position] = queryResult.getLong(mangaIdCol)
-                                    queryResult.moveToNext()
-                                }
-                            }
 
                             ensureActive() // Fail early when cancelled
 

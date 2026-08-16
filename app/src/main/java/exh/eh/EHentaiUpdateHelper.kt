@@ -78,7 +78,6 @@ class EHentaiUpdateHelper(context: Context) {
                         .flatMap { chain ->
                             val meta by lazy {
                                 db.getFlatMetadataForManga(chain.manga.id!!)
-                                    .executeAsBlocking()
                                     ?.raise<EHentaiSearchMetadata>()
                             }
 

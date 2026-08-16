@@ -177,7 +177,7 @@ class FullBackupManager(context: Context) : AbstractBackupManager(context) {
         val source = sourceManager.get(manga.source)?.getMainSource()
         if (source is LewdSource<*, *>) {
             manga.id?.let { mangaId ->
-                databaseHelper.getFlatMetadataForManga(mangaId).executeAsBlocking()?.let { flatMetadata ->
+                databaseHelper.getFlatMetadataForManga(mangaId)?.let { flatMetadata ->
                     mangaObject.flatMetadata = BackupFlatMetadata.copyFrom(flatMetadata)
                 }
             }
@@ -520,10 +520,10 @@ class FullBackupManager(context: Context) : AbstractBackupManager(context) {
         backupFlatMetadata: BackupFlatMetadata
     ) {
         manga.id?.let { mangaId ->
-            databaseHelper.getFlatMetadataForManga(mangaId).executeAsBlocking().let {
+            databaseHelper.getFlatMetadataForManga(mangaId).let {
                 if (it == null) {
                     val flatMetadata = backupFlatMetadata.getFlatMetadata(mangaId)
-                    databaseHelper.insertFlatMetadata(flatMetadata).await()
+                    databaseHelper.insertFlatMetadata(flatMetadata)
                 }
             }
         }

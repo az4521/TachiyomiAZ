@@ -145,7 +145,7 @@ class EHentaiUpdateWorker : JobService(), CoroutineScope {
                 }
 
                 val meta =
-                    db.getFlatMetadataForManga(manga.id!!).asRxSingle().await()
+                    db.getFlatMetadataForManga(manga.id!!)
                         ?: return@mapNotNull null
 
                 val raisedMeta = meta.raise<EHentaiSearchMetadata>()
@@ -275,12 +275,12 @@ class EHentaiUpdateWorker : JobService(), CoroutineScope {
             return new to db.getChapters(manga)
         } catch (t: Throwable) {
             if (t is EHentai.GalleryNotFoundException) {
-                val meta = db.getFlatMetadataForManga(manga.id!!).await()?.raise<EHentaiSearchMetadata>()
+                val meta = db.getFlatMetadataForManga(manga.id!!)?.raise<EHentaiSearchMetadata>()
                 if (meta != null) {
                     // Age dead galleries
                     logger.d("Aged %s - notfound", manga.id)
                     meta.aged = true
-                    db.insertFlatMetadata(meta.flatten()).await()
+                    db.insertFlatMetadata(meta.flatten())
                 }
                 throw GalleryNotUpdatedException(false, t)
             }

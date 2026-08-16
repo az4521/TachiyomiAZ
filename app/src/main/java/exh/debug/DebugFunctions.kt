@@ -62,11 +62,11 @@ object DebugFunctions {
                 }.toList()
 
             for (manga in allManga) {
-                val meta = db.getFlatMetadataForManga(manga.id!!).await()?.raise<EHentaiSearchMetadata>()
+                val meta = db.getFlatMetadataForManga(manga.id!!)?.raise<EHentaiSearchMetadata>()
                 if (meta != null) {
                     // remove age flag
                     meta.aged = false
-                    db.insertFlatMetadata(meta.flatten()).await()
+                    db.insertFlatMetadata(meta.flatten())
                 }
             }
         }
@@ -114,7 +114,7 @@ object DebugFunctions {
                 }.toList()
 
             for (manga in allManga) {
-                val meta = db.getFlatMetadataForManga(manga.id!!).await()?.raise<EHentaiSearchMetadata>()
+                val meta = db.getFlatMetadataForManga(manga.id!!)?.raise<EHentaiSearchMetadata>()
                 if (meta != null) {
                     // remove age flag
                     galleries += "Aged: ${meta.aged}\t Title: ${manga.title}"
@@ -138,7 +138,7 @@ object DebugFunctions {
                 }.toList()
 
             for (manga in allManga) {
-                val meta = db.getFlatMetadataForManga(manga.id!!).await()?.raise<EHentaiSearchMetadata>()
+                val meta = db.getFlatMetadataForManga(manga.id!!)?.raise<EHentaiSearchMetadata>()
                 if (meta != null && meta.aged) {
                     // remove age flag
                     agedAmount++

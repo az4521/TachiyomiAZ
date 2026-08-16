@@ -80,6 +80,32 @@ open class DatabaseHelper(context: Context) :
             .addTypeMapping(SearchTitle::class.java, SearchTitleTypeMapping())
             .build()
 
+    /**
+     * Runs a dynamically built query and returns the ids in its [idColumn].
+     *
+     * The exh search engine composes its SQL at runtime, so it cannot be a static SQLDelight
+     * query. It goes straight to the shared open helper rather than through storio.
+     */
+    fun rawQueryIds(
+        sql: String,
+        args: List<Any?>,
+        idColumn: String
+    ): LongArray {
+        openHelper.readableDatabase.query(sql, args.toTypedArray()).use { cursor ->
+            val ids = LongArray(cursor.count)
+            if (ids.isNotEmpty()) {
+                val idCol = cursor.getColumnIndexOrThrow(idColumn)
+                cursor.moveToFirst()
+                var i = 0
+                while (!cursor.isAfterLast) {
+                    ids[i++] = cursor.getLong(idCol)
+                    cursor.moveToNext()
+                }
+            }
+            return ids
+        }
+    }
+
     inline fun inTransaction(block: () -> Unit) = db.inTransaction(block)
 
     fun lowLevel() = db.lowLevel()
