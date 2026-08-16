@@ -65,9 +65,10 @@ class MangaUpdateCoordinator(
      *
      * @param force starts a new fetch even if a result is already available, for manual refreshes.
      * @param updateMetadata persists everything the source returned about the manga -- description,
-     *  status, genres, cover. Only the info tab asks for this: a refresh from the chapters tab is a
-     *  request for chapters, so it saves only the memo and leaves the rest of the row alone. The
-     *  fetch itself is shared either way, so this costs no extra network call.
+     *  status, genres, cover -- rather than just the memo. The info tab always passes true, since
+     *  showing the details is what it is for; the chapters tab defers to the "automatically refresh
+     *  metadata" setting, because a refresh from there is a request for chapters. The fetch itself
+     *  is shared either way, so this never costs an extra network call.
      */
     suspend fun awaitUpdate(force: Boolean = false, updateMetadata: Boolean = false): Result {
         val deferred =

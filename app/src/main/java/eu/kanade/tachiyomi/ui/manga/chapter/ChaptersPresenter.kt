@@ -217,7 +217,16 @@ class ChaptersPresenter(
                         withIOContext {
                             // The coordinator fetches and syncs; a source that returns nothing at
                             // all is still an error worth surfacing on this tab.
-                            updateCoordinator.awaitUpdate(force = manualFetch).chapters
+                            // A refresh from this tab is a request for chapters, so the metadata
+                            // that comes back with them is only persisted if the user asked for
+                            // metadata to be refreshed alongside chapter fetches. Off (the
+                            // default), only the memo is kept.
+                            updateCoordinator
+                                .awaitUpdate(
+                                    force = manualFetch,
+                                    updateMetadata = preferences.autoUpdateMetadata()
+                                )
+                                .chapters
                                 ?: throw NoChaptersException()
                         }
                     if (manualFetch) {
