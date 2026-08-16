@@ -1,9 +1,8 @@
 package eu.kanade.tachiyomi.source.model
 
 import kotlinx.serialization.json.JsonObject
-import java.io.Serializable
 
-interface SManga : Serializable {
+interface SManga : JavaSerializable {
     var url: String
 
     var title: String

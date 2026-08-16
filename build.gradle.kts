@@ -2,6 +2,7 @@ plugins {
     id("com.android.application") version BuildPluginsVersion.AGP apply false
     id("com.android.library") version BuildPluginsVersion.AGP apply false
     kotlin("android") version BuildPluginsVersion.KOTLIN apply false
+    kotlin("multiplatform") version BuildPluginsVersion.KOTLIN apply false
     kotlin("plugin.serialization") version BuildPluginsVersion.KOTLIN
     id("org.jlleitschuh.gradle.ktlint") version BuildPluginsVersion.KTLINT
     id("com.github.ben-manes.versions") version BuildPluginsVersion.VERSIONS_PLUGIN

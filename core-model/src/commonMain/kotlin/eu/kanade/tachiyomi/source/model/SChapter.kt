@@ -1,9 +1,8 @@
 package eu.kanade.tachiyomi.source.model
 
 import kotlinx.serialization.json.JsonObject
-import java.io.Serializable
 
-interface SChapter : Serializable {
+interface SChapter : JavaSerializable {
     var url: String
 
     var name: String

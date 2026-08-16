@@ -367,6 +367,8 @@ dependencies {
     testImplementation "org.robolectric:shadows-multidex:$robolectric_version"
     testImplementation "org.robolectric:shadows-play-services:$robolectric_version"
 
+    implementation project(":core-model")
+
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
     implementation "org.jetbrains.kotlin:kotlin-reflect:$kotlin_version"
 
