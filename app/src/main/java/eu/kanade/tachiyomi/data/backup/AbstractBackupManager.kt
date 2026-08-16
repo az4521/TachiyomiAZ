@@ -82,14 +82,14 @@ abstract class AbstractBackupManager(protected val context: Context) {
      * Inserts list of chapters
      */
     protected fun insertChapters(chapters: List<Chapter>) {
-        databaseHelper.insertChapters(chapters).executeAsBlocking()
+        databaseHelper.insertChapters(chapters)
     }
 
     /**
      * Updates a list of chapters
      */
     protected fun updateChapters(chapters: List<Chapter>) {
-        databaseHelper.updateChaptersBackup(chapters).executeAsBlocking()
+        databaseHelper.updateChaptersBackup(chapters)
     }
 
     /**

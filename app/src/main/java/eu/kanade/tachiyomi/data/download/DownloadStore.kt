@@ -88,7 +88,7 @@ class DownloadStore(
                         db.getManga(mangaId).executeAsBlocking()
                     } ?: continue
                 val source = sourceManager.get(manga.source) as? HttpSource ?: continue
-                val chapter = db.getChapter(chapterId).executeAsBlocking() ?: continue
+                val chapter = db.getChapter(chapterId) ?: continue
                 downloads.add(Download(source, manga, chapter))
             }
         }

@@ -283,7 +283,7 @@ class LegacyBackupManager(context: Context, version: Int = CURRENT_VERSION) : Ab
             // Check if user wants chapter information in backup
             if (options and BACKUP_CHAPTER_MASK == BACKUP_CHAPTER) {
                 // Backup all the chapters
-                val chapters = databaseHelper.getChapters(manga).executeAsBlocking()
+                val chapters = databaseHelper.getChapters(manga)
                 if (chapters.isNotEmpty()) {
                     val chaptersJson = JsonArray(chapters.mapNotNull { chapterToJson(it) })
                     if (chaptersJson.size > 0) {
@@ -320,7 +320,7 @@ class LegacyBackupManager(context: Context, version: Int = CURRENT_VERSION) : Ab
                 if (historyForManga.isNotEmpty()) {
                     val historyData =
                         historyForManga.mapNotNull { history ->
-                            val url = databaseHelper.getChapter(history.chapter_id).executeAsBlocking()?.url
+                            val url = databaseHelper.getChapter(history.chapter_id)?.url
                             url?.let { DHistory(url, history.last_read) }
                         }
                     val historyJson = JsonArray(historyData.mapNotNull { historyToJson(it) })
@@ -441,7 +441,7 @@ class LegacyBackupManager(context: Context, version: Int = CURRENT_VERSION) : Ab
                 historyToBeUpdated.add(dbHistory)
             } else {
                 // If not in database create
-                databaseHelper.getChapter(url).executeAsBlocking()?.let {
+                databaseHelper.getChapter(url)?.let {
                     val historyToAdd =
                         History.create(it).apply {
                             last_read = lastRead
@@ -513,7 +513,7 @@ class LegacyBackupManager(context: Context, version: Int = CURRENT_VERSION) : Ab
         manga: Manga,
         chapters: List<Chapter>
     ): Boolean {
-        val dbChapters = databaseHelper.getChapters(manga).executeAsBlocking()
+        val dbChapters = databaseHelper.getChapters(manga)
 
         // Return if fetch is needed
         if (dbChapters.isEmpty() || dbChapters.size < chapters.size) {

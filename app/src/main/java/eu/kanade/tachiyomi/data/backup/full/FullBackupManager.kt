@@ -187,7 +187,7 @@ class FullBackupManager(context: Context) : AbstractBackupManager(context) {
         // Check if user wants chapter information in backup
         if (options and BACKUP_CHAPTER_MASK == BACKUP_CHAPTER) {
             // Backup all the chapters
-            val chapters = databaseHelper.getChapters(manga).executeAsBlocking()
+            val chapters = databaseHelper.getChapters(manga)
             if (chapters.isNotEmpty()) {
                 mangaObject.chapters = chapters.map { BackupChapter.copyFrom(it) }
             }
@@ -216,7 +216,7 @@ class FullBackupManager(context: Context) : AbstractBackupManager(context) {
             if (historyForManga.isNotEmpty()) {
                 val history =
                     historyForManga.mapNotNull { history ->
-                        val url = databaseHelper.getChapter(history.chapter_id).executeAsBlocking()?.url
+                        val url = databaseHelper.getChapter(history.chapter_id)?.url
                         url?.let { BackupHistory(url, history.last_read) }
                     }
                 if (history.isNotEmpty()) {
@@ -346,7 +346,7 @@ class FullBackupManager(context: Context) : AbstractBackupManager(context) {
                 historyToBeUpdated.add(dbHistory)
             } else {
                 // If not in database create
-                databaseHelper.getChapter(url).executeAsBlocking()?.let {
+                databaseHelper.getChapter(url)?.let {
                     val historyToAdd =
                         History.create(it).apply {
                             last_read = lastRead
@@ -418,7 +418,7 @@ class FullBackupManager(context: Context) : AbstractBackupManager(context) {
         manga: Manga,
         chapters: List<Chapter>
     ): Boolean {
-        val dbChapters = databaseHelper.getChapters(manga).executeAsBlocking()
+        val dbChapters = databaseHelper.getChapters(manga)
 
         // Return if fetch is needed
         if (dbChapters.isEmpty() || dbChapters.size < chapters.size) {
@@ -454,7 +454,7 @@ class FullBackupManager(context: Context) : AbstractBackupManager(context) {
         manga: Manga,
         chapters: List<Chapter>
     ) {
-        val dbChapters = databaseHelper.getChapters(manga).executeAsBlocking()
+        val dbChapters = databaseHelper.getChapters(manga)
 
         chapters.forEach { chapter ->
             val pos = dbChapters.indexOfFirst { it.url == chapter.url }

@@ -7,6 +7,8 @@ import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.ui.base.presenter.BasePresenter
+import kotlinx.coroutines.launch
+import eu.kanade.tachiyomi.util.system.withIOContext
 import eu.kanade.tachiyomi.util.lang.asFlow
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.take
@@ -30,16 +32,14 @@ class VideoPresenter(
     fun init(episodeId: Long) {
         if (!needsInit()) return
 
-        db.getChapter(episodeId).asRxObservable()
-            .asFlow()
-            .take(1)
-            .onEach { init(it) }
-            .collectLatestCache(
-                { _, _ ->
-                    // Ignore onNext event
-                },
-                VideoActivity::initError
-            )
+        presenterScope.launch {
+            try {
+                val chapter = withIOContext { db.getChapter(episodeId) }
+                if (chapter != null) init(chapter)
+            } catch (error: Throwable) {
+                view?.initError(error)
+            }
+        }
     }
 
     fun init(initEpisode: Chapter) {

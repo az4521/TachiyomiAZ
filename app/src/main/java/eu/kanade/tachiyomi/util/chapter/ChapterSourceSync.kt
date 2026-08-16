@@ -54,7 +54,7 @@ fun syncChaptersWithSource(
     val downloadManager: DownloadManager = Injekt.get()
 
     // Chapters from db.
-    val dbChapters = db.getChapters(manga).executeAsBlocking()
+    val dbChapters = db.getChapters(manga)
 
     val sourceChapters =
         rawSourceChapters
@@ -136,7 +136,7 @@ fun syncChaptersWithSource(
                 }
                 deletedChapterNumbers.add(c.chapter_number)
             }
-            db.deleteChapters(toDelete).executeAsBlocking()
+            db.deleteChapters(toDelete)
         }
 
         if (toAdd.isNotEmpty()) {
@@ -170,18 +170,17 @@ fun syncChaptersWithSource(
             }
             // <-- EXH
 
-            val chapters = db.insertChapters(toAdd).executeAsBlocking()
-            toAdd.forEach { chapter ->
-                chapter.id = chapters.results().getValue(chapter).insertedId()
-            }
+            // insertChapters assigns each generated id back onto its chapter, which is what
+            // PutResults.insertedId() was being read for.
+            db.insertChapters(toAdd)
         }
 
         if (toChange.isNotEmpty()) {
-            db.insertChapters(toChange).executeAsBlocking()
+            db.insertChapters(toChange)
         }
 
         // Fix order in source.
-        db.fixChaptersSourceOrder(sourceChapters).executeAsBlocking()
+        db.fixChaptersSourceOrder(sourceChapters)
 
         // Set this manga as updated since chapters were changed
         manga.last_update = Date().time

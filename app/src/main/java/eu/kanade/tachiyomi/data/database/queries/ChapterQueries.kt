@@ -1,53 +1,46 @@
 package eu.kanade.tachiyomi.data.database.queries
 
-import com.pushtorefresh.storio.sqlite.queries.Query
-import com.pushtorefresh.storio.sqlite.queries.RawQuery
+import app.cash.sqldelight.coroutines.asFlow
+import app.cash.sqldelight.coroutines.mapToList
 import eu.kanade.tachiyomi.data.database.DbProvider
+import eu.kanade.tachiyomi.data.database.mapChapter
+import eu.kanade.tachiyomi.data.database.memoColumnAdapter
 import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.data.database.models.MangaChapter
-import eu.kanade.tachiyomi.data.database.resolvers.ChapterBackupPutResolver
-import eu.kanade.tachiyomi.data.database.resolvers.ChapterProgressPutResolver
-import eu.kanade.tachiyomi.data.database.resolvers.ChapterSourceOrderPutResolver
 import eu.kanade.tachiyomi.data.database.resolvers.MangaChapterGetResolver
 import eu.kanade.tachiyomi.data.database.tables.ChapterTable
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import java.util.Date
+import com.pushtorefresh.storio.sqlite.queries.RawQuery
 
 interface ChapterQueries : DbProvider {
-    fun getChapters(manga: Manga) = getChaptersByMangaId(manga.id)
+    fun getChapters(manga: Manga): List<Chapter> = getChaptersByMangaId(manga.id)
 
-    fun getAllChapters() =
-        db.get()
-            .listOfObjects(Chapter::class.java)
-            .withQuery(
-                Query.builder()
-                    .table(ChapterTable.TABLE)
-                    .build()
-            )
-            .prepare()
+    fun getAllChapters(): List<Chapter> =
+        sqlDatabase.chaptersQueries.getAllChapters(::mapChapter).executeAsList()
 
-    fun getChaptersByMangaId(mangaId: Long?) =
-        db.get()
-            .listOfObjects(Chapter::class.java)
-            .withQuery(
-                Query.builder()
-                    .table(ChapterTable.TABLE)
-                    .where("${ChapterTable.COL_MANGA_ID} = ?")
-                    .whereArgs(mangaId)
-                    .build()
-            )
-            .prepare()
+    fun getChaptersByMangaId(mangaId: Long?): List<Chapter> =
+        sqlDatabase.chaptersQueries
+            .getChaptersByMangaId(mangaId ?: 0L, ::mapChapter)
+            .executeAsList()
 
-    fun getChaptersByMergedMangaId(mangaId: Long) =
-        db.get()
-            .listOfObjects(Chapter::class.java)
-            .withQuery(
-                RawQuery.builder()
-                    .query(getMergedChaptersQuery(mangaId))
-                    .build()
-            )
-            .prepare()
+    fun getChaptersByMangaIdAsFlow(mangaId: Long?): Flow<List<Chapter>> =
+        sqlDatabase.chaptersQueries
+            .getChaptersByMangaId(mangaId ?: 0L, ::mapChapter)
+            .asFlow()
+            .mapToList(Dispatchers.IO)
 
+    fun getChaptersByMergedMangaId(mangaId: Long): List<Chapter> =
+        sqlDatabase.chaptersQueries
+            .getChaptersByMergedMangaId(mangaId, ::mapChapter)
+            .executeAsList()
+
+    /**
+     * Still on storio: this projects a manga+chapter join through MangaChapterGetResolver and
+     * needs its own composite mapper, which the mangas migration will provide.
+     */
     fun getRecentChapters(date: Date) =
         db.get()
             .listOfObjects(MangaChapter::class.java)
@@ -61,85 +54,110 @@ interface ChapterQueries : DbProvider {
             .withGetResolver(MangaChapterGetResolver.INSTANCE)
             .prepare()
 
-    fun getChapter(id: Long) =
-        db.get()
-            .`object`(Chapter::class.java)
-            .withQuery(
-                Query.builder()
-                    .table(ChapterTable.TABLE)
-                    .where("${ChapterTable.COL_ID} = ?")
-                    .whereArgs(id)
-                    .build()
-            )
-            .prepare()
+    fun getChapter(id: Long): Chapter? =
+        sqlDatabase.chaptersQueries.getChapterById(id, ::mapChapter).executeAsOneOrNull()
 
-    fun getChapter(url: String) =
-        db.get()
-            .`object`(Chapter::class.java)
-            .withQuery(
-                Query.builder()
-                    .table(ChapterTable.TABLE)
-                    .where("${ChapterTable.COL_URL} = ?")
-                    .whereArgs(url)
-                    .build()
-            )
-            .prepare()
+    fun getChapter(url: String): Chapter? =
+        sqlDatabase.chaptersQueries.getChapterByUrl(url, ::mapChapter).executeAsOneOrNull()
 
     fun getChapter(
         url: String,
         mangaId: Long
-    ) = db.get()
-        .`object`(Chapter::class.java)
-        .withQuery(
-            Query.builder()
-                .table(ChapterTable.TABLE)
-                .where("${ChapterTable.COL_URL} = ? AND ${ChapterTable.COL_MANGA_ID} = ?")
-                .whereArgs(url, mangaId)
-                .build()
-        )
-        .prepare()
+    ): Chapter? =
+        sqlDatabase.chaptersQueries
+            .getChapterByUrlAndMangaId(url, mangaId, ::mapChapter)
+            .executeAsOneOrNull()
 
-    fun getChapters(url: String) =
-        db.get()
-            .listOfObjects(Chapter::class.java)
-            .withQuery(
-                Query.builder()
-                    .table(ChapterTable.TABLE)
-                    .where("${ChapterTable.COL_URL} = ?")
-                    .whereArgs(url)
-                    .build()
+    fun getChapters(url: String): List<Chapter> =
+        sqlDatabase.chaptersQueries.getChaptersByUrl(url, ::mapChapter).executeAsList()
+
+    fun insertChapter(chapter: Chapter) {
+        sqlDatabase.chaptersQueries.transaction {
+            val id = chapter.id
+            if (id == null) {
+                sqlDatabase.chaptersQueries.insertChapter(
+                    chapter.manga_id!!,
+                    chapter.url,
+                    chapter.name,
+                    chapter.scanlator,
+                    if (chapter.read) 1L else 0L,
+                    if (chapter.bookmark) 1L else 0L,
+                    chapter.last_page_read.toLong(),
+                    chapter.chapter_number.toDouble(),
+                    chapter.source_order.toLong(),
+                    chapter.date_fetch,
+                    chapter.date_upload,
+                    memoColumnAdapter.encode(chapter.memo)
+                )
+                chapter.id = sqlDatabase.chaptersQueries.lastInsertRowId().executeAsOne()
+            } else {
+                sqlDatabase.chaptersQueries.updateChapter(
+                    chapter.manga_id!!,
+                    chapter.url,
+                    chapter.name,
+                    chapter.scanlator,
+                    if (chapter.read) 1L else 0L,
+                    if (chapter.bookmark) 1L else 0L,
+                    chapter.last_page_read.toLong(),
+                    chapter.chapter_number.toDouble(),
+                    chapter.source_order.toLong(),
+                    chapter.date_fetch,
+                    chapter.date_upload,
+                    memoColumnAdapter.encode(chapter.memo),
+                    id
+                )
+            }
+        }
+    }
+
+    fun insertChapters(chapters: List<Chapter>) {
+        sqlDatabase.chaptersQueries.transaction {
+            chapters.forEach { insertChapter(it) }
+        }
+    }
+
+    fun deleteChapter(chapter: Chapter) {
+        chapter.id?.let { sqlDatabase.chaptersQueries.deleteChapter(it) }
+    }
+
+    fun deleteChapters(chapters: List<Chapter>) {
+        sqlDatabase.chaptersQueries.transaction {
+            chapters.forEach { deleteChapter(it) }
+        }
+    }
+
+    /** ChapterBackupPutResolver wrote read, bookmark and last_page_read only. */
+    fun updateChaptersBackup(chapters: List<Chapter>) = updateChaptersProgress(chapters)
+
+    /** ChapterProgressPutResolver wrote read, bookmark and last_page_read only. */
+    fun updateChapterProgress(chapter: Chapter) {
+        chapter.id?.let {
+            sqlDatabase.chaptersQueries.updateChapterProgress(
+                if (chapter.read) 1L else 0L,
+                if (chapter.bookmark) 1L else 0L,
+                chapter.last_page_read.toLong(),
+                it
             )
-            .prepare()
+        }
+    }
 
-    fun insertChapter(chapter: Chapter) = db.put().`object`(chapter).prepare()
+    fun updateChaptersProgress(chapters: List<Chapter>) {
+        sqlDatabase.chaptersQueries.transaction {
+            chapters.forEach { updateChapterProgress(it) }
+        }
+    }
 
-    fun insertChapters(chapters: List<Chapter>) = db.put().objects(chapters).prepare()
-
-    fun deleteChapter(chapter: Chapter) = db.delete().`object`(chapter).prepare()
-
-    fun deleteChapters(chapters: List<Chapter>) = db.delete().objects(chapters).prepare()
-
-    fun updateChaptersBackup(chapters: List<Chapter>) =
-        db.put()
-            .objects(chapters)
-            .withPutResolver(ChapterBackupPutResolver())
-            .prepare()
-
-    fun updateChapterProgress(chapter: Chapter) =
-        db.put()
-            .`object`(chapter)
-            .withPutResolver(ChapterProgressPutResolver())
-            .prepare()
-
-    fun updateChaptersProgress(chapters: List<Chapter>) =
-        db.put()
-            .objects(chapters)
-            .withPutResolver(ChapterProgressPutResolver())
-            .prepare()
-
-    fun fixChaptersSourceOrder(chapters: List<Chapter>) =
-        db.put()
-            .objects(chapters)
-            .withPutResolver(ChapterSourceOrderPutResolver())
-            .prepare()
+    /** ChapterSourceOrderPutResolver wrote source_order only. */
+    fun fixChaptersSourceOrder(chapters: List<Chapter>) {
+        sqlDatabase.chaptersQueries.transaction {
+            chapters.forEach { chapter ->
+                chapter.id?.let {
+                    sqlDatabase.chaptersQueries.updateChapterSourceOrder(
+                        chapter.source_order.toLong(),
+                        it
+                    )
+                }
+            }
+        }
+    }
 }

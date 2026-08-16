@@ -398,7 +398,7 @@ class LibraryPresenter(
         mangas.forEach { manga ->
             launchIO {
                 val chapters =
-                    db.getChapters(manga).executeAsBlocking()
+                    db.getChapters(manga)
                         .filter { !it.read }
 
                 downloadManager.downloadChapters(manga, chapters)
@@ -417,14 +417,14 @@ class LibraryPresenter(
     ) {
         mangas.forEach { manga ->
             launchIO {
-                val chapters = db.getChapters(manga).executeAsBlocking()
+                val chapters = db.getChapters(manga)
                 chapters.forEach {
                     it.read = read
                     if (!read) {
                         it.last_page_read = 0
                     }
                 }
-                db.updateChaptersProgress(chapters).executeAsBlocking()
+                db.updateChaptersProgress(chapters)
 
                 if (preferences.removeAfterMarkedAsRead()) {
                     deleteChapters(manga, chapters)
@@ -541,17 +541,17 @@ class LibraryPresenter(
                     // Worst case, chapters won't be synced
                 }
 
-                val prevMangaChapters = db.getChapters(prevManga).executeAsBlocking()
+                val prevMangaChapters = db.getChapters(prevManga)
                 val maxChapterRead =
                     prevMangaChapters.filter { it.read }.maxByOrNull { it.chapter_number }?.chapter_number
                 if (maxChapterRead != null) {
-                    val dbChapters = db.getChapters(manga).executeAsBlocking()
+                    val dbChapters = db.getChapters(manga)
                     for (chapter in dbChapters) {
                         if (chapter.isRecognizedNumber && chapter.chapter_number <= maxChapterRead) {
                             chapter.read = true
                         }
                     }
-                    db.insertChapters(dbChapters).executeAsBlocking()
+                    db.insertChapters(dbChapters)
                 }
             }
             // Update categories
@@ -631,7 +631,7 @@ class LibraryPresenter(
 
     /** Returns first unread chapter of a manga */
     fun getFirstUnread(manga: Manga): Chapter? {
-        val chapters = db.getChapters(manga).executeAsBlocking()
+        val chapters = db.getChapters(manga)
         return if (manga.source == EH_SOURCE_ID || manga.source == EXH_SOURCE_ID) {
             val chapter = chapters.sortedBy { it.source_order }.getOrNull(0)
             if (chapter?.read == false) chapter else null

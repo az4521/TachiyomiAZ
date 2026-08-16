@@ -100,7 +100,7 @@ class ReaderPresenter(
      */
     private val chapterList by lazy {
         val manga = manga!!
-        val dbChapters = db.getChapters(manga).executeAsBlocking()
+        val dbChapters = db.getChapters(manga)
 
         val selectedChapter =
             dbChapters.find { it.id == chapterId }
@@ -409,10 +409,14 @@ class ReaderPresenter(
      * Saves this [chapter] progress (last read page and whether it's read).
      */
     private fun saveChapterProgress(chapter: ReaderChapter) {
-        db.updateChapterProgress(chapter.chapter).asRxCompletable()
-            .onErrorComplete()
-            .subscribeOn(Schedulers.io())
-            .subscribe()
+        launchIO {
+            try {
+                db.updateChapterProgress(chapter.chapter)
+            } catch (e: Throwable) {
+                // Previously onErrorComplete.
+                Timber.e(e)
+            }
+        }
     }
 
     /**
@@ -470,7 +474,7 @@ class ReaderPresenter(
 
         val chapter = getCurrentChapter()?.chapter!!
         chapter.bookmark = bookmarked
-        db.updateChapterProgress(chapter).executeAsBlocking()
+        db.updateChapterProgress(chapter)
     }
 
     /**

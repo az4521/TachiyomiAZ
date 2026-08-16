@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import eu.kanade.tachiyomi.ui.manga.MangaUpdateCoordinator
@@ -97,13 +98,12 @@ class ChaptersPresenter(
 
         // Add the subscription that retrieves the chapters from the database, keeps subscribed to
         // changes, and sends the list of chapters to the relay.
-        add(
-            db.getChapters(manga).asRxObservable()
-                .map { chapters ->
-                    // Convert every chapter to a model.
-                    chapters.map { it.toModel() }
-                }
-                .doOnNext { chapters ->
+        db.getChaptersByMangaIdAsFlow(manga.id)
+            .map { chapters ->
+                // Convert every chapter to a model.
+                chapters.map { it.toModel() }
+            }
+            .onEach { chapters ->
                     // Find downloaded chapters
                     setDownloadedChapters(chapters)
 
@@ -150,9 +150,9 @@ class ChaptersPresenter(
                         )
                     }
                     // EXH <--
-                }
-                .subscribe { chaptersFlow.tryEmit(it) }
-        )
+            }
+            .onEach { chaptersFlow.tryEmit(it) }
+            .launchIn(presenterScope)
     }
 
     private fun observeDownloads() {
@@ -320,7 +320,7 @@ class ChaptersPresenter(
             }
 
         launchIO {
-            db.updateChaptersProgress(chapters).executeAsBlocking()
+            db.updateChaptersProgress(chapters)
 
             if (read && preferences.autoUpdateTrack() && preferences.trackMarkedAsRead()) {
                 chapters.maxOfOrNull { it.chapter_number }
@@ -366,7 +366,7 @@ class ChaptersPresenter(
             selectedChapters.forEach { chapter ->
                 chapter.bookmark = bookmarked
             }
-            db.updateChaptersProgress(selectedChapters).executeAsBlocking()
+            db.updateChaptersProgress(selectedChapters)
         }
     }
 

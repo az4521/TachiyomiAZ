@@ -37,7 +37,7 @@ class EHentaiUpdateHelper(context: Context) {
         val chainsObservable =
             Observable.merge(
                 chapters.map { chapter ->
-                    db.getChapters(chapter.url).asRxSingle().toObservable()
+                    Single.fromCallable { db.getChapters(chapter.url) }.toObservable()
                 }
             ).toList().map { allChapters ->
                 allChapters.flatMap { innerChapters -> innerChapters.map { it.manga_id!! } }.distinct()
@@ -46,7 +46,7 @@ class EHentaiUpdateHelper(context: Context) {
                     mangaIds.map { mangaId ->
                         Single.zip(
                             db.getManga(mangaId).asRxSingle(),
-                            db.getChaptersByMangaId(mangaId).asRxSingle()
+                            Single.fromCallable { db.getChaptersByMangaId(mangaId) }
                         ) { manga, chapters ->
                             ChapterChain(manga, chapters)
                         }.toObservable().filter {
@@ -153,7 +153,7 @@ class EHentaiUpdateHelper(context: Context) {
                     // Apply changes to all manga
                     db.insertMangas(rootsToMutate.map { it.manga }).executeAsBlocking()
                     // Insert new chapters for accepted manga
-                    db.insertChapters(newAccepted.chapters).executeAsBlocking()
+                    db.insertChapters(newAccepted.chapters)
                     // Copy categories from all chains to accepted manga
                     val newCategories =
                         rootsToMutate.flatMap {

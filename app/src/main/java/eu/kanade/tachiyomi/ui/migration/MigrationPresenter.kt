@@ -143,17 +143,17 @@ class MigrationPresenter(
                     // Worst case, chapters won't be synced
                 }
 
-                val prevMangaChapters = db.getChapters(prevManga).executeAsBlocking()
+                val prevMangaChapters = db.getChapters(prevManga)
                 val maxChapterRead =
                     prevMangaChapters.filter { it.read }.maxByOrNull { it.chapter_number }?.chapter_number
                 if (maxChapterRead != null) {
-                    val dbChapters = db.getChapters(manga).executeAsBlocking()
+                    val dbChapters = db.getChapters(manga)
                     for (chapter in dbChapters) {
                         if (chapter.isRecognizedNumber && chapter.chapter_number <= maxChapterRead) {
                             chapter.read = true
                         }
                     }
-                    db.insertChapters(dbChapters).executeAsBlocking()
+                    db.insertChapters(dbChapters)
                 }
             }
             // Update categories

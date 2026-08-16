@@ -156,7 +156,7 @@ class EHentaiUpdateWorker : JobService(), CoroutineScope {
                 }
 
                 val chapter =
-                    db.getChaptersByMangaId(manga.id!!).asRxSingle().await().minByOrNull {
+                    db.getChaptersByMangaId(manga.id!!).minByOrNull {
                         it.date_upload
                     }
 
@@ -272,7 +272,7 @@ class EHentaiUpdateWorker : JobService(), CoroutineScope {
 
             val newChapters = source.getMangaUpdate(manga, emptyList(), fetchDetails = false, fetchChapters = true).chapters
             val (new, _) = syncChaptersWithSource(db, newChapters, manga, source) // Not suspending, but does block, maybe fix this?
-            return new to db.getChapters(manga).await()
+            return new to db.getChapters(manga)
         } catch (t: Throwable) {
             if (t is EHentai.GalleryNotFoundException) {
                 val meta = db.getFlatMetadataForManga(manga.id!!).await()?.raise<EHentaiSearchMetadata>()

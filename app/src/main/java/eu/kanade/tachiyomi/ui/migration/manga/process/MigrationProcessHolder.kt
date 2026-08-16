@@ -169,7 +169,7 @@ class MigrationProcessHolder(
                 source.toString()
             }
 
-        val mangaChaptersDB = db.getChapters(manga).executeAsBlocking()
+        val mangaChaptersDB = db.getChapters(manga)
         mangaChapters.visible()
         mangaChapters.text = mangaChaptersDB.size.toString()
         val latestChapter = mangaChaptersDB.maxByOrNull { it.chapter_number }?.chapter_number ?: -1f

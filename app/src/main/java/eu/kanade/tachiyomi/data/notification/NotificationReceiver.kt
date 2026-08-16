@@ -182,7 +182,7 @@ class NotificationReceiver : BroadcastReceiver() {
     ) {
         val db = DatabaseHelper(context)
         val manga = db.getManga(mangaId).executeAsBlocking()
-        val chapter = db.getChapter(chapterId).executeAsBlocking()
+        val chapter = db.getChapter(chapterId)
         if (manga != null && chapter != null) {
             val intent =
                 ReaderActivity.newIntent(context, manga, chapter).apply {
@@ -258,10 +258,10 @@ class NotificationReceiver : BroadcastReceiver() {
         val sourceManager: SourceManager = Injekt.get()
 
         launchIO {
-            chapterUrls.mapNotNull { db.getChapter(it, mangaId).executeAsBlocking() }
+            chapterUrls.mapNotNull { db.getChapter(it, mangaId) }
                 .forEach {
                     it.read = true
-                    db.updateChapterProgress(it).executeAsBlocking()
+                    db.updateChapterProgress(it)
                     if (preferences.removeAfterMarkedAsRead()) {
                         val manga = db.getManga(mangaId).executeAsBlocking()
                         if (manga != null) {

@@ -170,7 +170,7 @@ object DebugFunctions {
             val libraryManga = db.getLibraryMangas().await()
             val databaseManga = db.getMangas().await()
             val databaseTracks = db.getAllTracks()
-            val databaseChapters = db.getAllChapters().await()
+            val databaseChapters = db.getAllChapters()
 
             val databaseMangaMap = databaseManga.associateBy { it.id }
 

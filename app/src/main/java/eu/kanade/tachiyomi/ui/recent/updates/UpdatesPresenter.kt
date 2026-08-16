@@ -151,7 +151,7 @@ class UpdatesPresenter(
             }
         }
 
-        launchIO { db.updateChaptersProgress(chapters).executeAsBlocking() }
+        launchIO { db.updateChaptersProgress(chapters) }
 
         if (read && preferences.autoUpdateTrack() && preferences.trackMarkedAsRead()) {
             // Chapters here can span several manga, so sync each one to its own highest chapter.

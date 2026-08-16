@@ -163,7 +163,7 @@ class HistoryPresenter : BasePresenter<HistoryController>() {
             }
 
         val chapters =
-            db.getChapters(manga).executeAsBlocking()
+            db.getChapters(manga)
                 .sortedWith(Comparator { c1, c2 -> sortFunction(c1, c2) })
 
         val currChapterIndex = chapters.indexOfFirst { chapter.id == it.id }
