@@ -1,8 +1,6 @@
 package eu.kanade.tachiyomi.ui.manga.chapter
 
 import android.os.Bundle
-import com.jakewharton.rxrelay.BehaviorRelay
-import com.jakewharton.rxrelay.PublishRelay
 import eu.kanade.tachiyomi.data.cache.ChapterCache
 import eu.kanade.tachiyomi.data.database.DatabaseHelper
 import eu.kanade.tachiyomi.data.database.models.Chapter
@@ -12,8 +10,11 @@ import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.ui.base.presenter.BasePresenter
+import eu.kanade.tachiyomi.util.system.withIOContext
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import eu.kanade.tachiyomi.ui.manga.MangaUpdateCoordinator
 import eu.kanade.tachiyomi.util.chapter.NoChaptersException
@@ -43,9 +44,9 @@ import java.util.Date
 class ChaptersPresenter(
     val manga: Manga,
     val source: Source,
-    private val chapterCountRelay: BehaviorRelay<Float>,
-    private val lastUpdateRelay: BehaviorRelay<Date>,
-    private val mangaFavoriteRelay: PublishRelay<Boolean>,
+    private val chapterCountFlow: MutableSharedFlow<Float>,
+    private val lastUpdateFlow: MutableSharedFlow<Date>,
+    private val mangaFavoriteFlow: MutableSharedFlow<Boolean>,
     private val updateCoordinator: MangaUpdateCoordinator,
     val preferences: PreferencesHelper = Injekt.get(),
     private val db: DatabaseHelper = Injekt.get(),
@@ -61,8 +62,8 @@ class ChaptersPresenter(
     /**
      * Subject of list of chapters to allow updating the view without going to DB.
      */
-    val chaptersRelay: PublishRelay<List<ChapterItem>>
-        by lazy { PublishRelay.create<List<ChapterItem>>() }
+    val chaptersFlow: MutableSharedFlow<List<ChapterItem>>
+        by lazy { MutableSharedFlow(extraBufferCapacity = 8) }
 
     /**
      * Whether the chapter list has been requested to the source.
@@ -83,7 +84,7 @@ class ChaptersPresenter(
     // EXH -->
     private val updateHelper: EHentaiUpdateHelper by injectLazy()
 
-    val redirectUserRelay = BehaviorRelay.create<EXHRedirect>()
+    val redirectUserFlow = MutableSharedFlow<EXHRedirect>(replay = 1, extraBufferCapacity = 4)
 
     data class EXHRedirect(val manga: Manga, val update: Boolean)
     // EXH <--
@@ -91,10 +92,12 @@ class ChaptersPresenter(
     override fun onCreate(savedState: Bundle?) {
         super.onCreate(savedState)
 
-        // Prepare the relay.
-        chaptersRelay.flatMap { applyChapterFilters(it) }
-            .observeOn(AndroidSchedulers.mainThread())
-            .subscribeLatestCache(ChaptersController::onNextChapters) { _, error -> Timber.e(error) }
+        // Prepare the flow.
+        chaptersFlow
+            // Filtering and sorting walk the whole chapter list, which the previous
+            // subscribeOn(Schedulers.io()) kept off the main thread.
+            .map { withIOContext { applyChapterFilters(it) } }
+            .collectLatestCache(ChaptersController::onNextChapters) { _, error -> Timber.e(error) }
 
         // Add the subscription that retrieves the chapters from the database, keeps subscribed to
         // changes, and sends the list of chapters to the relay.
@@ -115,13 +118,13 @@ class ChaptersPresenter(
                     observeDownloads()
 
                     // Emit the number of chapters to the info tab.
-                    chapterCountRelay.call(
+                    chapterCountFlow.tryEmit(
                         chapters.maxByOrNull { it.chapter_number }?.chapter_number
                             ?: 0f
                     )
 
                     // Emit the upload date of the most recent chapter
-                    lastUpdateRelay.call(
+                    lastUpdateFlow.tryEmit(
                         Date(
                             chapters.maxByOrNull { it.date_upload }?.date_upload
                                 ?: 0
@@ -145,14 +148,14 @@ class ChaptersPresenter(
                                         val ourChapterUrls = chapters.map { it.url }.toSet()
                                         val acceptedChapterUrls = acceptedChain.chapters.map { it.url }.toSet()
                                         val update = (ourChapterUrls - acceptedChapterUrls).isNotEmpty()
-                                        redirectUserRelay.call(EXHRedirect(acceptedChain.manga, update))
+                                        redirectUserFlow.tryEmit(EXHRedirect(acceptedChain.manga, update))
                                     }
                                 }
                         )
                     }
                     // EXH <--
                 }
-                .subscribe { chaptersRelay.call(it) }
+                .subscribe { chaptersFlow.tryEmit(it) }
         )
     }
 
@@ -231,7 +234,7 @@ class ChaptersPresenter(
      * Updates the UI after applying the filters.
      */
     private fun refreshChapters() {
-        chaptersRelay.call(chapters)
+        chaptersFlow.tryEmit(chapters)
     }
 
     /**
@@ -239,18 +242,18 @@ class ChaptersPresenter(
      * @param chapters the list of chapters from the database
      * @return an observable of the list of chapters filtered and sorted.
      */
-    private fun applyChapterFilters(chapters: List<ChapterItem>): Observable<List<ChapterItem>> {
-        var observable = Observable.from(chapters).subscribeOn(Schedulers.io())
+    private fun applyChapterFilters(chapters: List<ChapterItem>): List<ChapterItem> {
+        var filtered = chapters.asSequence()
         if (onlyUnread()) {
-            observable = observable.filter { !it.read }
+            filtered = filtered.filter { !it.read }
         } else if (onlyRead()) {
-            observable = observable.filter { it.read }
+            filtered = filtered.filter { it.read }
         }
         if (onlyDownloaded()) {
-            observable = observable.filter { it.isDownloaded || it.manga.isLocal() }
+            filtered = filtered.filter { it.isDownloaded || it.manga.isLocal() }
         }
         if (onlyBookmarked()) {
-            observable = observable.filter { it.bookmark }
+            filtered = filtered.filter { it.bookmark }
         }
         val sortFunction: (Chapter, Chapter) -> Int =
             when (manga.sorting) {
@@ -271,7 +274,7 @@ class ChaptersPresenter(
                     }
                 else -> throw NotImplementedError("Unimplemented sorting method")
             }
-        return observable.toSortedList(sortFunction)
+        return filtered.sortedWith { c1, c2 -> sortFunction(c1, c2) }.toList()
     }
 
     /**
@@ -476,7 +479,7 @@ class ChaptersPresenter(
      * Adds manga to library
      */
     fun addToLibrary() {
-        mangaFavoriteRelay.call(true)
+        mangaFavoriteFlow.tryEmit(true)
     }
 
     /**

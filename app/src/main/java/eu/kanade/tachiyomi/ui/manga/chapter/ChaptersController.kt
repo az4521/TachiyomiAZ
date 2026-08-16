@@ -84,9 +84,9 @@ class ChaptersController :
         return ChaptersPresenter(
             ctrl.manga!!,
             ctrl.source!!,
-            ctrl.chapterCountRelay,
-            ctrl.lastUpdateRelay,
-            ctrl.mangaFavoriteRelay,
+            ctrl.chapterCountFlow,
+            ctrl.lastUpdateFlow,
+            ctrl.mangaFavoriteFlow,
             ctrl.updateCoordinator
         )
     }
@@ -141,9 +141,8 @@ class ChaptersController :
             }
             .launchIn(scope)
 
-        presenter.redirectUserRelay
-            .observeOn(AndroidSchedulers.mainThread())
-            .subscribeUntilDestroy { redirect ->
+        presenter.redirectUserFlow
+            .collectUntilDestroy { redirect ->
                 XLog.d(
                     "Redirecting to updated manga (manga.id: %s, manga.title: %s, update: %s)!",
                     redirect.manga.id,

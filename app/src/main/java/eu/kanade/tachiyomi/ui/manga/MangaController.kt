@@ -31,8 +31,9 @@ import eu.kanade.tachiyomi.ui.manga.chapter.ChaptersPresenter
 import eu.kanade.tachiyomi.ui.manga.info.MangaInfoController
 import eu.kanade.tachiyomi.ui.manga.track.TrackController
 import eu.kanade.tachiyomi.ui.source.SourceController
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.Job
 import eu.kanade.tachiyomi.util.system.toast
-import rx.Subscription
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.util.Date
@@ -99,15 +100,17 @@ class MangaController : RxController<MangaControllerBinding>, TabbedController {
     val smartSearchConfig: SourceController.SmartSearchConfig? = args.getParcelable(SMART_SEARCH_CONFIG_EXTRA)
     // EXH <--
 
-    val lastUpdateRelay: BehaviorRelay<Date> = BehaviorRelay.create()
+    // replay = 1 reproduces BehaviorRelay: a tab that binds late still gets the current value.
+    val lastUpdateFlow = MutableSharedFlow<Date>(replay = 1, extraBufferCapacity = 4)
 
-    val chapterCountRelay: BehaviorRelay<Float> = BehaviorRelay.create()
+    val chapterCountFlow = MutableSharedFlow<Float>(replay = 1, extraBufferCapacity = 4)
 
-    val mangaFavoriteRelay: PublishRelay<Boolean> = PublishRelay.create()
+    // PublishRelay had no replay, so neither does this.
+    val mangaFavoriteFlow = MutableSharedFlow<Boolean>(extraBufferCapacity = 4)
 
-    private val trackingIconRelay: BehaviorRelay<Boolean> = BehaviorRelay.create()
+    private val trackingIconFlow = MutableSharedFlow<Boolean>(replay = 1, extraBufferCapacity = 4)
 
-    private var trackingIconSubscription: Subscription? = null
+    private var trackingIconJob: Job? = null
 
     override fun getTitle(): String? {
         return manga?.title
@@ -150,7 +153,7 @@ class MangaController : RxController<MangaControllerBinding>, TabbedController {
         if (type.isEnter) {
             val activity = activity as MainActivity?
             activity?.binding?.tabs?.setupWithViewPager(binding.mangaPager)
-            trackingIconSubscription = trackingIconRelay.subscribe { setTrackingIconInternal(it) }
+            trackingIconJob = trackingIconFlow.collectUntilDestroy { setTrackingIconInternal(it) }
         }
     }
 
@@ -173,12 +176,12 @@ class MangaController : RxController<MangaControllerBinding>, TabbedController {
     }
 
     override fun cleanupTabs(tabs: TabLayout) {
-        trackingIconSubscription?.unsubscribe()
+        trackingIconJob?.cancel()
         setTrackingIconInternal(false)
     }
 
     fun setTrackingIcon(visible: Boolean) {
-        trackingIconRelay.call(visible)
+        trackingIconFlow.tryEmit(visible)
     }
 
     private fun setTrackingIconInternal(visible: Boolean) {

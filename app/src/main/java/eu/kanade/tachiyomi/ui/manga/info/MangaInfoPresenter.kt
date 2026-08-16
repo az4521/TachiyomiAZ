@@ -1,8 +1,6 @@
 package eu.kanade.tachiyomi.ui.manga.info
 
 import android.os.Bundle
-import com.jakewharton.rxrelay.BehaviorRelay
-import com.jakewharton.rxrelay.PublishRelay
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.database.DatabaseHelper
 import eu.kanade.tachiyomi.data.database.models.Category
@@ -16,6 +14,7 @@ import eu.kanade.tachiyomi.ui.manga.MangaUpdateCoordinator
 import eu.kanade.tachiyomi.ui.source.SourceController
 import eu.kanade.tachiyomi.util.lang.asFlow
 import eu.kanade.tachiyomi.util.system.withIOContext
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.launchIn
@@ -41,9 +40,9 @@ class MangaInfoPresenter(
     val manga: Manga,
     val source: Source,
     val smartSearchConfig: SourceController.SmartSearchConfig?,
-    private val chapterCountRelay: BehaviorRelay<Float>,
-    private val lastUpdateRelay: BehaviorRelay<Date>,
-    private val mangaFavoriteRelay: PublishRelay<Boolean>,
+    private val chapterCountFlow: MutableSharedFlow<Float>,
+    private val lastUpdateFlow: MutableSharedFlow<Date>,
+    private val mangaFavoriteFlow: MutableSharedFlow<Boolean>,
     private val updateCoordinator: MangaUpdateCoordinator,
     private val db: DatabaseHelper = Injekt.get(),
     private val downloadManager: DownloadManager = Injekt.get(),
@@ -62,19 +61,16 @@ class MangaInfoPresenter(
             .collectLatestCache(onNext = { view, manga -> view.onNextManga(manga, source) })
 
         // Update chapter count
-        chapterCountRelay
-            .asFlow()
+        chapterCountFlow
             .collectLatestCache(MangaInfoController::setChapterCount)
 
         // Update favorite status
-        mangaFavoriteRelay
-            .asFlow()
+        mangaFavoriteFlow
             .onEach { setFavorite(it) }
             .launchIn(presenterScope)
 
         // update last update date
-        lastUpdateRelay
-            .asFlow()
+        lastUpdateFlow
             .collectLatestCache(MangaInfoController::setLastUpdateDate)
     }
 
