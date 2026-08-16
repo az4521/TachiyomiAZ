@@ -66,6 +66,18 @@ interface MangaQueries : DbProvider {
             .asFlow()
             .mapToList(Dispatchers.IO)
 
+    fun getMangasBySource(sourceId: Long): List<Manga> =
+        sqlDatabase.mangasQueries.getMangasBySource(sourceId, ::mapManga).executeAsList()
+
+    /** MangaUrlPutResolver wrote url only. */
+    fun updateMangaUrls(mangas: List<Manga>) {
+        sqlDatabase.mangasQueries.transaction {
+            mangas.forEach { manga ->
+                manga.id?.let { sqlDatabase.mangasQueries.updateMangaUrl(manga.url, it) }
+            }
+        }
+    }
+
     fun getManga(id: Long): Manga? =
         sqlDatabase.mangasQueries.getMangaById(id, ::mapManga).executeAsOneOrNull()
 

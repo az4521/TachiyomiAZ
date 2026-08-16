@@ -62,27 +62,13 @@ object EXHMigrations {
 
                         // Migrate nhentai URLs
                         val nhentaiManga =
-                            db.db.get()
-                                .listOfObjects(Manga::class.java)
-                                .withQuery(
-                                    Query.builder()
-                                        .table(MangaTable.TABLE)
-                                        .where("${MangaTable.COL_SOURCE} = $NHENTAI_SOURCE_ID")
-                                        .build()
-                                )
-                                .prepare()
-                                .executeAsBlocking()
+                            db.getMangasBySource(NHENTAI_SOURCE_ID)
 
                         nhentaiManga.forEach {
                             it.url = getUrlWithoutDomain(it.url)
                         }
 
-                        db.db.put()
-                            .objects(nhentaiManga)
-                            // Extremely slow without the resolver :/
-                            .withPutResolver(MangaUrlPutResolver())
-                            .prepare()
-                            .executeAsBlocking()
+                        db.updateMangaUrls(nhentaiManga)
                     }
                 }
 
@@ -132,26 +118,12 @@ object EXHMigrations {
                     db.inTransaction {
                         // Migrate tsumino URLs
                         val tsuminoManga =
-                            db.db.get()
-                                .listOfObjects(Manga::class.java)
-                                .withQuery(
-                                    Query.builder()
-                                        .table(MangaTable.TABLE)
-                                        .where("${MangaTable.COL_SOURCE} = $TSUMINO_SOURCE_ID")
-                                        .build()
-                                )
-                                .prepare()
-                                .executeAsBlocking()
+                            db.getMangasBySource(TSUMINO_SOURCE_ID)
                         tsuminoManga.forEach {
                             it.url = "/entry/" + it.url.split("/").last()
                         }
 
-                        db.db.put()
-                            .objects(tsuminoManga)
-                            // Extremely slow without the resolver :/
-                            .withPutResolver(MangaUrlPutResolver())
-                            .prepare()
-                            .executeAsBlocking()
+                        db.updateMangaUrls(tsuminoManga)
                     }
                 }
                 if (oldVersion < 8410) {
