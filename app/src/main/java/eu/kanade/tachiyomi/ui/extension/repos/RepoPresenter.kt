@@ -4,7 +4,6 @@ import android.os.Bundle
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.extension.api.ExtensionGithubApi
 import eu.kanade.tachiyomi.ui.base.presenter.BasePresenter
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.flowOf
@@ -21,8 +20,6 @@ import uy.kohesive.injekt.api.get
 class RepoPresenter(
     private val preferences: PreferencesHelper = Injekt.get()
 ) : BasePresenter<RepoController>() {
-    val scope = CoroutineScope(Job() + Dispatchers.Main)
-
     private val api = ExtensionGithubApi()
 
     /**
@@ -46,7 +43,7 @@ class RepoPresenter(
             val items = this.repos.map(::RepoItem)
             reposJob?.cancel()
             reposJob = flowOf(items).collectLatestCache(onNext = { view, list -> view.setRepos(list) })
-        }.launchIn(scope)
+        }.launchIn(presenterScope)
     }
 
     /**
@@ -75,7 +72,7 @@ class RepoPresenter(
 
         // The index file behind a URL can be named anything, so the only way to tell a repo index
         // from, say, the repo's web page is to ask the server what it is.
-        scope.launch {
+        presenterScope.launch {
             // Reading the response body off the socket blocks, so keep it off the main thread.
             if (withContext(Dispatchers.IO) { api.isRepoIndexUrl(name) }) {
                 addRepo(name)

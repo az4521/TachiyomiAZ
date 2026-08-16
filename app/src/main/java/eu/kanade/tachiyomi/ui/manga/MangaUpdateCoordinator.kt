@@ -14,6 +14,7 @@ import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import uy.kohesive.injekt.Injekt
@@ -98,6 +99,14 @@ class MangaUpdateCoordinator(
         scope.async { save(fetched.update.manga, updateMetadata, force) }.await()
 
         return Result(fetched.chapters)
+    }
+
+    /**
+     * Abandons any in-flight update. Called when the controller goes away for good: the scope
+     * deliberately outlives individual tabs, so nothing else would ever stop it.
+     */
+    fun cancel() {
+        scope.cancel()
     }
 
     private suspend fun fetch(): Fetch {

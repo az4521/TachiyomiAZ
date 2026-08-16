@@ -89,7 +89,9 @@ class MangaController : RxController<MangaControllerBinding>, TabbedController {
     /**
      * Shared by the info and chapters tabs so both are served by a single source call.
      */
-    val updateCoordinator by lazy { MangaUpdateCoordinator(manga!!, source!!) }
+    private val updateCoordinatorDelegate = lazy { MangaUpdateCoordinator(manga!!, source!!) }
+
+    val updateCoordinator by updateCoordinatorDelegate
 
     val fromSource = args.getBoolean(FROM_SOURCE_EXTRA, false)
 
@@ -146,6 +148,16 @@ class MangaController : RxController<MangaControllerBinding>, TabbedController {
     override fun onDestroyView(view: View) {
         super.onDestroyView(view)
         adapter = null
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // Not onDestroyView: the coordinator is deliberately scoped to the controller so a fetch
+        // survives the view being recreated. Nothing else cancels it, so without this every manga
+        // screen opened leaks its scope and any request still in flight.
+        if (updateCoordinatorDelegate.isInitialized()) {
+            updateCoordinator.cancel()
+        }
     }
 
     override fun onChangeStarted(

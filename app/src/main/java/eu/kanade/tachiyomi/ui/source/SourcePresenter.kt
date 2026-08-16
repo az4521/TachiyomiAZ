@@ -6,8 +6,6 @@ import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.LocalSource
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.ui.base.presenter.BasePresenter
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -31,8 +29,6 @@ class SourcePresenter(
     private val preferences: PreferencesHelper = Injekt.get(),
     private val controllerMode: SourceController.Mode
 ) : BasePresenter<SourceController>() {
-    private val scope = CoroutineScope(Job() + Dispatchers.Main)
-
     var sources = getEnabledSources()
 
     /**
@@ -108,7 +104,7 @@ class SourcePresenter(
                 .drop(1)
                 .distinctUntilChanged()
                 .onEach { updateLastUsedSource(it) }
-                .launchIn(scope)
+                .launchIn(presenterScope)
 
         // collectLatestCache, not deliverToView: this is state, so it has to be re-delivered to a
         // view that gets recreated. Pushed as a one-off event it arrived once and never again,
