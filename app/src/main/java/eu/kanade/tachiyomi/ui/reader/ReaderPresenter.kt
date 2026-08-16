@@ -420,10 +420,14 @@ class ReaderPresenter(
      */
     private fun saveChapterHistory(chapter: ReaderChapter) {
         val history = History.create(chapter.chapter).apply { last_read = Date().time }
-        db.updateHistoryLastRead(history).asRxCompletable()
-            .onErrorComplete()
-            .subscribeOn(Schedulers.io())
-            .subscribe()
+        launchIO {
+            try {
+                db.updateHistoryLastRead(history)
+            } catch (e: Throwable) {
+                // Previously onErrorComplete.
+                Timber.e(e)
+            }
+        }
     }
 
     /**

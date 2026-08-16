@@ -114,7 +114,7 @@ class HistoryPresenter : BasePresenter<HistoryController>() {
      */
     fun removeFromHistory(history: History) {
         history.last_read = 0L
-        db.updateHistoryLastRead(history).executeAsBlocking()
+        db.updateHistoryLastRead(history)
         updateList()
     }
 
@@ -134,9 +134,9 @@ class HistoryPresenter : BasePresenter<HistoryController>() {
      * @param mangaId id of manga
      */
     fun removeAllFromHistory(mangaId: Long) {
-        val history = db.getHistoryByMangaId(mangaId).executeAsBlocking()
+        val history = db.getHistoryByMangaId(mangaId)
         history.forEach { it.last_read = 0L }
-        db.updateHistoryLastRead(history).executeAsBlocking()
+        db.updateHistoryLastRead(history)
         updateList()
     }
 

@@ -363,13 +363,13 @@ class SettingsAdvancedController : SettingsController() {
     }
 
     private fun clearHistory() {
-        db.deleteHistory().executeAsBlocking()
+        db.deleteHistory()
         activity?.toast(R.string.clear_history_completed)
     }
 
     private fun clearDatabase() {
         db.deleteMangasNotInLibrary().executeAsBlocking()
-        db.deleteHistoryNoLastRead().executeAsBlocking()
+        db.deleteHistoryNoLastRead()
         activity?.toast(R.string.clear_database_completed)
     }
 

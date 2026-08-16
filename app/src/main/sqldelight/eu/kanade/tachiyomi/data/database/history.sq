@@ -13,3 +13,35 @@ CREATE INDEX history_history_chapter_id_index ON history(history_chapter_id);
 
 getHistoryByChapterId:
 SELECT * FROM history WHERE history_chapter_id = ?;
+
+getHistoryByMangaId:
+SELECT history.* FROM history
+JOIN chapters ON history.history_chapter_id = chapters._id
+WHERE chapters.manga_id = ?;
+
+getHistoryByChapterUrl:
+SELECT history.* FROM history
+JOIN chapters ON history.history_chapter_id = chapters._id
+WHERE chapters.url = ?;
+
+insertHistory:
+INSERT INTO history(history_chapter_id, history_last_read, history_time_read)
+VALUES (?, ?, ?);
+
+-- HistoryLastReadPutResolver updated last_read where the chapter matched, and storio's
+-- default put inserted when the update affected no rows. Expressed as two statements
+-- because SQLDelight's default dialect predates ON CONFLICT DO UPDATE.
+updateHistoryLastRead:
+UPDATE history SET history_last_read = ? WHERE history_chapter_id = ?;
+
+changes:
+SELECT changes();
+
+deleteHistory:
+DELETE FROM history;
+
+deleteHistoryNoLastRead:
+DELETE FROM history WHERE history_last_read = 0;
+
+lastInsertRowId:
+SELECT last_insert_rowid();

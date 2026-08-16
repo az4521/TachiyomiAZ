@@ -316,7 +316,7 @@ class LegacyBackupManager(context: Context, version: Int = CURRENT_VERSION) : Ab
 
             // Check if user wants history information in backup
             if (options and BACKUP_HISTORY_MASK == BACKUP_HISTORY) {
-                val historyForManga = databaseHelper.getHistoryByMangaId(manga.id!!).executeAsBlocking()
+                val historyForManga = databaseHelper.getHistoryByMangaId(manga.id!!)
                 if (historyForManga.isNotEmpty()) {
                     val historyData =
                         historyForManga.mapNotNull { history ->
@@ -432,7 +432,7 @@ class LegacyBackupManager(context: Context, version: Int = CURRENT_VERSION) : Ab
         // List containing history to be updated
         val historyToBeUpdated = mutableListOf<History>()
         for ((url, lastRead) in history) {
-            val dbHistory = databaseHelper.getHistoryByChapterUrl(url).executeAsBlocking()
+            val dbHistory = databaseHelper.getHistoryByChapterUrl(url)
             // Check if history already in database and update
             if (dbHistory != null) {
                 dbHistory.apply {
@@ -450,7 +450,7 @@ class LegacyBackupManager(context: Context, version: Int = CURRENT_VERSION) : Ab
                 }
             }
         }
-        databaseHelper.updateHistoryLastRead(historyToBeUpdated).executeAsBlocking()
+        databaseHelper.updateHistoryLastRead(historyToBeUpdated)
     }
 
     /**
