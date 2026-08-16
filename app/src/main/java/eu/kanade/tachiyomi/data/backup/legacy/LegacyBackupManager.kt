@@ -262,7 +262,7 @@ class LegacyBackupManager(context: Context, version: Int = CURRENT_VERSION) : Ab
      * @param root list to add category entries to
      */
     internal fun backupCategories(root: MutableList<JsonElement>) {
-        val categories = databaseHelper.getCategories().executeAsBlocking()
+        val categories = databaseHelper.getCategories()
         categories.forEach { root.add(categoryToJson(it)) }
     }
 
@@ -295,7 +295,7 @@ class LegacyBackupManager(context: Context, version: Int = CURRENT_VERSION) : Ab
             // Check if user wants category information in backup
             if (options and BACKUP_CATEGORY_MASK == BACKUP_CATEGORY) {
                 // Backup categories for this manga
-                val categoriesForManga = databaseHelper.getCategoriesForManga(manga).executeAsBlocking()
+                val categoriesForManga = databaseHelper.getCategoriesForManga(manga)
                 if (categoriesForManga.isNotEmpty()) {
                     put(
                         CATEGORIES,
@@ -368,7 +368,7 @@ class LegacyBackupManager(context: Context, version: Int = CURRENT_VERSION) : Ab
      */
     internal fun restoreCategories(jsonCategories: JsonArray) {
         // Get categories from file and from db
-        val dbCategories = databaseHelper.getCategories().executeAsBlocking()
+        val dbCategories = databaseHelper.getCategories()
         val backupCategories = jsonCategories.map { jsonToCategory(it) }
 
         // Iterate over them
@@ -389,8 +389,8 @@ class LegacyBackupManager(context: Context, version: Int = CURRENT_VERSION) : Ab
             if (!found) {
                 // Let the db assign the id
                 category.id = null
-                val result = databaseHelper.insertCategory(category).executeAsBlocking()
-                category.id = result.insertedId()?.toInt()
+                // insertCategory assigns the generated id back onto the category.
+                databaseHelper.insertCategory(category)
             }
         }
     }
@@ -405,7 +405,7 @@ class LegacyBackupManager(context: Context, version: Int = CURRENT_VERSION) : Ab
         manga: Manga,
         categories: List<String>
     ) {
-        val dbCategories = databaseHelper.getCategories().executeAsBlocking()
+        val dbCategories = databaseHelper.getCategories()
         val mangaCategoriesToUpdate = mutableListOf<MangaCategory>()
         for (backupCategoryStr in categories) {
             for (dbCategory in dbCategories) {

@@ -407,7 +407,7 @@ constructor(context: Context, attrs: AttributeSet? = null) :
             if (category.name == "Default") {
                 preferences.defaultMangaOrder().set(mangaIds.joinToString("/"))
             } else {
-                db.insertCategory(category).asRxObservable().subscribe()
+                db.insertCategory(category)
             }
         }
     }

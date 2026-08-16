@@ -150,7 +150,7 @@ class MangaInfoPresenter(
      * @return List of categories, default plus user categories
      */
     fun getCategories(): List<Category> {
-        return db.getCategories().executeAsBlocking()
+        return db.getCategories()
     }
 
     /**
@@ -160,7 +160,7 @@ class MangaInfoPresenter(
      * @return Array of category ids the manga is in, if none returns default id
      */
     fun getMangaCategoryIds(manga: Manga): Array<Int> {
-        val categories = db.getCategoriesForManga(manga).executeAsBlocking()
+        val categories = db.getCategoriesForManga(manga)
         return categories.mapNotNull { it.id }.toTypedArray()
     }
 

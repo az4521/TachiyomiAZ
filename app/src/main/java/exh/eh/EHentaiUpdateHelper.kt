@@ -157,7 +157,7 @@ class EHentaiUpdateHelper(context: Context) {
                     // Copy categories from all chains to accepted manga
                     val newCategories =
                         rootsToMutate.flatMap {
-                            db.getCategoriesForManga(it.manga).executeAsBlocking()
+                            db.getCategoriesForManga(it.manga)
                         }.distinctBy { it.id }.map {
                             MangaCategory.create(newAccepted.manga, it)
                         }

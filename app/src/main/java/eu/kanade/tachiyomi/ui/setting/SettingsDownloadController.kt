@@ -95,7 +95,7 @@ class SettingsDownloadController : SettingsController() {
                 }
             }
 
-            val dbCategories = db.getCategories().executeAsBlocking()
+            val dbCategories = db.getCategories()
             val categories = listOf(Category.createDefault()) + dbCategories
 
             preferenceCategory {

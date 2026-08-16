@@ -64,7 +64,7 @@ open class DatabaseHelper(context: Context) :
      * Typed query access, generated from app/src/main/sqldelight. Call sites migrate off storio
      * onto this incrementally; both read the same database in the meantime.
      */
-    val sqlDatabase: Database = Database(AndroidSqliteDriver(openHelper))
+    override val sqlDatabase: Database = Database(AndroidSqliteDriver(openHelper))
 
     override val db =
         DefaultStorIOSQLite.builder()

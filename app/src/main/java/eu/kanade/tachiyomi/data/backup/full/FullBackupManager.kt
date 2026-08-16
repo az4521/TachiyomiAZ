@@ -135,7 +135,6 @@ class FullBackupManager(context: Context) : AbstractBackupManager(context) {
      */
     private fun backupCategories(): List<BackupCategory> {
         return databaseHelper.getCategories()
-            .executeAsBlocking()
             .map { BackupCategory.copyFrom(it) }
     }
 
@@ -197,7 +196,7 @@ class FullBackupManager(context: Context) : AbstractBackupManager(context) {
         // Check if user wants category information in backup
         if (options and BACKUP_CATEGORY_MASK == BACKUP_CATEGORY) {
             // Backup categories for this manga
-            val categoriesForManga = databaseHelper.getCategoriesForManga(manga).executeAsBlocking()
+            val categoriesForManga = databaseHelper.getCategoriesForManga(manga)
             if (categoriesForManga.isNotEmpty()) {
                 mangaObject.categories = categoriesForManga.mapNotNull { it.order }
             }
@@ -271,7 +270,7 @@ class FullBackupManager(context: Context) : AbstractBackupManager(context) {
      */
     internal fun restoreCategories(backupCategories: List<BackupCategory>) {
         // Get categories from file and from db
-        val dbCategories = databaseHelper.getCategories().executeAsBlocking()
+        val dbCategories = databaseHelper.getCategories()
 
         // Iterate over them
         backupCategories.map { it.getCategoryImpl() }.forEach { category ->
@@ -291,8 +290,8 @@ class FullBackupManager(context: Context) : AbstractBackupManager(context) {
             if (!found) {
                 // Let the db assign the id
                 category.id = null
-                val result = databaseHelper.insertCategory(category).executeAsBlocking()
-                category.id = result.insertedId()?.toInt()
+                // insertCategory assigns the generated id back onto the category.
+                databaseHelper.insertCategory(category)
             }
         }
     }
@@ -308,7 +307,7 @@ class FullBackupManager(context: Context) : AbstractBackupManager(context) {
         categories: List<Int>,
         backupCategories: List<BackupCategory>
     ) {
-        val dbCategories = databaseHelper.getCategories().executeAsBlocking()
+        val dbCategories = databaseHelper.getCategories()
         val mangaCategoriesToUpdate = mutableListOf<MangaCategory>()
         categories.forEach { backupCategoryOrder ->
             backupCategories.firstOrNull {

@@ -80,7 +80,7 @@ class FavoritesSyncHelper(val context: Context) {
             if (it.source != EXH_SOURCE_ID && it.source != EH_SOURCE_ID) return@forEach
 
             if (it.id in seenManga) {
-                val inCategories = db.getCategoriesForManga(it).executeAsBlocking()
+                val inCategories = db.getCategoriesForManga(it)
                 status.onNext(
                     FavoritesSyncStatus.BadLibraryState
                         .MangaInMultipleCategories(it, inCategories)
@@ -194,7 +194,7 @@ class FavoritesSyncHelper(val context: Context) {
         errorList: MutableList<String>,
         categories: List<String>
     ) {
-        val localCategories = db.getCategories().executeAsBlocking()
+        val localCategories = db.getCategories()
 
         val newLocalCategories = localCategories.toMutableList()
 
@@ -233,7 +233,7 @@ class FavoritesSyncHelper(val context: Context) {
 
         // Only insert categories if changed
         if (changed) {
-            db.insertCategories(newLocalCategories).executeAsBlocking()
+            db.insertCategories(newLocalCategories)
         }
     }
 
@@ -375,7 +375,7 @@ class FavoritesSyncHelper(val context: Context) {
         }
 
         val insertedMangaCategories = mutableListOf<Pair<MangaCategory, Manga>>()
-        val categories = db.getCategories().executeAsBlocking()
+        val categories = db.getCategories()
 
         // Apply additions
         throttleManager.resetThrottle()

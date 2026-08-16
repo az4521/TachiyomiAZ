@@ -330,7 +330,7 @@ class LibraryPresenter(
      * @return an observable of the categories.
      */
     private fun getCategoriesFlow(): Flow<List<Category>> {
-        return db.getCategories().asRxObservable().asFlow()
+        return db.getCategoriesAsFlow()
     }
 
     /**
@@ -385,7 +385,7 @@ class LibraryPresenter(
     fun getCommonCategories(mangas: List<Manga>): Collection<Category> {
         if (mangas.isEmpty()) return emptyList()
         return mangas.toSet()
-            .map { db.getCategoriesForManga(it).executeAsBlocking() }
+            .map { db.getCategoriesForManga(it) }
             .reduce { set1: Iterable<Category>, set2 -> set1.intersect(set2).toMutableList() }
     }
 
@@ -556,7 +556,7 @@ class LibraryPresenter(
             }
             // Update categories
             if (migrateCategories) {
-                val categories = db.getCategoriesForManga(prevManga).executeAsBlocking()
+                val categories = db.getCategoriesForManga(prevManga)
                 val mangaCategories = categories.map { MangaCategory.create(manga, it) }
                 db.setMangaCategories(mangaCategories, listOf(manga))
             }

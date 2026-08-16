@@ -117,7 +117,7 @@ fun Manga.shouldDownloadNewChapters(
 
     // Get all categories, else default category (0)
     val categoriesForManga =
-        db.getCategoriesForManga(this).executeAsBlocking()
+        db.getCategoriesForManga(this)
             .mapNotNull { it.id }
             .takeUnless { it.isEmpty() } ?: listOf(0)
 

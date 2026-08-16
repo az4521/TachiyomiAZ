@@ -29,8 +29,7 @@ class CategoryPresenter(
     override fun onCreate(savedState: Bundle?) {
         super.onCreate(savedState)
 
-        db.getCategories().asRxObservable()
-            .asFlow()
+        db.getCategoriesAsFlow()
             .onEach { categories = it }
             .map { it.map(::CategoryItem) }
             .collectLatestCache(CategoryController::setCategories)
@@ -55,7 +54,7 @@ class CategoryPresenter(
         cat.order = categories.map { it.order + 1 }.maxOrNull() ?: 0
 
         // Insert into database.
-        db.insertCategory(cat).executeAsBlocking()
+        db.insertCategory(cat)
     }
 
     /**
@@ -64,7 +63,7 @@ class CategoryPresenter(
      * @param categories The list of categories to delete.
      */
     fun deleteCategories(categories: List<Category>) {
-        db.deleteCategories(categories).executeAsBlocking()
+        db.deleteCategories(categories)
     }
 
     /**
@@ -77,7 +76,7 @@ class CategoryPresenter(
             category.order = i
         }
 
-        db.insertCategories(categories).executeAsBlocking()
+        db.insertCategories(categories)
     }
 
     /**
@@ -97,7 +96,7 @@ class CategoryPresenter(
         }
 
         category.name = name
-        db.insertCategory(category).executeAsBlocking()
+        db.insertCategory(category)
     }
 
     /**

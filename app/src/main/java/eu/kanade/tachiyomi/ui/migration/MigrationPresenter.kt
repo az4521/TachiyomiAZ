@@ -158,7 +158,7 @@ class MigrationPresenter(
             }
             // Update categories
             if (migrateCategories) {
-                val categories = db.getCategoriesForManga(prevManga).executeAsBlocking()
+                val categories = db.getCategoriesForManga(prevManga)
                 val mangaCategories = categories.map { MangaCategory.create(manga, it) }
                 db.setMangaCategories(mangaCategories, listOf(manga))
             }

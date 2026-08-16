@@ -86,7 +86,7 @@ class SettingsLibraryController : SettingsController() {
                 }
             }
 
-            val dbCategories = db.getCategories().executeAsBlocking()
+            val dbCategories = db.getCategories()
             val categories = listOf(Category.createDefault()) + dbCategories
 
             preferenceCategory {
@@ -200,7 +200,7 @@ class SettingsLibraryController : SettingsController() {
                 preference {
                     titleRes = R.string.action_edit_categories
 
-                    val catCount = db.getCategories().executeAsBlocking().size
+                    val catCount = db.getCategories().size
                     summary = context.resources.getQuantityString(R.plurals.num_categories, catCount, catCount)
 
                     onClick {
