@@ -1,27 +1,40 @@
 # Migrating TachiyomiAZ off RxJava
 
-Status: in progress — Phases 0-4 done; Downloader, sources and exh remain
+Status: in progress — 103 -> 34 files; exh/EH subsystem and a few leftovers remain
 Last updated: 2026-08-15
 Branch: `rxjava-migration`
 
-Files importing `rx.*`: **103 at start, 42 now.**
+Files importing `rx.*`: **103 at start, 34 now.**
 
-Five of those 42 must keep RxJava permanently as the extension shim:
-`Source.kt`, `CatalogueSource.kt`, `HttpSource.kt`,
-`network/OkHttpExtensions.kt`, and `util/lang/RxCoroutineBridge.kt`.
-(`source/model/Page.kt` is no longer among them — see Phase 4.)
+Five must keep RxJava permanently as the extension shim: `Source.kt`,
+`CatalogueSource.kt`, `HttpSource.kt`, `network/OkHttpExtensions.kt`, and
+`util/lang/RxCoroutineBridge.kt`.
 
 Remaining, by group:
 
 | Group | Files | Notes |
 |---|---|---|
-| extension shim — keep | 5 | see above |
-| `Downloader` + `DownloadManager` + `DownloadService` | 3 | the hardest remaining item |
+| extension shim — keep | 5 | Mihon keeps the same set |
 | `exh/` | 11 | fork-only, no upstream reference |
-| `source/online/` fork sources | 8 | EHentai, NHentai, HentaiCafe, Pururin, Tsumino, LewdSource, HttpSourceFetcher, SourceManager |
-| UI leftovers | 10 | mostly relays shared between controllers |
-| `util/` | 3 | `RetryWithDelay`, `RxExtensions`, `TrackChapterSync` |
+| EH-adjacent sources | 7 | `EHentai`, `NHentai`, `HentaiCafe`, `Pururin`, `Tsumino`, `LewdSource`, `SourceManager` |
+| UI leftovers | 8 | `RxController`, `BasePresenter` (Nucleus), `LibraryController`/`CategoryView`, `ChaptersPresenter`, `ReaderActivity`, `ReaderPresenter`, `SettingsController` |
 | `extension/` | 2 | `ExtensionManager.installExtension`, `ExtensionInstaller` |
+| `util/lang/RxExtensions.kt` | 1 | `plusAssign`/`isNullOrUnsubscribed`, used by the above |
+
+Everything below the UI — trackers, backup, library update, downloads, the
+reader, page loading — is off RxJava. `Downloader` and the reader, the two
+items flagged as hardest, are done.
+
+**The remaining 18 files in `exh/` and the EH-adjacent sources are one
+subsystem.** They share `RxUtil`, `DelegatedHttpSource` and the EH metadata
+types, so they convert together or not at all. Leaving them on RxJava is a
+legitimate stopping point: the library stays on the classpath for extensions
+regardless, and this code has no upstream counterpart.
+
+The 8 UI leftovers are blocked on `BasePresenter`/`RxController`, which keep
+their Rx halves until every subclass is converted — and `BasePresenter` cannot
+stop extending Nucleus's `RxPresenter` until Nucleus itself goes.
+
 
 ## 1. The goal has to be restated
 
