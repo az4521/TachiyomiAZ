@@ -419,7 +419,7 @@ class LibraryUpdateService(
                         changed = true
                     }
                     if (changed) {
-                        db.insertManga(manga).executeAsBlocking()
+                        db.insertManga(manga)
                     }
                 // Sources may hand back chapters even though they weren't asked for.
                 syncChaptersFromUpdate(db, update, manga, source)

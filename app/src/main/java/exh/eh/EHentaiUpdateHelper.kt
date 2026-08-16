@@ -151,7 +151,7 @@ class EHentaiUpdateHelper(context: Context) {
 
                 db.inTransaction {
                     // Apply changes to all manga
-                    db.insertMangas(rootsToMutate.map { it.manga }).executeAsBlocking()
+                    db.insertMangas(rootsToMutate.map { it.manga })
                     // Insert new chapters for accepted manga
                     db.insertChapters(newAccepted.chapters)
                     // Copy categories from all chains to accepted manga

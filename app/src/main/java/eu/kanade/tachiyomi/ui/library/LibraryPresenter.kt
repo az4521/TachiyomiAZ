@@ -459,7 +459,7 @@ class LibraryPresenter(
                 it.favorite = false
                 it.removeCovers(coverCache)
             }
-            db.insertMangas(mangaToDelete).executeAsBlocking()
+            db.insertMangas(mangaToDelete)
 
             if (deleteChapters) {
                 mangaToDelete.forEach { manga ->
@@ -572,13 +572,13 @@ class LibraryPresenter(
             // Update favorite status
             if (replace) {
                 prevManga.favorite = false
-                db.updateMangaFavorite(prevManga).executeAsBlocking()
+                db.updateMangaFavorite(prevManga)
             }
             manga.favorite = true
-            db.updateMangaFavorite(manga).executeAsBlocking()
+            db.updateMangaFavorite(manga)
 
             // SearchPresenter#networkToLocalManga may have updated the manga title, so ensure db gets updated title
-            db.updateMangaTitle(manga).executeAsBlocking()
+            db.updateMangaTitle(manga)
         }
     }
 

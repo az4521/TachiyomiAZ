@@ -184,7 +184,7 @@ fun syncChaptersWithSource(
 
         // Set this manga as updated since chapters were changed
         manga.last_update = Date().time
-        db.updateLastUpdated(manga).executeAsBlocking()
+        db.updateLastUpdated(manga)
     }
 
     return Pair(toAdd.subtract(readded).toList(), toDelete.subtract(readded).toList())

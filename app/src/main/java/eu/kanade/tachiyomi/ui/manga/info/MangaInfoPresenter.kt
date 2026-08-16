@@ -119,7 +119,7 @@ class MangaInfoPresenter(
         if (!manga.favorite) {
             manga.removeCovers(coverCache)
         }
-        db.insertManga(manga).executeAsBlocking()
+        db.insertManga(manga)
         return manga.favorite
     }
 
@@ -250,7 +250,7 @@ class MangaInfoPresenter(
         if (existingManga != null) {
             withContext(NonCancellable) {
                 if (toInsert.id != null) {
-                    db.deleteManga(toInsert).await()
+                    db.deleteManga(toInsert)
                 }
             }
 
@@ -260,8 +260,8 @@ class MangaInfoPresenter(
         // Reload chapters immediately
         toInsert.initialized = false
 
-        val newId = db.insertManga(toInsert).await().insertedId()
-        if (newId != null) toInsert.id = newId
+        // insertManga assigns the generated id back onto toInsert.
+        db.insertManga(toInsert)
 
         return toInsert
     }

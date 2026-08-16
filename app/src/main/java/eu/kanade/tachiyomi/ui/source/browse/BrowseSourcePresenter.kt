@@ -226,8 +226,8 @@ open class BrowseSourcePresenter(
         if (localManga == null) {
             val newManga = Manga.create(sManga.url, sManga.title, sourceId)
             newManga.copyFrom(sManga)
-            val result = db.insertManga(newManga).executeAsBlocking()
-            newManga.id = result.insertedId()
+            // insertManga assigns the generated id back onto newManga.
+            db.insertManga(newManga)
             localManga = newManga
         }
         return localManga
@@ -265,7 +265,7 @@ open class BrowseSourcePresenter(
             val networkManga = source.getMangaUpdate(manga, emptyList(), fetchDetails = true, fetchChapters = false).manga
             manga.copyFrom(networkManga)
             manga.initialized = true
-            db.insertManga(manga).executeAsBlocking()
+            db.insertManga(manga)
         } catch (e: Exception) {
             Timber.e(e)
         }
@@ -289,7 +289,7 @@ open class BrowseSourcePresenter(
             manga.removeCovers(coverCache)
         }
 
-        db.insertManga(manga).executeAsBlocking()
+        db.insertManga(manga)
     }
 
     /**

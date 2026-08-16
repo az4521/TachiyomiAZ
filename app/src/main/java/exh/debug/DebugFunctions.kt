@@ -95,7 +95,7 @@ object DebugFunctions {
                 val networkManga = source.getMangaUpdate(manga, emptyList(), fetchDetails = true, fetchChapters = false).manga
                 manga.copyFrom(networkManga)
                 manga.initialized = true
-                db.insertManga(manga).executeAsBlocking()
+                db.insertManga(manga)
             }
         }
     }
@@ -168,7 +168,7 @@ object DebugFunctions {
         val statisticsObject = StatisticsInfoClass()
         runBlocking {
             val libraryManga = db.getLibraryMangas().await()
-            val databaseManga = db.getMangas().await()
+            val databaseManga = db.getMangas()
             val databaseTracks = db.getAllTracks()
             val databaseChapters = db.getAllChapters()
 
@@ -189,16 +189,16 @@ object DebugFunctions {
         return statisticsObject
     }
 
-    fun countMangaInDatabaseInLibrary() = db.getMangas().executeAsBlocking().count { it.favorite }
+    fun countMangaInDatabaseInLibrary() = db.getMangas().count { it.favorite }
 
-    fun countMangaInDatabaseNotInLibrary() = db.getMangas().executeAsBlocking().count { !it.favorite }
+    fun countMangaInDatabaseNotInLibrary() = db.getMangas().count { !it.favorite }
 
-    fun countMangaInDatabase() = db.getMangas().executeAsBlocking().size
+    fun countMangaInDatabase() = db.getMangas().size
 
     fun countMetadataInDatabase() = db.getSearchMetadata().executeAsBlocking().size
 
     fun countMangaInLibraryWithMissingMetadata() =
-        db.getMangas().executeAsBlocking().count {
+        db.getMangas().count {
             it.favorite && db.getSearchMetadataForManga(it.id!!).executeAsBlocking() == null
         }
 

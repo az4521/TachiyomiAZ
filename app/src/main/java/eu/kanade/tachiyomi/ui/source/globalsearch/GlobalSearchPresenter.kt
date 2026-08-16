@@ -293,7 +293,7 @@ open class GlobalSearchPresenter(
             val networkManga = source.getMangaUpdate(manga, emptyList(), fetchDetails = true, fetchChapters = false).manga
             manga.copyFrom(networkManga)
             manga.initialized = true
-            db.insertManga(manga).executeAsBlocking()
+            db.insertManga(manga)
             manga
         } catch (e: Throwable) {
             // Matches the previous onErrorResumeNext: fall back to the uninitialized manga.
@@ -316,8 +316,8 @@ open class GlobalSearchPresenter(
         if (localManga == null) {
             val newManga = Manga.create(sManga.url, sManga.title, sourceId)
             newManga.copyFrom(sManga)
-            val result = db.insertManga(newManga).executeAsBlocking()
-            newManga.id = result.insertedId()
+            // insertManga assigns the generated id back onto newManga.
+            db.insertManga(newManga)
             localManga = newManga
         }
         return localManga

@@ -148,11 +148,11 @@ class MigrationProcessAdapter(
         // Update favorite status
         if (replace) {
             prevManga.favorite = false
-            db.updateMangaFavorite(prevManga).executeAsBlocking()
+            db.updateMangaFavorite(prevManga)
         }
         manga.favorite = true
 
-        db.updateMangaFavorite(manga).executeAsBlocking()
-        db.updateMangaTitle(manga).executeAsBlocking()
+        db.updateMangaFavorite(manga)
+        db.updateMangaTitle(manga)
     }
 }

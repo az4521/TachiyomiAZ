@@ -91,9 +91,8 @@ class GalleryAdder {
             // Insert created manga if not in DB before fetching details
             // This allows us to keep the metadata when fetching details
             if (manga.id == null) {
-                db.insertManga(manga).executeAsBlocking().insertedId()?.let {
-                    manga.id = it
-                }
+                // insertManga assigns the generated id back onto manga.
+                db.insertManga(manga)
             }
 
             // Fetch and copy details
@@ -106,7 +105,7 @@ class GalleryAdder {
                 manga.date_added = Date().time
             }
 
-            db.insertManga(manga).executeAsBlocking()
+            db.insertManga(manga)
 
             // Fetch and copy chapters
             try {

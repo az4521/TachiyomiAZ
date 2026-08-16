@@ -76,7 +76,11 @@ abstract class AbstractBackupManager(protected val context: Context) {
      *
      * @return id of [Manga], null if not found
      */
-    internal fun insertManga(manga: Manga): Long? = databaseHelper.insertManga(manga).executeAsBlocking().insertedId()
+    internal fun insertManga(manga: Manga): Long? {
+        // insertManga assigns the generated id back onto the manga.
+        databaseHelper.insertManga(manga)
+        return manga.id
+    }
 
     /**
      * Inserts list of chapters

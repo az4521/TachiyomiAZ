@@ -33,3 +33,59 @@ SELECT * FROM mangas WHERE url = ? AND source = ? LIMIT 1;
 
 getFavoriteMangas:
 SELECT * FROM mangas WHERE favorite = 1 ORDER BY title;
+
+getMangas:
+SELECT * FROM mangas;
+
+getMangaById2:
+SELECT * FROM mangas WHERE _id = ?;
+
+getMergedMangas:
+SELECT mangas.* FROM mangas
+JOIN merged ON mangas._id = merged.mangaID
+WHERE merged.mergeID = ?;
+
+insertManga:
+INSERT INTO mangas(
+    source, url, artist, author, description, genre, title, status, thumbnail_url,
+    favorite, last_update, initialized, viewer, chapter_flags, cover_last_modified,
+    date_added, update_strategy, memo
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+updateManga:
+UPDATE mangas SET
+    source = ?, url = ?, artist = ?, author = ?, description = ?, genre = ?, title = ?,
+    status = ?, thumbnail_url = ?, favorite = ?, last_update = ?, initialized = ?,
+    viewer = ?, chapter_flags = ?, cover_last_modified = ?, date_added = ?,
+    update_strategy = ?, memo = ?
+WHERE _id = ?;
+
+updateFlags:
+UPDATE mangas SET chapter_flags = ? WHERE _id = ?;
+
+updateLastUpdated:
+UPDATE mangas SET last_update = ? WHERE _id = ?;
+
+updateMangaFavorite:
+UPDATE mangas SET favorite = ? WHERE _id = ?;
+
+updateMangaViewer:
+UPDATE mangas SET viewer = ? WHERE _id = ?;
+
+updateMangaTitle:
+UPDATE mangas SET title = ? WHERE _id = ?;
+
+updateMangaCoverLastModified:
+UPDATE mangas SET cover_last_modified = ? WHERE _id = ?;
+
+deleteManga:
+DELETE FROM mangas WHERE _id = ?;
+
+deleteMangasNotInLibrary:
+DELETE FROM mangas WHERE favorite = 0;
+
+deleteMangas:
+DELETE FROM mangas;
+
+lastInsertRowId:
+SELECT last_insert_rowid();

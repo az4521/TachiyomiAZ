@@ -411,7 +411,7 @@ class ChaptersPresenter(
      */
     fun revertSortOrder() {
         manga.setChapterOrder(if (sortDescending()) Manga.SORT_ASC else Manga.SORT_DESC)
-        db.updateFlags(manga).executeAsBlocking()
+        db.updateFlags(manga)
         refreshChapters()
     }
 
@@ -421,7 +421,7 @@ class ChaptersPresenter(
      */
     fun setUnreadFilter(onlyUnread: Boolean) {
         manga.readFilter = if (onlyUnread) Manga.SHOW_UNREAD else Manga.SHOW_ALL
-        db.updateFlags(manga).executeAsBlocking()
+        db.updateFlags(manga)
         refreshChapters()
     }
 
@@ -431,7 +431,7 @@ class ChaptersPresenter(
      */
     fun setReadFilter(onlyRead: Boolean) {
         manga.readFilter = if (onlyRead) Manga.SHOW_READ else Manga.SHOW_ALL
-        db.updateFlags(manga).executeAsBlocking()
+        db.updateFlags(manga)
         refreshChapters()
     }
 
@@ -441,7 +441,7 @@ class ChaptersPresenter(
      */
     fun setDownloadedFilter(onlyDownloaded: Boolean) {
         manga.downloadedFilter = if (onlyDownloaded) Manga.SHOW_DOWNLOADED else Manga.SHOW_ALL
-        db.updateFlags(manga).executeAsBlocking()
+        db.updateFlags(manga)
         refreshChapters()
     }
 
@@ -451,7 +451,7 @@ class ChaptersPresenter(
      */
     fun setBookmarkedFilter(onlyBookmarked: Boolean) {
         manga.bookmarkedFilter = if (onlyBookmarked) Manga.SHOW_BOOKMARKED else Manga.SHOW_ALL
-        db.updateFlags(manga).executeAsBlocking()
+        db.updateFlags(manga)
         refreshChapters()
     }
 
@@ -462,7 +462,7 @@ class ChaptersPresenter(
         manga.readFilter = Manga.SHOW_ALL
         manga.downloadedFilter = Manga.SHOW_ALL
         manga.bookmarkedFilter = Manga.SHOW_ALL
-        db.updateFlags(manga).executeAsBlocking()
+        db.updateFlags(manga)
         refreshChapters()
     }
 
@@ -479,7 +479,7 @@ class ChaptersPresenter(
      */
     fun setDisplayMode(mode: Int) {
         manga.displayMode = mode
-        db.updateFlags(manga).executeAsBlocking()
+        db.updateFlags(manga)
     }
 
     /**
@@ -488,7 +488,7 @@ class ChaptersPresenter(
      */
     fun setSorting(sort: Int) {
         manga.sorting = sort
-        db.updateFlags(manga).executeAsBlocking()
+        db.updateFlags(manga)
         refreshChapters()
     }
 

@@ -284,7 +284,7 @@ class MigrationListController(bundle: Bundle? = null) :
                             withIOContext { sourceManager.getOrStub(result.source).getMangaUpdate(result, emptyList(), fetchDetails = true, fetchChapters = false).manga }
                         result.copyFrom(newManga)
 
-                        db.insertManga(result).executeAsBlocking()
+                        db.insertManga(result)
                     } catch (e: CancellationException) {
                         // Ignore cancellations
                         throw e
@@ -410,7 +410,7 @@ class MigrationListController(bundle: Bundle? = null) :
                         withIOContext { sourceManager.getOrStub(result.source).getMangaUpdate(result, emptyList(), fetchDetails = true, fetchChapters = false).manga }
                     result.copyFrom(newManga)
 
-                    db.insertManga(result).executeAsBlocking()
+                    db.insertManga(result)
                 } catch (e: CancellationException) {
                     // Ignore cancellations
                     throw e

@@ -497,7 +497,7 @@ class ReaderPresenter(
     fun setMangaViewer(viewer: Int) {
         val manga = manga ?: return
         manga.viewer = viewer
-        db.updateMangaViewer(manga).executeAsBlocking()
+        db.updateMangaViewer(manga)
 
         presenterScope.launch {
             delay(250)

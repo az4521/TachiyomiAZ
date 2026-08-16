@@ -201,8 +201,8 @@ class SmartSearchEngine(
         if (localManga == null) {
             val newManga = Manga.create(sManga.url, sManga.title, sourceId)
             newManga.copyFrom(sManga)
-            val result = db.insertManga(newManga).executeAsBlocking()
-            newManga.id = result.insertedId()
+            // insertManga assigns the generated id back onto newManga.
+            db.insertManga(newManga)
             localManga = newManga
         }
         return localManga

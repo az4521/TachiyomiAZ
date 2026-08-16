@@ -83,7 +83,7 @@ fun Manga.saveMangaUpdate(
         return
     }
 
-    db.insertManga(this).executeAsBlocking()
+    db.insertManga(this)
 }
 
 fun Manga.hasCustomCover(coverCache: CoverCache): Boolean {
@@ -99,7 +99,7 @@ fun Manga.removeCovers(coverCache: CoverCache) {
 
 fun Manga.updateCoverLastModified(db: DatabaseHelper) {
     cover_last_modified = Date().time
-    db.updateMangaCoverLastModified(this).executeAsBlocking()
+    db.updateMangaCoverLastModified(this)
 }
 
 fun Manga.shouldDownloadNewChapters(

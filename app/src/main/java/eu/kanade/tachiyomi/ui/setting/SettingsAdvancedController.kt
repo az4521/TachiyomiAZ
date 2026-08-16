@@ -368,7 +368,7 @@ class SettingsAdvancedController : SettingsController() {
     }
 
     private fun clearDatabase() {
-        db.deleteMangasNotInLibrary().executeAsBlocking()
+        db.deleteMangasNotInLibrary()
         db.deleteHistoryNoLastRead()
         activity?.toast(R.string.clear_database_completed)
     }

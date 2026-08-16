@@ -268,7 +268,7 @@ class EHentaiUpdateWorker : JobService(), CoroutineScope {
         try {
             val updatedManga = source.getMangaUpdate(manga, emptyList(), fetchDetails = true, fetchChapters = false).manga
             manga.copyFrom(updatedManga)
-            db.insertManga(manga).asRxSingle().await()
+            db.insertManga(manga)
 
             val newChapters = source.getMangaUpdate(manga, emptyList(), fetchDetails = false, fetchChapters = true).chapters
             val (new, _) = syncChaptersWithSource(db, newChapters, manga, source) // Not suspending, but does block, maybe fix this?
