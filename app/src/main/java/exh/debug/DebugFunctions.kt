@@ -167,7 +167,7 @@ object DebugFunctions {
     fun getStatisticsInfo(): StatisticsInfoClass {
         val statisticsObject = StatisticsInfoClass()
         runBlocking {
-            val libraryManga = db.getLibraryMangas().await()
+            val libraryManga = db.getLibraryMangas()
             val databaseManga = db.getMangas()
             val databaseTracks = db.getAllTracks()
             val databaseChapters = db.getAllChapters()

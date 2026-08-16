@@ -341,8 +341,7 @@ class LibraryPresenter(
      */
     private fun getLibraryMangasFlow(): Flow<LibraryMap> {
         val libraryDisplayMode = preferences.libraryDisplayMode()
-        return db.getLibraryMangas().asRxObservable()
-            .asFlow()
+        return db.getLibraryMangasAsFlow()
             .map { list ->
                 list.map { LibraryItem(it, libraryDisplayMode) }.groupBy { it.manga.category }
             }

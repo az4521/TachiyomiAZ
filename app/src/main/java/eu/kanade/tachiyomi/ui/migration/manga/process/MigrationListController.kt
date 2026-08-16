@@ -449,7 +449,7 @@ class MigrationListController(bundle: Bundle? = null) :
                 if (hasDetails) {
                     val manga =
                         migratingManga?.firstOrNull()?.searchResult?.get()?.let {
-                            db.getManga(it).executeOnIO()
+                            withIOContext { db.getManga(it) }
                         }
                     if (manga != null) {
                         val newStack =

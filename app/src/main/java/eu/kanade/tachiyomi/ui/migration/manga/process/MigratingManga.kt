@@ -29,7 +29,7 @@ class MigratingManga(
     private var manga: Manga? = null
 
     suspend fun manga(): Manga? {
-        if (manga == null) manga = db.getManga(mangaId).executeAsBlocking()
+        if (manga == null) manga = db.getManga(mangaId)
         return manga
     }
 

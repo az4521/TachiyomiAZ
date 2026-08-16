@@ -28,7 +28,7 @@ class DelayedTrackingUpdateJob(context: Context, workerParams: WorkerParameters)
         withContext(Dispatchers.IO) {
             val tracks =
                 delayedTrackingStore.getItems().mapNotNull {
-                    val manga = db.getManga(it.mangaId).executeAsBlocking() ?: return@withContext
+                    val manga = db.getManga(it.mangaId) ?: return@withContext
                     db.getTracks(manga)
                         .find { track -> track.id == it.trackId }
                         ?.also { track ->

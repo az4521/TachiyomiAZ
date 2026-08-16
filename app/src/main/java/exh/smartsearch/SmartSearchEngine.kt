@@ -197,7 +197,7 @@ class SmartSearchEngine(
         sManga: SManga,
         sourceId: Long
     ): Manga {
-        var localManga = db.getManga(sManga.url, sourceId).executeAsBlocking()
+        var localManga = db.getManga(sManga.url, sourceId)
         if (localManga == null) {
             val newManga = Manga.create(sManga.url, sManga.title, sourceId)
             newManga.copyFrom(sManga)

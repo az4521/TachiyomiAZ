@@ -75,8 +75,7 @@ class MangaInfoPresenter(
     }
 
     private fun getMangaFlow(): Flow<Manga> {
-        return db.getManga(manga.url, manga.source).asRxObservable()
-            .asFlow()
+        return db.getMangaAsFlow(manga.url, manga.source)
             // StorIO transiently emits null while the row is being (re)written elsewhere, and
             // onNextManga needs a non-null Manga. Fall back to the manga this presenter already
             // holds so the view always gets valid, current info instead of an empty screen;
@@ -202,7 +201,7 @@ class MangaInfoPresenter(
         originalMangaId: Long
     ): Manga {
         val originalManga =
-            db.getManga(originalMangaId).await()
+            db.getManga(originalMangaId)
                 ?: throw IllegalArgumentException("Unknown manga ID: $originalMangaId")
         val toInsert =
             if (originalManga.source == MERGED_SOURCE_ID) {
@@ -246,7 +245,7 @@ class MangaInfoPresenter(
             }
 
         // Note that if the manga are merged in a different order, this won't trigger, but I don't care lol
-        val existingManga = db.getManga(toInsert.url, toInsert.source).await()
+        val existingManga = db.getManga(toInsert.url, toInsert.source)
         if (existingManga != null) {
             withContext(NonCancellable) {
                 if (toInsert.id != null) {

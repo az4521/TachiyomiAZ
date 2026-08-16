@@ -32,7 +32,7 @@ abstract class AbstractBackupManager(protected val context: Context) {
      *
      * @return [Manga], null if not found
      */
-    internal fun getMangaFromDatabase(manga: Manga): Manga? = databaseHelper.getManga(manga.url, manga.source).executeAsBlocking()
+    internal fun getMangaFromDatabase(manga: Manga): Manga? = databaseHelper.getManga(manga.url, manga.source)
 
     /**
      * Fetches chapter information.
@@ -69,7 +69,7 @@ abstract class AbstractBackupManager(protected val context: Context) {
      *
      * @return [Manga] from library
      */
-    protected fun getFavoriteManga(): List<Manga> = databaseHelper.getFavoriteMangas().executeAsBlocking()
+    protected fun getFavoriteManga(): List<Manga> = databaseHelper.getFavoriteMangas()
 
     /**
      * Inserts manga and returns id

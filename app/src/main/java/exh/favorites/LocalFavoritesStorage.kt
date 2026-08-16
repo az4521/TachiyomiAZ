@@ -28,7 +28,6 @@ class LocalFavoritesStorage {
             parseToFavoriteEntries(
                 loadDbCategories(
                     db.getFavoriteMangas()
-                        .executeAsBlocking()
                         .asSequence()
                 )
             )
@@ -57,7 +56,6 @@ class LocalFavoritesStorage {
             parseToFavoriteEntries(
                 loadDbCategories(
                     db.getFavoriteMangas()
-                        .executeAsBlocking()
                         .asSequence()
                 )
             )

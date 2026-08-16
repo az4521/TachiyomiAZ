@@ -66,7 +66,7 @@ class MigrationProcessAdapter(
                     val manga = migratingManga.manga
                     if (manga.searchResult.initialized) {
                         val toMangaObj =
-                            db.getManga(manga.searchResult.get() ?: return@forEach).executeAsBlocking()
+                            db.getManga(manga.searchResult.get() ?: return@forEach)
                                 ?: return@forEach
                         migrateMangaInternal(
                             manga.manga() ?: return@forEach,
@@ -87,7 +87,7 @@ class MigrationProcessAdapter(
             val manga = getItem(position)?.manga ?: return@launchUI
             db.inTransaction {
                 val toMangaObj =
-                    db.getManga(manga.searchResult.get() ?: return@launchUI).executeAsBlocking()
+                    db.getManga(manga.searchResult.get() ?: return@launchUI)
                         ?: return@launchUI
                 migrateMangaInternal(
                     manga.manga() ?: return@launchUI,

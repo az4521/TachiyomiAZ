@@ -129,7 +129,7 @@ class MigrationController :
 
         launchUI {
             val manga =
-                withIOContext { Injekt.get<DatabaseHelper>().getFavoriteMangas().executeAsBlocking() }
+                withIOContext { Injekt.get<DatabaseHelper>().getFavoriteMangas() }
             val sourceMangas =
                 manga.asSequence().filter { it.source == item.source.id }.map { it.id!! }.toList()
             withContext(Dispatchers.Main) {

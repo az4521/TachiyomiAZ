@@ -89,3 +89,32 @@ DELETE FROM mangas;
 
 lastInsertRowId:
 SELECT last_insert_rowid();
+
+-- Library view: every favourite manga, once per category it belongs to (or category 0 when
+-- uncategorised), with its unread count. `unread` and `category` are computed aliases, not
+-- columns on mangas -- which is why they are absent from the table definition above.
+getLibraryMangas:
+SELECT M.*, COALESCE(MC.category_id, 0) AS category
+FROM (
+    SELECT mangas.*, COALESCE(C.unread, 0) AS unread
+    FROM mangas
+    LEFT JOIN (
+        SELECT manga_id, COUNT(*) AS unread
+        FROM chapters
+        WHERE read = 0
+        GROUP BY manga_id
+    ) AS C
+    ON mangas._id = C.manga_id
+    WHERE mangas.favorite = 1
+    GROUP BY mangas._id
+    ORDER BY mangas.title
+) AS M
+LEFT JOIN (
+    SELECT * FROM mangas_categories) AS MC
+    ON MC.manga_id = M._id;
+
+getMangaByUrlAndSourceFlow:
+SELECT * FROM mangas WHERE url = ? AND source = ? LIMIT 1;
+
+getFavoriteMangasFlow:
+SELECT * FROM mangas WHERE favorite = 1 ORDER BY title;

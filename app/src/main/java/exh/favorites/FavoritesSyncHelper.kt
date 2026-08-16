@@ -74,7 +74,7 @@ class FavoritesSyncHelper(val context: Context) {
 
         // Validate library state
         status.onNext(FavoritesSyncStatus.Processing("Verifying local library"))
-        val libraryManga = db.getLibraryMangas().executeAsBlocking()
+        val libraryManga = db.getLibraryMangas()
         val seenManga = HashSet<Long>(libraryManga.size)
         libraryManga.forEach {
             if (it.source != EXH_SOURCE_ID && it.source != EH_SOURCE_ID) return@forEach
@@ -357,8 +357,7 @@ class FavoritesSyncHelper(val context: Context) {
             listOf(
                 db.getManga(url, EXH_SOURCE_ID),
                 db.getManga(url, EH_SOURCE_ID)
-            ).forEach {
-                val manga = it.executeAsBlocking()
+            ).forEach { manga ->
 
                 if (manga?.favorite == true) {
                     manga.favorite = false

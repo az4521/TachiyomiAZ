@@ -41,9 +41,7 @@ class MigrationPresenter(
     override fun onCreate(savedState: Bundle?) {
         super.onCreate(savedState)
 
-        db.getFavoriteMangas()
-            .asRxObservable()
-            .asFlow()
+        db.getFavoriteMangasAsFlow()
             .onEach { state = state.copy(sourcesWithManga = findSourcesWithManga(it)) }
             .combine(
                 stateRelay.asFlow()

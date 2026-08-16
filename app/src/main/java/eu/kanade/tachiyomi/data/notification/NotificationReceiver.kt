@@ -181,7 +181,7 @@ class NotificationReceiver : BroadcastReceiver() {
         chapterId: Long
     ) {
         val db = DatabaseHelper(context)
-        val manga = db.getManga(mangaId).executeAsBlocking()
+        val manga = db.getManga(mangaId)
         val chapter = db.getChapter(chapterId)
         if (manga != null && chapter != null) {
             val intent =
@@ -263,7 +263,7 @@ class NotificationReceiver : BroadcastReceiver() {
                     it.read = true
                     db.updateChapterProgress(it)
                     if (preferences.removeAfterMarkedAsRead()) {
-                        val manga = db.getManga(mangaId).executeAsBlocking()
+                        val manga = db.getManga(mangaId)
                         if (manga != null) {
                             val source = sourceManager.get(manga.source)
                             if (source != null) {

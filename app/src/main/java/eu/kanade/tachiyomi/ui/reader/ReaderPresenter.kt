@@ -222,8 +222,8 @@ class ReaderPresenter(
 
         presenterScope.launch {
             try {
-                val manga = db.getManga(mangaId).asRxObservable().asFlow().first()
-                init(manga, initialChapterId)
+                val manga = withIOContext { db.getManga(mangaId) }
+                if (manga != null) init(manga, initialChapterId)
             } catch (e: Throwable) {
                 view?.setInitialChapterError(e)
             }

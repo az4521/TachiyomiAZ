@@ -82,7 +82,7 @@ class GalleryAdder {
 
             // Use manga in DB if possible, otherwise, make a new manga
             val manga =
-                db.getManga(cleanedUrl, source.id).executeAsBlocking()
+                db.getManga(cleanedUrl, source.id)
                     ?: Manga.create(source.id).apply {
                         this.url = cleanedUrl
                         title = realUrl

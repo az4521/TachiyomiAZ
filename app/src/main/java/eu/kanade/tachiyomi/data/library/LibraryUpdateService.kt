@@ -246,15 +246,15 @@ class LibraryUpdateService(
 
         var listToUpdate =
             if (categoryId != -1) {
-                db.getLibraryMangas().executeAsBlocking().filter { it.category == categoryId }
+                db.getLibraryMangas().filter { it.category == categoryId }
             } else {
                 val categoriesToUpdate = preferences.libraryUpdateCategories().get().map(String::toInt)
                 if (categoriesToUpdate.isNotEmpty()) {
-                    db.getLibraryMangas().executeAsBlocking()
+                    db.getLibraryMangas()
                         .filter { it.category in categoriesToUpdate }
                         .distinctBy { it.id }
                 } else {
-                    db.getLibraryMangas().executeAsBlocking().distinctBy { it.id }
+                    db.getLibraryMangas().distinctBy { it.id }
                 }
             }
         if (target == Target.CHAPTERS && preferences.updateOnlyNonCompleted()) {

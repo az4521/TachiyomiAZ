@@ -73,7 +73,7 @@ class MangaController : RxController<MangaControllerBinding>, TabbedController {
     // EXH <--
 
     constructor(mangaId: Long) : this(
-        Injekt.get<DatabaseHelper>().getManga(mangaId).executeAsBlocking()
+        Injekt.get<DatabaseHelper>().getManga(mangaId)
     )
 
     @Suppress("unused")

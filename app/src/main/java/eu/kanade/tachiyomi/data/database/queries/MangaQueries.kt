@@ -3,6 +3,12 @@ package eu.kanade.tachiyomi.data.database.queries
 import com.pushtorefresh.storio.sqlite.queries.DeleteQuery
 import com.pushtorefresh.storio.sqlite.queries.Query
 import com.pushtorefresh.storio.sqlite.queries.RawQuery
+import app.cash.sqldelight.coroutines.asFlow
+import app.cash.sqldelight.coroutines.mapToList
+import app.cash.sqldelight.coroutines.mapToOneOrNull
+import eu.kanade.tachiyomi.data.database.mapLibraryManga
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import eu.kanade.tachiyomi.data.database.DbProvider
 import eu.kanade.tachiyomi.data.database.updateStrategyAdapter
 import eu.kanade.tachiyomi.data.database.memoColumnAdapter
@@ -25,56 +31,43 @@ import exh.metadata.sql.tables.SearchMetadataTable
 interface MangaQueries : DbProvider {
     fun getMangas(): List<Manga> = sqlDatabase.mangasQueries.getMangas(::mapManga).executeAsList()
 
-    fun getLibraryMangas() =
-        db.get()
-            .listOfObjects(LibraryManga::class.java)
-            .withQuery(
-                RawQuery.builder()
-                    .query(libraryQuery)
-                    .observesTables(MangaTable.TABLE, ChapterTable.TABLE, MangaCategoryTable.TABLE, CategoryTable.TABLE)
-                    .build()
-            )
-            .withGetResolver(LibraryMangaGetResolver.INSTANCE)
-            .prepare()
+    fun getLibraryMangas(): List<LibraryManga> =
+        sqlDatabase.mangasQueries.getLibraryMangas(::mapLibraryManga).executeAsList()
 
-    fun getFavoriteMangas() =
-        db.get()
-            .listOfObjects(Manga::class.java)
-            .withQuery(
-                Query.builder()
-                    .table(MangaTable.TABLE)
-                    .where("${MangaTable.COL_FAVORITE} = ?")
-                    .whereArgs(1)
-                    .orderBy(MangaTable.COL_TITLE)
-                    .build()
-            )
-            .prepare()
+    fun getLibraryMangasAsFlow(): Flow<List<LibraryManga>> =
+        sqlDatabase.mangasQueries
+            .getLibraryMangas(::mapLibraryManga)
+            .asFlow()
+            .mapToList(Dispatchers.IO)
+
+    fun getFavoriteMangas(): List<Manga> =
+        sqlDatabase.mangasQueries.getFavoriteMangas(::mapManga).executeAsList()
 
     fun getManga(
         url: String,
         sourceId: Long
-    ) = db.get()
-        .`object`(Manga::class.java)
-        .withQuery(
-            Query.builder()
-                .table(MangaTable.TABLE)
-                .where("${MangaTable.COL_URL} = ? AND ${MangaTable.COL_SOURCE} = ?")
-                .whereArgs(url, sourceId)
-                .build()
-        )
-        .prepare()
+    ): Manga? =
+        sqlDatabase.mangasQueries
+            .getMangaByUrlAndSource(url, sourceId, ::mapManga)
+            .executeAsOneOrNull()
 
-    fun getManga(id: Long) =
-        db.get()
-            .`object`(Manga::class.java)
-            .withQuery(
-                Query.builder()
-                    .table(MangaTable.TABLE)
-                    .where("${MangaTable.COL_ID} = ?")
-                    .whereArgs(id)
-                    .build()
-            )
-            .prepare()
+    fun getMangaAsFlow(
+        url: String,
+        sourceId: Long
+    ): Flow<Manga?> =
+        sqlDatabase.mangasQueries
+            .getMangaByUrlAndSourceFlow(url, sourceId, ::mapManga)
+            .asFlow()
+            .mapToOneOrNull(Dispatchers.IO)
+
+    fun getFavoriteMangasAsFlow(): Flow<List<Manga>> =
+        sqlDatabase.mangasQueries
+            .getFavoriteMangasFlow(::mapManga)
+            .asFlow()
+            .mapToList(Dispatchers.IO)
+
+    fun getManga(id: Long): Manga? =
+        sqlDatabase.mangasQueries.getMangaById(id, ::mapManga).executeAsOneOrNull()
 
     fun getMergedMangasStorio(id: Long) =
         db.get()

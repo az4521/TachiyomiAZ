@@ -45,7 +45,7 @@ class EHentaiUpdateHelper(context: Context) {
                 Observable.merge(
                     mangaIds.map { mangaId ->
                         Single.zip(
-                            db.getManga(mangaId).asRxSingle(),
+                            Single.fromCallable { db.getManga(mangaId)!! },
                             Single.fromCallable { db.getChaptersByMangaId(mangaId) }
                         ) { manga, chapters ->
                             ChapterChain(manga, chapters)

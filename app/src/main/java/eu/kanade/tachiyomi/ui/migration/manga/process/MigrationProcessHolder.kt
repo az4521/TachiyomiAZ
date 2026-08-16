@@ -95,7 +95,7 @@ class MigrationProcessHolder(
 
                 val searchResult =
                     item.manga.searchResult.get()?.let {
-                        db.getManga(it).executeAsBlocking()
+                        db.getManga(it)
                     }
                 val resultSource =
                     searchResult?.source?.let {
