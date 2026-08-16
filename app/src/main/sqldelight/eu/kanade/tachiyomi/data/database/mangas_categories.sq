@@ -8,8 +8,3 @@ CREATE TABLE mangas_categories(
     FOREIGN KEY(manga_id) REFERENCES mangas (_id)
     ON DELETE CASCADE
 );
-
-getCategoriesForManga:
-SELECT categories.* FROM categories
-JOIN mangas_categories ON categories._id = mangas_categories.category_id
-WHERE mangas_categories.manga_id = ?;

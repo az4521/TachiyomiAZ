@@ -9,3 +9,21 @@ CREATE TABLE categories(
 
 getCategories:
 SELECT * FROM categories ORDER BY sort;
+
+getCategoriesForManga:
+SELECT categories.* FROM categories
+JOIN mangas_categories ON categories._id = mangas_categories.category_id
+WHERE mangas_categories.manga_id = ?;
+
+insertCategory:
+INSERT INTO categories(name, sort, flags, manga_order)
+VALUES (?, ?, ?, ?);
+
+updateCategory:
+UPDATE categories SET name = ?, sort = ?, flags = ?, manga_order = ? WHERE _id = ?;
+
+deleteCategory:
+DELETE FROM categories WHERE _id = ?;
+
+lastInsertRowId:
+SELECT last_insert_rowid();
