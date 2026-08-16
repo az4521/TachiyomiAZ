@@ -10,7 +10,7 @@ import eu.kanade.tachiyomi.data.database.memoColumnAdapter
 import eu.kanade.tachiyomi.data.database.models.LibraryManga
 import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.data.database.updateStrategyAdapter
-import kotlinx.coroutines.Dispatchers
+import eu.kanade.tachiyomi.data.database.databaseDispatcher
 import kotlinx.coroutines.flow.Flow
 
 interface MangaQueries : DbProvider {
@@ -23,7 +23,7 @@ interface MangaQueries : DbProvider {
         sqlDatabase.mangasQueries
             .getLibraryMangas(::mapLibraryManga)
             .asFlow()
-            .mapToList(Dispatchers.IO)
+            .mapToList(databaseDispatcher)
 
     fun getFavoriteMangas(): List<Manga> =
         sqlDatabase.mangasQueries.getFavoriteMangas(::mapManga).executeAsList()
@@ -43,13 +43,13 @@ interface MangaQueries : DbProvider {
         sqlDatabase.mangasQueries
             .getMangaByUrlAndSourceFlow(url, sourceId, ::mapManga)
             .asFlow()
-            .mapToOneOrNull(Dispatchers.IO)
+            .mapToOneOrNull(databaseDispatcher)
 
     fun getFavoriteMangasAsFlow(): Flow<List<Manga>> =
         sqlDatabase.mangasQueries
             .getFavoriteMangasFlow(::mapManga)
             .asFlow()
-            .mapToList(Dispatchers.IO)
+            .mapToList(databaseDispatcher)
 
     fun getMangasBySource(sourceId: Long): List<Manga> =
         sqlDatabase.mangasQueries.getMangasBySource(sourceId, ::mapManga).executeAsList()

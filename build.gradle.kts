@@ -69,19 +69,31 @@ buildscript {
 }
 
 /**
- * Compiles every shared module for a plain JVM target.
+ * Checks that the shared modules really are shareable.
  *
- * This is the boundary check for the iOS port. commonMain must not touch the Android SDK, and
- * iOS targets can only be compiled on macOS -- so on a Windows or Linux machine this is what
- * actually proves the shared code is portable. It needs no Android SDK and takes seconds.
+ * The metadata compilations are the part that matters. Building for plain JVM is not enough: it
+ * shares almost everything with Android, so JVM-only API in commonMain sails straight through.
+ * Both of these did exactly that until the metadata check was added --
  *
- * Run it in CI. Without it, an Android-only import added to a shared module compiles fine here
- * and only fails much later, on someone else's Mac.
+ *   - `javaClass`, used in four model classes' equals()
+ *   - `Dispatchers.IO`, which coroutines declares in its JVM and Native source sets but not in
+ *     the common API
+ *
+ * -- and neither would have surfaced until someone tried to build for iOS. Metadata compilation
+ * resolves commonMain and iosMain against the real shared API and needs no Apple toolchain, so it
+ * runs anywhere, including a Windows or Linux CI runner.
+ *
+ * It still is not a substitute for linking the iOS binaries, which needs macOS. It catches
+ * everything that is a source-level portability mistake, which is nearly all of them.
  */
 tasks.register("checkSharedPortability") {
     group = "verification"
-    description = "Compiles and tests :core-model, :core-database and :core-domain for plain JVM."
+    description = "Type-checks the shared modules for iOS and JVM, and runs their tests."
     dependsOn(
+        // The real portability check: resolves commonMain and iosMain against the shared API.
+        ":core-model:compileIosMainKotlinMetadata",
+        ":core-database:compileIosMainKotlinMetadata",
+        ":core-domain:compileIosMainKotlinMetadata",
         ":core-model:compileKotlinJvm",
         ":core-database:compileKotlinJvm",
         ":core-domain:compileKotlinJvm",

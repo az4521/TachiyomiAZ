@@ -7,7 +7,7 @@ import eu.kanade.tachiyomi.data.database.mangaOrderToString
 import eu.kanade.tachiyomi.data.database.mapCategory
 import eu.kanade.tachiyomi.data.database.models.Category
 import eu.kanade.tachiyomi.data.database.models.Manga
-import kotlinx.coroutines.Dispatchers
+import eu.kanade.tachiyomi.data.database.databaseDispatcher
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -23,7 +23,7 @@ interface CategoryQueries : DbProvider {
         sqlDatabase.categoriesQueries
             .getCategories(::mapCategory)
             .asFlow()
-            .mapToList(Dispatchers.IO)
+            .mapToList(databaseDispatcher)
 
     fun getCategoriesForManga(manga: Manga): List<Category> =
         sqlDatabase.categoriesQueries

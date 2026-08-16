@@ -7,7 +7,7 @@ import eu.kanade.tachiyomi.data.database.mapHistory
 import eu.kanade.tachiyomi.data.database.mapMangaChapterHistory
 import eu.kanade.tachiyomi.data.database.models.History
 import eu.kanade.tachiyomi.data.database.models.MangaChapterHistory
-import kotlinx.coroutines.Dispatchers
+import eu.kanade.tachiyomi.data.database.databaseDispatcher
 import kotlinx.coroutines.flow.Flow
 
 interface HistoryQueries : DbProvider {
@@ -47,7 +47,7 @@ interface HistoryQueries : DbProvider {
         sqlDatabase.historyQueries
             .getRecentMangas(date, search.lowercase(), 25, offset.toLong(), ::mapMangaChapterHistory)
             .asFlow()
-            .mapToList(Dispatchers.IO)
+            .mapToList(databaseDispatcher)
 
     /**
      * Same query with an explicit row limit rather than a fixed page of 25.
@@ -69,7 +69,7 @@ interface HistoryQueries : DbProvider {
         sqlDatabase.historyQueries
             .getRecentMangas(date, search.lowercase(), limit.toLong(), 0, ::mapMangaChapterHistory)
             .asFlow()
-            .mapToList(Dispatchers.IO)
+            .mapToList(databaseDispatcher)
 
     fun getHistoryByMangaId(mangaId: Long): List<History> =
         sqlDatabase.historyQueries.getHistoryByMangaId(mangaId, ::mapHistory).executeAsList()

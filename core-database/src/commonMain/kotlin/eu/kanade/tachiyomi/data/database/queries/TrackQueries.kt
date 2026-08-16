@@ -6,7 +6,7 @@ import eu.kanade.tachiyomi.data.database.DbProvider
 import eu.kanade.tachiyomi.data.database.mapTrack
 import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.data.database.models.Track
-import kotlinx.coroutines.Dispatchers
+import eu.kanade.tachiyomi.data.database.databaseDispatcher
 import kotlinx.coroutines.flow.Flow
 
 interface TrackQueries : DbProvider {
@@ -18,7 +18,7 @@ interface TrackQueries : DbProvider {
         sqlDatabase.manga_syncQueries
             .getTracksByMangaIdFlow(manga.id ?: 0L, ::mapTrack)
             .asFlow()
-            .mapToList(Dispatchers.IO)
+            .mapToList(databaseDispatcher)
 
     fun getTracks(manga: Manga): List<Track> =
         sqlDatabase.manga_syncQueries

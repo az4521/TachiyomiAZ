@@ -13,7 +13,10 @@ class CategoryImpl : Category {
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
-        if (other == null || javaClass != other.javaClass) return false
+        // this::class rather than javaClass: the same exact-class check, but available
+        // off the JVM. `is` would not do -- LibraryManga extends MangaImpl, so a subclass would
+        // start comparing equal to its parent.
+        if (other == null || this::class != other::class) return false
 
         val category = other as Category
         return name == category.name

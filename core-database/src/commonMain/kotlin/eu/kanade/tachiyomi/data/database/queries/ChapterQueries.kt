@@ -9,7 +9,7 @@ import eu.kanade.tachiyomi.data.database.memoColumnAdapter
 import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.data.database.models.MangaChapter
-import kotlinx.coroutines.Dispatchers
+import eu.kanade.tachiyomi.data.database.databaseDispatcher
 import kotlinx.coroutines.flow.Flow
 
 interface ChapterQueries : DbProvider {
@@ -27,7 +27,7 @@ interface ChapterQueries : DbProvider {
         sqlDatabase.chaptersQueries
             .getChaptersByMangaId(mangaId ?: 0L, ::mapChapter)
             .asFlow()
-            .mapToList(Dispatchers.IO)
+            .mapToList(databaseDispatcher)
 
     fun getChaptersByMergedMangaId(mangaId: Long): List<Chapter> =
         sqlDatabase.chaptersQueries
@@ -43,7 +43,7 @@ interface ChapterQueries : DbProvider {
         sqlDatabase.chaptersQueries
             .getRecentChapters(date, ::mapMangaChapter)
             .asFlow()
-            .mapToList(Dispatchers.IO)
+            .mapToList(databaseDispatcher)
 
     fun getChapter(id: Long): Chapter? =
         sqlDatabase.chaptersQueries.getChapterById(id, ::mapChapter).executeAsOneOrNull()
