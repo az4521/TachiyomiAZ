@@ -1,17 +1,27 @@
 # Migrating TachiyomiAZ off RxJava
 
-Status: in progress — Phases 0-3 largely done; reader, exh and sources remain
+Status: in progress — Phases 0-4 done; Downloader, sources and exh remain
 Last updated: 2026-08-15
 Branch: `rxjava-migration`
 
-Files importing `rx.*`: **103 at start, 60 now.**
+Files importing `rx.*`: **103 at start, 42 now.**
 
-Six of those 60 must keep RxJava permanently as the extension shim:
-`Source.kt`, `CatalogueSource.kt`, `HttpSource.kt`, `source/model/Page.kt`,
+Five of those 42 must keep RxJava permanently as the extension shim:
+`Source.kt`, `CatalogueSource.kt`, `HttpSource.kt`,
 `network/OkHttpExtensions.kt`, and `util/lang/RxCoroutineBridge.kt`.
+(`source/model/Page.kt` is no longer among them — see Phase 4.)
 
-Remaining by area: `ui/reader/` 18, `ui/` (other) 13, `source/` 12, `exh/` 6,
-`data/download/` 4, `util/` 4, `extension/` 2, `network/` 1.
+Remaining, by group:
+
+| Group | Files | Notes |
+|---|---|---|
+| extension shim — keep | 5 | see above |
+| `Downloader` + `DownloadManager` + `DownloadService` | 3 | the hardest remaining item |
+| `exh/` | 11 | fork-only, no upstream reference |
+| `source/online/` fork sources | 8 | EHentai, NHentai, HentaiCafe, Pururin, Tsumino, LewdSource, HttpSourceFetcher, SourceManager |
+| UI leftovers | 10 | mostly relays shared between controllers |
+| `util/` | 3 | `RetryWithDelay`, `RxExtensions`, `TrackChapterSync` |
+| `extension/` | 2 | `ExtensionManager.installExtension`, `ExtensionInstaller` |
 
 ## 1. The goal has to be restated
 
@@ -264,6 +274,49 @@ Two traps worth knowing before continuing:
 Relays converted so far map as: `BehaviorRelay` -> `MutableSharedFlow(replay = 1)`
 (or `MutableStateFlow`), `PublishRelay` -> `MutableSharedFlow` with no replay,
 `onBackpressureBuffer` -> `extraBufferCapacity`.
+
+### Phase 4 — the reader — DONE
+
+`Page.setStatusSubject` became `setStatusFlow`. This turned out to be
+app-internal plumbing — only `HttpPageLoader` and `DownloadQueue` ever called
+it — so `Page` left the "must keep RxJava" list without changing anything
+extensions touch (constructor, `status`, `progress`, `uri`).
+
+`PageLoader`'s contract is now `suspend fun getPages(): List<ReaderPage>` and
+`fun getPage(page): Flow<Int>`; all seven loaders follow.
+
+`HttpPageLoader` kept its structure on purpose:
+
+- each worker still owns a single-thread executor, now through
+  `asCoroutineDispatcher`. `queue.take()` parks the thread while the queue is
+  empty, so it must not move onto a shared pool — the existing comment about
+  OkHttp dispatcher threads applies unchanged;
+- `getPage` is a `channelFlow` whose `awaitClose` does what `doOnUnsubscribe`
+  did: drop still-queued pages nobody is watching, so workers don't fetch pages
+  that have scrolled away;
+- the priority queue and preload sizing are untouched.
+
+The page holders' 100 ms progress pollers stayed polling — `Page.progress` has
+no change notification — but the loop only advances after the view update runs,
+which is what `onBackpressureLatest` was guarding against. Image-header streams
+stay open with `awaitCancellation` and close in a `finally`, replacing
+`Observable.never` + `doOnUnsubscribe`.
+
+### Next: the Downloader
+
+`downloadsRelay.concatMapIterable → groupBy(source) → flatMap(..., 5) { bySource.concatMap { downloadChapter } }`
+means **at most 5 sources downloading at once, sequential within a source**, and
+`downloadChapter` itself has a second `flatMap(..., 5)` capping concurrent page
+downloads.
+
+A faithful coroutine version needs a per-source `Mutex` (serialisation) plus a
+`Semaphore(5)` (source cap), taking the mutex *before* the permit so a waiting
+download does not hold a permit. The inner page cap is a second `Semaphore(5)`.
+Both caps must survive: losing the source cap hammers sites, losing the
+per-source ordering interleaves chapters.
+
+`DownloadService.runningRelay` is an rxrelay `BehaviorRelay` read by
+`DownloadController`; it converts with the Downloader.
 
 ### Remaining work
 
