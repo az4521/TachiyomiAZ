@@ -204,7 +204,7 @@ class FullBackupManager(context: Context) : AbstractBackupManager(context) {
 
         // Check if user wants track information in backup
         if (options and BACKUP_TRACK_MASK == BACKUP_TRACK) {
-            val tracks = databaseHelper.getTracks(manga).executeAsBlocking()
+            val tracks = databaseHelper.getTracks(manga)
             if (tracks.isNotEmpty()) {
                 mangaObject.tracking = tracks.map { BackupTracking.copyFrom(it) }
             }
@@ -372,7 +372,7 @@ class FullBackupManager(context: Context) : AbstractBackupManager(context) {
         tracks.map { it.manga_id = manga.id!! }
 
         // Get tracks from database
-        val dbTracks = databaseHelper.getTracks(manga).executeAsBlocking()
+        val dbTracks = databaseHelper.getTracks(manga)
         val trackToUpdate = mutableListOf<Track>()
 
         tracks.forEach { track ->
@@ -403,7 +403,7 @@ class FullBackupManager(context: Context) : AbstractBackupManager(context) {
         }
         // Update database
         if (trackToUpdate.isNotEmpty()) {
-            databaseHelper.insertTracks(trackToUpdate).executeAsBlocking()
+            databaseHelper.insertTracks(trackToUpdate)
         }
     }
 

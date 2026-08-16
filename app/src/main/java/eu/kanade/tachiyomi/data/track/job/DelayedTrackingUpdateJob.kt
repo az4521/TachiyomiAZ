@@ -29,7 +29,7 @@ class DelayedTrackingUpdateJob(context: Context, workerParams: WorkerParameters)
             val tracks =
                 delayedTrackingStore.getItems().mapNotNull {
                     val manga = db.getManga(it.mangaId).executeAsBlocking() ?: return@withContext
-                    db.getTracks(manga).executeAsBlocking()
+                    db.getTracks(manga)
                         .find { track -> track.id == it.trackId }
                         ?.also { track ->
                             track.last_chapter_read = it.lastChapterRead.toInt()
@@ -41,7 +41,7 @@ class DelayedTrackingUpdateJob(context: Context, workerParams: WorkerParameters)
                     val service = trackManager.getService(track.sync_id)
                     if (service != null && service.isLogged) {
                         service.update(track)
-                        db.insertTrack(track).executeAsBlocking()
+                        db.insertTrack(track)
                     }
                 } catch (e: Exception) {
                     Timber.e(e)

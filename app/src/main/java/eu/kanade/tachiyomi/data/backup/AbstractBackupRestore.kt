@@ -102,7 +102,7 @@ abstract class AbstractBackupRestore<T : AbstractBackupManager>(protected val co
             if (service != null && service.isLogged) {
                 try {
                     val updatedTrack = service.refresh(track)
-                    db.insertTrack(updatedTrack).executeAsBlocking()
+                    db.insertTrack(updatedTrack)
                 } catch (e: Exception) {
                     errors.add(Date() to "${manga.title} - ${e.message}")
                 }

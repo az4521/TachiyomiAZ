@@ -169,7 +169,7 @@ object DebugFunctions {
         runBlocking {
             val libraryManga = db.getLibraryMangas().await()
             val databaseManga = db.getMangas().await()
-            val databaseTracks = db.getAllTracks().await()
+            val databaseTracks = db.getAllTracks()
             val databaseChapters = db.getAllChapters().await()
 
             val databaseMangaMap = databaseManga.associateBy { it.id }

@@ -120,7 +120,7 @@ class LibraryItem(val manga: LibraryManga, private val libraryDisplayMode: Prefe
             (manga.author?.contains(constraint.first, true) ?: false) ||
             (manga.artist?.contains(constraint.first, true) ?: false) ||
             (source?.name?.contains(constraint.first, true) ?: false) ||
-            (Injekt.get<TrackManager>().hasLoggedServices() && filterTracks(constraint.first, db.getTracks(manga).executeAsBlocking())) ||
+            (Injekt.get<TrackManager>().hasLoggedServices() && filterTracks(constraint.first, db.getTracks(manga))) ||
             constraint.second && ehContainsGenre(constraint.first)
     }
 

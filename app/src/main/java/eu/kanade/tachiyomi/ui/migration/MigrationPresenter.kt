@@ -164,12 +164,12 @@ class MigrationPresenter(
             }
             // Update track
             if (migrateTracks) {
-                val tracks = db.getTracks(prevManga).executeAsBlocking()
+                val tracks = db.getTracks(prevManga)
                 for (track in tracks) {
                     track.id = null
                     track.manga_id = manga.id!!
                 }
-                db.insertTracks(tracks).executeAsBlocking()
+                db.insertTracks(tracks)
             }
             // Update favorite status
             if (replace) {

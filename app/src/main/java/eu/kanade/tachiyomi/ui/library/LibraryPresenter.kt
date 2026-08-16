@@ -161,7 +161,7 @@ class LibraryPresenter(
                 return@f false
             }
             if (filterTracked != STATE_IGNORE) {
-                val tracks = db.getTracks(item.manga).executeAsBlocking()
+                val tracks = db.getTracks(item.manga)
                 if (filterTracked == STATE_INCLUDE && tracks.isEmpty()) {
                     return@f false
                 } else if (filterTracked == STATE_EXCLUDE && tracks.isNotEmpty()) {
@@ -562,12 +562,12 @@ class LibraryPresenter(
             }
             // Update track
             if (migrateTracks) {
-                val tracks = db.getTracks(prevManga).executeAsBlocking()
+                val tracks = db.getTracks(prevManga)
                 for (track in tracks) {
                     track.id = null
                     track.manga_id = manga.id!!
                 }
-                db.insertTracks(tracks).executeAsBlocking()
+                db.insertTracks(tracks)
             }
             // Update favorite status
             if (replace) {

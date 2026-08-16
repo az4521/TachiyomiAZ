@@ -448,12 +448,12 @@ class LibraryUpdateService(
             notifier.showProgressNotification(manga, count++, mangaToUpdate.size)
 
             // Update the tracking details.
-            db.getTracks(manga).executeAsBlocking().forEach { track ->
+            db.getTracks(manga).forEach { track ->
                 val service = trackManager.getService(track.sync_id)
                 if (service != null && service in loggedServices) {
                     try {
                         val updatedTrack = service.refresh(track)
-                        db.insertTrack(updatedTrack).executeAsBlocking()
+                        db.insertTrack(updatedTrack)
                     } catch (e: Exception) {
                         // Matches the previous onErrorReturn: one tracker failing must not
                         // abort the rest of the library.

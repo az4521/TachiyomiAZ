@@ -60,7 +60,7 @@ class TrackPresenter(
         if (enhanced.isEmpty()) return
 
         launchIO {
-            val existing = db.getTracks(manga).executeAsBlocking()
+            val existing = db.getTracks(manga)
             enhanced.forEach { service ->
                 service as TrackService
                 if (existing.any { it.sync_id == service.id }) return@forEach
@@ -68,7 +68,7 @@ class TrackPresenter(
                     val matched = service.match(manga) ?: return@forEach
                     matched.manga_id = manga.id!!
                     service.bind(matched)
-                    db.insertTrack(matched).executeAsBlocking()
+                    db.insertTrack(matched)
                 } catch (e: Exception) {
                     XLog.w("Failed to auto-bind ${service.name}", e)
                 }
@@ -79,9 +79,7 @@ class TrackPresenter(
     fun fetchTrackings() {
         trackJob?.cancel()
         trackJob =
-            db.getTracks(manga)
-                .asRxObservable()
-                .asFlow()
+            db.getTracksAsFlow(manga)
                 .map { tracks ->
                     loggedServices.map { service ->
                         TrackItem(tracks.find { it.sync_id == service.id }, service)
@@ -100,7 +98,7 @@ class TrackPresenter(
                         trackList.filter { it.track != null }.forEach { item ->
                             try {
                                 val updated = item.service.refresh(item.track!!)
-                                db.insertTrack(updated).executeAsBlocking()
+                                db.insertTrack(updated)
                             } catch (e: Exception) {
                                 // Mirrors the previous per-item onErrorReturn: one tracker
                                 // failing must not abort refreshing the others.
@@ -141,7 +139,7 @@ class TrackPresenter(
                 try {
                     withIOContext {
                         service.bind(item)
-                        db.insertTrack(item).executeAsBlocking()
+                        db.insertTrack(item)
                     }
                 } catch (error: Exception) {
                     context.toast(error.message)
@@ -153,7 +151,7 @@ class TrackPresenter(
     }
 
     fun unregisterTracking(service: TrackService) {
-        db.deleteTrackForManga(manga, service).executeAsBlocking()
+        db.deleteTrackForManga(manga, service)
     }
 
     private fun updateRemote(
@@ -164,7 +162,7 @@ class TrackPresenter(
             try {
                 withIOContext {
                     service.update(track)
-                    db.insertTrack(track).executeAsBlocking()
+                    db.insertTrack(track)
                 }
                 view?.onRefreshDone()
             } catch (error: Exception) {

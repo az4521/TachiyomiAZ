@@ -308,7 +308,7 @@ class LegacyBackupManager(context: Context, version: Int = CURRENT_VERSION) : Ab
 
             // Check if user wants track information in backup
             if (options and BACKUP_TRACK_MASK == BACKUP_TRACK) {
-                val tracks = databaseHelper.getTracks(manga).executeAsBlocking()
+                val tracks = databaseHelper.getTracks(manga)
                 if (tracks.isNotEmpty()) {
                     put(TRACK, JsonArray(tracks.map { trackToJson(it) }))
                 }
@@ -467,7 +467,7 @@ class LegacyBackupManager(context: Context, version: Int = CURRENT_VERSION) : Ab
         tracks.map { it.manga_id = manga.id!! }
 
         // Get tracks from database
-        val dbTracks = databaseHelper.getTracks(manga).executeAsBlocking()
+        val dbTracks = databaseHelper.getTracks(manga)
         val trackToUpdate = mutableListOf<Track>()
 
         tracks.forEach { track ->
@@ -498,7 +498,7 @@ class LegacyBackupManager(context: Context, version: Int = CURRENT_VERSION) : Ab
         }
         // Update database
         if (trackToUpdate.isNotEmpty()) {
-            databaseHelper.insertTracks(trackToUpdate).executeAsBlocking()
+            databaseHelper.insertTracks(trackToUpdate)
         }
     }
 

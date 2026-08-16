@@ -32,7 +32,7 @@ fun updateTrackChapterMarkedRead(
     // These should finish even if the caller goes away.
     launchIO {
         try {
-            db.getTracks(manga).executeAsBlocking().forEach { track ->
+            db.getTracks(manga).forEach { track ->
                 val service = trackManager.getService(track.sync_id)
                 if (service != null && service.isLogged && chapterRead > track.last_chapter_read) {
                     track.last_chapter_read = chapterRead
@@ -40,7 +40,7 @@ fun updateTrackChapterMarkedRead(
                     try {
                         if (context.isOnline()) {
                             service.update(track)
-                            db.insertTrack(track).executeAsBlocking()
+                            db.insertTrack(track)
                         } else {
                             delayedTrackingStore.addItem(track)
                             DelayedTrackingUpdateJob.setupTask(context)

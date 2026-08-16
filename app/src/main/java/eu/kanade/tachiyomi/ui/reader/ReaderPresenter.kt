@@ -675,38 +675,35 @@ class ReaderPresenter(
         val trackManager = Injekt.get<TrackManager>()
         val context = Injekt.get<Application>()
 
-        db.getTracks(manga).asRxSingle()
-            .flatMapCompletable { trackList ->
-                Completable.concat(
-                    trackList.map { track ->
-                        val service = trackManager.getService(track.sync_id)
-                        if (service != null && service.isLogged && chapterRead > track.last_chapter_read) {
-                            track.last_chapter_read = chapterRead
+        // These should finish even if the presenter is destroyed and leaks for a while;
+        // the view can still be garbage collected.
+        launchIO {
+            try {
+                db.getTracks(manga).forEach { track ->
+                    val service = trackManager.getService(track.sync_id)
+                    if (service != null && service.isLogged && chapterRead > track.last_chapter_read) {
+                        track.last_chapter_read = chapterRead
 
-                            // We want these to execute even if the presenter is destroyed and leaks
-                            // for a while. The view can still be garbage collected.
+                        try {
                             if (context.isOnline()) {
                                 Timber.d("Tracking ONLINE")
-                                runAsObservable({ service.update(track) })
-                                    .map { db.insertTrack(track).executeAsBlocking() }
-                                    .toCompletable()
-                                    .onErrorComplete()
+                                service.update(track)
+                                db.insertTrack(track)
                             } else {
                                 Timber.d("Tracking OFFLINE")
-                                Observable.fromCallable { delayedTrackingStore.addItem(track) }
-                                    .map { DelayedTrackingUpdateJob.setupTask(context) }
-                                    .toCompletable()
-                                    .onErrorComplete()
+                                delayedTrackingStore.addItem(track)
+                                DelayedTrackingUpdateJob.setupTask(context)
                             }
-                        } else {
-                            Completable.complete()
+                        } catch (e: Throwable) {
+                            // Previously onErrorComplete per track.
+                            Timber.e(e)
                         }
                     }
-                )
+                }
+            } catch (e: Throwable) {
+                Timber.e(e)
             }
-            .onErrorComplete()
-            .subscribeOn(Schedulers.io())
-            .subscribe()
+        }
     }
 
     /**
