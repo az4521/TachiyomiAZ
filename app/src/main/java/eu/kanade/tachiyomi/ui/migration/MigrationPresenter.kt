@@ -1,12 +1,12 @@
 package eu.kanade.tachiyomi.ui.migration
 
-import eu.kanade.tachiyomi.domain.migration.MigrationFlags
 import android.os.Bundle
 import com.jakewharton.rxrelay.BehaviorRelay
 import eu.kanade.tachiyomi.data.database.DatabaseHelper
 import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.data.database.models.MangaCategory
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
+import eu.kanade.tachiyomi.domain.migration.MigrationFlags
 import eu.kanade.tachiyomi.source.LocalSource
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.SourceManager

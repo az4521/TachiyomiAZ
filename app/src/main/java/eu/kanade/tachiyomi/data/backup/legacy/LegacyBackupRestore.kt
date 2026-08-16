@@ -12,7 +12,6 @@ import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.source.Source
-import eu.kanade.tachiyomi.util.system.launchIO
 import exh.EXHMigrations
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
@@ -24,7 +23,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import java.util.Date
 
 class LegacyBackupRestore(context: Context, notifier: BackupNotifier) : AbstractBackupRestore<LegacyBackupManager>(context, notifier) {
-    override fun performRestore(uri: Uri): Boolean {
+    override suspend fun performRestore(uri: Uri): Boolean {
         // SY -->
         throttleManager.resetThrottle()
         // SY <--
@@ -78,7 +77,7 @@ class LegacyBackupRestore(context: Context, notifier: BackupNotifier) : Abstract
     }
     // SY <--
 
-    private fun restoreManga(mangaJson: JsonObject) {
+    private suspend fun restoreManga(mangaJson: JsonObject) {
         // SY -->
         var /* SY <-- */ manga = backupManager.jsonToManga(mangaJson[Backup.MANGA]!!)
         val chapters = (mangaJson[Backup.CHAPTERS]?.jsonArray ?: emptyList()).map { backupManager.jsonToChapter(it) }
@@ -116,7 +115,7 @@ class LegacyBackupRestore(context: Context, notifier: BackupNotifier) : Abstract
      * @param history history data from json
      * @param tracks tracking data from json
      */
-    private fun restoreMangaData(
+    private suspend fun restoreMangaData(
         manga: Manga,
         source: Source,
         chapters: List<Chapter>,
@@ -126,16 +125,17 @@ class LegacyBackupRestore(context: Context, notifier: BackupNotifier) : Abstract
     ) {
         val dbManga = backupManager.getMangaFromDatabase(manga)
 
-        db.inTransaction {
-            if (dbManga == null) {
-                // Manga not in database
-                restoreMangaFetch(source, manga, chapters, categories, history, tracks)
-            } else { // Manga in database
-                // Copy information from manga already in database
-                backupManager.restoreMangaNoFetch(manga, dbManga)
-                // Fetch rest of manga information
-                restoreMangaNoFetch(source, manga, chapters, categories, history, tracks)
-            }
+        // Deliberately not wrapped in a transaction: this work suspends -- it fetches from the
+        // source and refreshes trackers -- and a transaction cannot be held across that. See the
+        // note in FullBackupRestore.restoreMangaData.
+        if (dbManga == null) {
+            // Manga not in database
+            restoreMangaFetch(source, manga, chapters, categories, history, tracks)
+        } else { // Manga in database
+            // Copy information from manga already in database
+            backupManager.restoreMangaNoFetch(manga, dbManga)
+            // Fetch rest of manga information
+            restoreMangaNoFetch(source, manga, chapters, categories, history, tracks)
         }
     }
 
@@ -146,7 +146,7 @@ class LegacyBackupRestore(context: Context, notifier: BackupNotifier) : Abstract
      * @param chapters chapters of manga that needs updating
      * @param categories categories that need updating
      */
-    private fun restoreMangaFetch(
+    private suspend fun restoreMangaFetch(
         source: Source,
         manga: Manga,
         chapters: List<Chapter>,
@@ -154,23 +154,21 @@ class LegacyBackupRestore(context: Context, notifier: BackupNotifier) : Abstract
         history: List<DHistory>,
         tracks: List<Track>
     ) {
-        launchIO {
-            try {
-                val fetchedManga = backupManager.restoreMangaFetch(source, manga)
-                fetchedManga.id ?: return@launchIO
+        try {
+            val fetchedManga = backupManager.restoreMangaFetch(source, manga)
+            fetchedManga.id ?: return
 
-                updateChapters(source, fetchedManga, chapters)
+            updateChapters(source, fetchedManga, chapters)
 
-                restoreExtraForManga(fetchedManga, categories, history, tracks)
+            restoreExtraForManga(fetchedManga, categories, history, tracks)
 
-                updateTracking(fetchedManga, tracks)
-            } catch (e: Exception) {
-                errors.add(Date() to "${manga.title} - ${e.message}")
-            }
+            updateTracking(fetchedManga, tracks)
+        } catch (e: Exception) {
+            errors.add(Date() to "${manga.title} - ${e.message}")
         }
     }
 
-    private fun restoreMangaNoFetch(
+    private suspend fun restoreMangaNoFetch(
         source: Source,
         backupManga: Manga,
         chapters: List<Chapter>,
@@ -178,15 +176,13 @@ class LegacyBackupRestore(context: Context, notifier: BackupNotifier) : Abstract
         history: List<DHistory>,
         tracks: List<Track>
     ) {
-        launchIO {
-            if (!backupManager.restoreChaptersForManga(backupManga, chapters)) {
-                updateChapters(source, backupManga, chapters)
-            }
-
-            restoreExtraForManga(backupManga, categories, history, tracks)
-
-            updateTracking(backupManga, tracks)
+        if (!backupManager.restoreChaptersForManga(backupManga, chapters)) {
+            updateChapters(source, backupManga, chapters)
         }
+
+        restoreExtraForManga(backupManga, categories, history, tracks)
+
+        updateTracking(backupManga, tracks)
     }
 
     private fun restoreExtraForManga(

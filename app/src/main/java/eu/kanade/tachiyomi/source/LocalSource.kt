@@ -1,7 +1,5 @@
 package eu.kanade.tachiyomi.source
 
-import eu.kanade.tachiyomi.util.LOCAL_SOURCE_ID
-
 import android.content.Context
 import android.os.Build
 import com.github.junrar.Archive
@@ -12,6 +10,7 @@ import eu.kanade.tachiyomi.source.model.MangasPage
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
+import eu.kanade.tachiyomi.util.LOCAL_SOURCE_ID
 import eu.kanade.tachiyomi.util.chapter.ChapterRecognition
 import eu.kanade.tachiyomi.util.lang.compareToCaseInsensitiveNaturalOrder
 import eu.kanade.tachiyomi.util.storage.DiskUtil

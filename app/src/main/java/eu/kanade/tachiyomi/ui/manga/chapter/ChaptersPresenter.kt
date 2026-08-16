@@ -8,13 +8,12 @@ import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
+import eu.kanade.tachiyomi.domain.chapter.filterAndSortChapters
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.ui.base.presenter.BasePresenter
-import eu.kanade.tachiyomi.domain.chapter.filterAndSortChapters
 import eu.kanade.tachiyomi.ui.manga.MangaUpdateCoordinator
 import eu.kanade.tachiyomi.util.chapter.NoChaptersException
 import eu.kanade.tachiyomi.util.chapter.updateTrackChapterMarkedRead
-import eu.kanade.tachiyomi.util.isLocal
 import eu.kanade.tachiyomi.util.shouldDownloadNewChapters
 import eu.kanade.tachiyomi.util.system.launchIO
 import eu.kanade.tachiyomi.util.system.withIOContext

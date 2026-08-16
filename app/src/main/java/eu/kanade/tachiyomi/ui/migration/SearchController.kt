@@ -1,6 +1,5 @@
 package eu.kanade.tachiyomi.ui.migration
 
-import eu.kanade.tachiyomi.domain.migration.MigrationFlags
 import android.app.Dialog
 import android.os.Bundle
 import android.view.Menu
@@ -12,6 +11,7 @@ import com.afollestad.materialdialogs.list.listItemsMultiChoice
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
+import eu.kanade.tachiyomi.domain.migration.MigrationFlags
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.ui.base.controller.DialogController

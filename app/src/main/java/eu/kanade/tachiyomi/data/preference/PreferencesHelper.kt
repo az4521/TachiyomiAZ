@@ -10,8 +10,8 @@ import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.preference.PreferenceValues.DisplayMode
 import eu.kanade.tachiyomi.data.preference.PreferenceValues.NsfwAllowance
 import eu.kanade.tachiyomi.data.track.TrackService
-import eu.kanade.tachiyomi.domain.manga.DownloadPreferences
 import eu.kanade.tachiyomi.data.track.anilist.Anilist
+import eu.kanade.tachiyomi.domain.manga.DownloadPreferences
 import eu.kanade.tachiyomi.util.system.MiuiUtil
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow

@@ -18,12 +18,10 @@ import eu.kanade.tachiyomi.data.library.LibraryUpdateRanker.rankingScheme
 import eu.kanade.tachiyomi.data.library.LibraryUpdateService.Companion.start
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
-import eu.kanade.tachiyomi.domain.library.selectLibraryMangaToUpdate
-import eu.kanade.tachiyomi.domain.library.ALL_CATEGORIES
 import eu.kanade.tachiyomi.data.track.TrackManager
+import eu.kanade.tachiyomi.domain.library.ALL_CATEGORIES
+import eu.kanade.tachiyomi.domain.library.selectLibraryMangaToUpdate
 import eu.kanade.tachiyomi.source.SourceManager
-import eu.kanade.tachiyomi.source.model.SManga
-import eu.kanade.tachiyomi.source.model.UpdateStrategy
 import eu.kanade.tachiyomi.util.chapter.syncChaptersFromUpdate
 import eu.kanade.tachiyomi.util.chapter.syncChaptersWithSource
 import eu.kanade.tachiyomi.util.copyMemoFrom
