@@ -428,14 +428,7 @@ class FullBackupManager(context: Context) : AbstractBackupManager(context) {
             return false
         }
 
-        mergeBackupChapters(manga, chapters, dbChapters)
-
-        // updateChapters only writes rows that already have an id -- updateChapterProgress is a
-        // no-op when it is null -- so a backup chapter whose url matched nothing is silently
-        // dropped here, while the offline variant below inserts it. The guard above means this
-        // only runs when the database already holds at least as many chapters as the backup, so
-        // it takes a changed url to hit; narrow, but a gap rather than a decision.
-        updateChapters(chapters)
+        applyChapterMerge(manga, chapters, dbChapters)
         return true
     }
 
@@ -443,15 +436,25 @@ class FullBackupManager(context: Context) : AbstractBackupManager(context) {
         manga: Manga,
         chapters: List<Chapter>
     ) {
-        val dbChapters = databaseHelper.getChapters(manga)
+        applyChapterMerge(manga, chapters, databaseHelper.getChapters(manga))
+    }
 
-        mergeBackupChapters(manga, chapters, dbChapters)
-
-        // Matched rows are updated, unmatched ones inserted. No fetch is coming to supply them,
-        // so this path has to add them itself -- which is what the fetch-capable path above
-        // does not do.
-        updateChapters(chapters.filter { it.id != null })
-        insertChapters(chapters.filter { it.id == null })
+    /**
+     * Both restore paths write the same way, following Mihon: matched chapters are updated,
+     * unseen ones inserted.
+     *
+     * The two used to differ -- the fetch-capable path passed every chapter to updateChapters,
+     * which writes by id and so silently did nothing for a chapter that had none. Splitting the
+     * merge into updates and inserts is what removes that gap.
+     */
+    private fun applyChapterMerge(
+        manga: Manga,
+        chapters: List<Chapter>,
+        dbChapters: List<Chapter>
+    ) {
+        val merged = mergeBackupChapters(manga, chapters, dbChapters)
+        updateChapters(merged.toUpdate)
+        insertChapters(merged.toInsert)
     }
 
     // SY -->

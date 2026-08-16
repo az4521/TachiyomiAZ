@@ -31,32 +31,51 @@ class BackupChapterMergeTest {
     }
 
     @Test
-    fun `matched chapters take the existing row id so the write updates rather than duplicates`() {
-        val backup = listOf(chapter("/c1"))
+    fun `matched chapters are updated and take the existing row id`() {
+        val backup = listOf(chapter("/c1", read = true))
         val db = listOf(chapter("/c1", id = 99L))
 
-        mergeBackupChapters(manga(), backup, db)
+        val result = mergeBackupChapters(manga(), backup, db)
 
-        assertEquals(99L, backup.single().id)
+        assertEquals(1, result.toUpdate.size)
+        assertTrue(result.toInsert.isEmpty())
+        assertEquals(99L, result.toUpdate.single().id)
     }
 
+    /**
+     * The reason the merge partitions at all. These have no id, so handing them to an update --
+     * which writes by id -- silently does nothing, and the chapter is lost.
+     */
     @Test
-    fun `unmatched chapters keep a null id`() {
+    fun `chapters the database has never seen are inserted, not updated`() {
         val backup = listOf(chapter("/new"))
         val db = listOf(chapter("/c1", id = 99L))
 
-        mergeBackupChapters(manga(), backup, db)
+        val result = mergeBackupChapters(manga(), backup, db)
 
-        assertNull(backup.single().id, "a chapter with no existing row must not be given one")
+        assertTrue(result.toUpdate.isEmpty())
+        assertEquals(1, result.toInsert.size)
+        assertNull(result.toInsert.single().id)
+    }
+
+    @Test
+    fun `a chapter already stored exactly as the backup has it is not written at all`() {
+        val stored = chapter("/c1", read = true, lastPage = 5, bookmark = true, id = 3L)
+        val backup = listOf(chapter("/c1", read = true, lastPage = 5, bookmark = true))
+
+        val result = mergeBackupChapters(manga(), backup, listOf(stored))
+
+        assertTrue(result.toUpdate.isEmpty(), "an unchanged chapter should not be rewritten")
+        assertTrue(result.toInsert.isEmpty())
     }
 
     @Test
     fun `every chapter is attached to the manga`() {
         val backup = listOf(chapter("/c1"), chapter("/c2"))
 
-        mergeBackupChapters(manga(), backup, emptyList())
+        val result = mergeBackupChapters(manga(), backup, emptyList())
 
-        assertTrue(backup.all { it.manga_id == 7L })
+        assertTrue(result.toInsert.all { it.manga_id == 7L })
     }
 
     @Test
@@ -64,10 +83,10 @@ class BackupChapterMergeTest {
         val backup = listOf(chapter("/c1", read = false))
         val db = listOf(chapter("/c1", read = true, lastPage = 20, id = 1L))
 
-        mergeBackupChapters(manga(), backup, db)
+        val merged = mergeBackupChapters(manga(), backup, db).toUpdate.single()
 
-        assertTrue(backup.single().read, "restoring must never lose read state")
-        assertEquals(20, backup.single().last_page_read)
+        assertTrue(merged.read, "restoring must never lose read state")
+        assertEquals(20, merged.last_page_read)
     }
 
     @Test
@@ -75,9 +94,9 @@ class BackupChapterMergeTest {
         val backup = listOf(chapter("/c1", lastPage = 0))
         val db = listOf(chapter("/c1", lastPage = 14, id = 1L))
 
-        mergeBackupChapters(manga(), backup, db)
+        val merged = mergeBackupChapters(manga(), backup, db).toUpdate.single()
 
-        assertEquals(14, backup.single().last_page_read)
+        assertEquals(14, merged.last_page_read)
     }
 
     @Test
@@ -85,10 +104,10 @@ class BackupChapterMergeTest {
         val backup = listOf(chapter("/c1", read = true, lastPage = 30))
         val db = listOf(chapter("/c1", read = false, lastPage = 5, id = 1L))
 
-        mergeBackupChapters(manga(), backup, db)
+        val merged = mergeBackupChapters(manga(), backup, db).toUpdate.single()
 
-        assertTrue(backup.single().read)
-        assertEquals(30, backup.single().last_page_read)
+        assertTrue(merged.read)
+        assertEquals(30, merged.last_page_read)
     }
 
     @Test
@@ -96,19 +115,20 @@ class BackupChapterMergeTest {
         val backup = listOf(chapter("/c1", bookmark = false), chapter("/c2", bookmark = true))
         val db = listOf(chapter("/c1", bookmark = true, id = 1L), chapter("/c2", bookmark = false, id = 2L))
 
-        mergeBackupChapters(manga(), backup, db)
+        val result = mergeBackupChapters(manga(), backup, db)
 
-        assertTrue(backup.all { it.bookmark }, "a bookmark on either side must survive")
+        assertTrue(result.toUpdate.all { it.bookmark }, "a bookmark on either side must survive")
     }
 
     @Test
     fun `matching is by url, not by position`() {
-        val backup = listOf(chapter("/c2"), chapter("/c1"))
+        // read differs, so neither is skipped as unchanged.
+        val backup = listOf(chapter("/c2", read = true), chapter("/c1", read = true))
         val db = listOf(chapter("/c1", id = 1L), chapter("/c2", id = 2L))
 
-        mergeBackupChapters(manga(), backup, db)
+        val result = mergeBackupChapters(manga(), backup, db)
 
-        assertEquals(2L, backup[0].id)
-        assertEquals(1L, backup[1].id)
+        assertEquals(2L, result.toUpdate.first { it.url == "/c2" }.id)
+        assertEquals(1L, result.toUpdate.first { it.url == "/c1" }.id)
     }
 }
