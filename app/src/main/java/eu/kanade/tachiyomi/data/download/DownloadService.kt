@@ -17,19 +17,17 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
-import eu.kanade.tachiyomi.util.lang.plusAssign
+import eu.kanade.tachiyomi.util.lang.asFlow
 import eu.kanade.tachiyomi.util.system.acquireWakeLock
 import eu.kanade.tachiyomi.util.system.connectivityManager
 import eu.kanade.tachiyomi.util.system.notification
 import eu.kanade.tachiyomi.util.system.toast
-import rx.android.schedulers.AndroidSchedulers
-import rx.schedulers.Schedulers
-import rx.subscriptions.CompositeSubscription
 import uy.kohesive.injekt.injectLazy
 
 /**
@@ -76,8 +74,6 @@ class DownloadService : Service() {
     /**
      * Subscriptions to store while the service is running.
      */
-    private lateinit var subscriptions: CompositeSubscription
-
     private val scope = MainScope()
 
     /**
@@ -89,7 +85,6 @@ class DownloadService : Service() {
         startForeground(Notifications.ID_DOWNLOAD_CHAPTER_PROGRESS, getPlaceholderNotification())
         wakeLock = acquireWakeLock(javaClass.name)
         runningFlow.value = true
-        subscriptions = CompositeSubscription()
         listenDownloaderState()
         listenNetworkChanges()
     }
@@ -99,7 +94,6 @@ class DownloadService : Service() {
      */
     override fun onDestroy() {
         runningFlow.value = false
-        subscriptions.unsubscribe()
         scope.cancel()
         downloadManager.stopDownloads()
         wakeLock.releaseIfNeeded()
@@ -130,19 +124,16 @@ class DownloadService : Service() {
      * @see onNetworkStateChanged
      */
     private fun listenNetworkChanges() {
-        subscriptions +=
-            ReactiveNetwork.observeNetworkConnectivity(applicationContext)
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(
-                    { state ->
-                        onNetworkStateChanged(state)
-                    },
-                    {
-                        toast(R.string.download_queue_error)
-                        stopSelf()
-                    }
-                )
+        // ReactiveNetwork is a third-party RxJava library, so bridge its Observable rather
+        // than replacing the dependency.
+        ReactiveNetwork.observeNetworkConnectivity(applicationContext)
+            .asFlow()
+            .onEach { state -> onNetworkStateChanged(state) }
+            .catch {
+                toast(R.string.download_queue_error)
+                stopSelf()
+            }
+            .launchIn(scope)
     }
 
     /**
