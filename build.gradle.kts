@@ -68,6 +68,26 @@ buildscript {
     }
 }
 
+/**
+ * Compiles every shared module for a plain JVM target.
+ *
+ * This is the boundary check for the iOS port. commonMain must not touch the Android SDK, and
+ * iOS targets can only be compiled on macOS -- so on a Windows or Linux machine this is what
+ * actually proves the shared code is portable. It needs no Android SDK and takes seconds.
+ *
+ * Run it in CI. Without it, an Android-only import added to a shared module compiles fine here
+ * and only fails much later, on someone else's Mac.
+ */
+tasks.register("checkSharedPortability") {
+    group = "verification"
+    description = "Compiles :core-model, :core-database and :core-domain for plain JVM."
+    dependsOn(
+        ":core-model:compileKotlinJvm",
+        ":core-database:compileKotlinJvm",
+        ":core-domain:compileKotlinJvm"
+    )
+}
+
 tasks.register("clean", Delete::class) {
     delete(rootProject.buildDir)
 }
