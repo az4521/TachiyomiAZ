@@ -33,6 +33,16 @@ jobs:
           # The mode of writing to use: `overwrite`, `append`, or `preserve`.
           write-mode: overwrite # optional, default is preserve
 
+      # Guards the code shared with the iOS port. commonMain must not touch the Android SDK,
+      # and iOS targets only compile on macOS -- so building the shared modules for plain JVM is
+      # what actually proves they are still portable from a Linux runner. Also runs their tests,
+      # which cover the rules both platforms have to agree on. Runs before the APKs so a
+      # portability break fails fast rather than after a full release build.
+      - name: Check shared modules
+        uses: gradle/gradle-command-action@v2
+        with:
+          arguments: checkSharedPortability
+
       # Builds both API-level variants from the same code:
       #   standardApi21Release -> Android 5/6 (minSdk 21)
       #   standardApi24Release -> Android 7+  (minSdk 24)
