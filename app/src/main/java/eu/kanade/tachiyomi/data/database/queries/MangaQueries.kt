@@ -154,89 +154,21 @@ interface MangaQueries : DbProvider {
         sqlDatabase.mangasQueries.deleteMangas()
     }
 
-    fun getLastReadManga() =
-        db.get()
-            .listOfObjects(Manga::class.java)
-            .withQuery(
-                RawQuery.builder()
-                    .query(getLastReadMangaQuery())
-                    .observesTables(MangaTable.TABLE)
-                    .build()
-            )
-            .prepare()
+    fun getLastReadManga(): List<Manga> =
+        sqlDatabase.mangasQueries.getLastReadManga(::mapManga).executeAsList()
 
-    fun getMangaWithMetadata() =
-        db.get()
-            .listOfObjects(Manga::class.java)
-            .withQuery(
-                RawQuery.builder()
-                    .query(
-                        """
-                        SELECT ${MangaTable.TABLE}.* FROM ${MangaTable.TABLE}
-                        INNER JOIN ${SearchMetadataTable.TABLE}
-                            ON ${MangaTable.TABLE}.${MangaTable.COL_ID} = ${SearchMetadataTable.TABLE}.${SearchMetadataTable.COL_MANGA_ID}
-                        ORDER BY ${MangaTable.TABLE}.${MangaTable.COL_ID}
-                        """.trimIndent()
-                    )
-                    .build()
-            )
-            .prepare()
+    fun getMangaWithMetadata(): List<Manga> =
+        sqlDatabase.mangasQueries.getMangaWithMetadata(::mapManga).executeAsList()
 
-    fun getFavoriteMangaWithMetadata() =
-        db.get()
-            .listOfObjects(Manga::class.java)
-            .withQuery(
-                RawQuery.builder()
-                    .query(
-                        """
-                        SELECT ${MangaTable.TABLE}.* FROM ${MangaTable.TABLE}
-                        INNER JOIN ${SearchMetadataTable.TABLE}
-                            ON ${MangaTable.TABLE}.${MangaTable.COL_ID} = ${SearchMetadataTable.TABLE}.${SearchMetadataTable.COL_MANGA_ID}
-                        WHERE ${MangaTable.TABLE}.${MangaTable.COL_FAVORITE} = 1
-                        ORDER BY ${MangaTable.TABLE}.${MangaTable.COL_ID}
-                        """.trimIndent()
-                    )
-                    .build()
-            )
-            .prepare()
+    fun getFavoriteMangaWithMetadata(): List<Manga> =
+        sqlDatabase.mangasQueries.getFavoriteMangaWithMetadata(::mapManga).executeAsList()
 
-    fun getIdsOfFavoriteMangaWithMetadata() =
-        db.get()
-            .cursor()
-            .withQuery(
-                RawQuery.builder()
-                    .query(
-                        """
-                        SELECT ${MangaTable.TABLE}.${MangaTable.COL_ID} FROM ${MangaTable.TABLE}
-                        INNER JOIN ${SearchMetadataTable.TABLE}
-                            ON ${MangaTable.TABLE}.${MangaTable.COL_ID} = ${SearchMetadataTable.TABLE}.${SearchMetadataTable.COL_MANGA_ID}
-                        WHERE ${MangaTable.TABLE}.${MangaTable.COL_FAVORITE} = 1
-                        ORDER BY ${MangaTable.TABLE}.${MangaTable.COL_ID}
-                        """.trimIndent()
-                    )
-                    .build()
-            )
-            .prepare()
+    fun getIdsOfFavoriteMangaWithMetadata(): List<Long> =
+        sqlDatabase.mangasQueries.getIdsOfFavoriteMangaWithMetadata().executeAsList()
 
-    fun getTotalChapterManga() =
-        db.get()
-            .listOfObjects(Manga::class.java)
-            .withQuery(
-                RawQuery.builder()
-                    .query(getTotalChapterMangaQuery())
-                    .observesTables(MangaTable.TABLE)
-                    .build()
-            )
-            .prepare()
+    fun getTotalChapterManga(): List<Manga> =
+        sqlDatabase.mangasQueries.getTotalChapterManga(::mapManga).executeAsList()
 
-    fun getLatestChapterManga() =
-        db.get()
-            .listOfObjects(Manga::class.java)
-            .withQuery(
-                RawQuery.builder()
-                    .query(getLatestChapterMangaQuery())
-                    .observesTables(MangaTable.TABLE)
-                    .build()
-            )
-            .prepare()
+    fun getLatestChapterManga(): List<Manga> =
+        sqlDatabase.mangasQueries.getLatestChapterManga(::mapManga).executeAsList()
 }

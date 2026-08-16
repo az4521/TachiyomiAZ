@@ -628,7 +628,7 @@ class SettingsEhController : SettingsController() {
                                         }
 
                                     val allMeta =
-                                        db.getFavoriteMangaWithMetadata().await().filter {
+                                        db.getFavoriteMangaWithMetadata().filter {
                                             it.source == EH_SOURCE_ID || it.source == EXH_SOURCE_ID
                                         }.mapNotNull {
                                             db.getFlatMetadataForManga(it.id!!).await()

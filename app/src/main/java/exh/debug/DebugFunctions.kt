@@ -51,7 +51,7 @@ object DebugFunctions {
 
     fun resetAgedFlagInEXHManga() {
         runBlocking {
-            val metadataManga = db.getFavoriteMangaWithMetadata().await()
+            val metadataManga = db.getFavoriteMangaWithMetadata()
 
             val allManga =
                 metadataManga.asFlow().cancellable().mapNotNull { manga ->
@@ -77,7 +77,7 @@ object DebugFunctions {
     fun ResetEHGalleriesForUpdater() {
         throttleManager.resetThrottle()
         runBlocking {
-            val metadataManga = db.getFavoriteMangaWithMetadata().await()
+            val metadataManga = db.getFavoriteMangaWithMetadata()
 
             val allManga =
                 metadataManga.asFlow().cancellable().mapNotNull { manga ->
@@ -103,7 +103,7 @@ object DebugFunctions {
     fun getEHMangaListWithAgedFlagInfo(): String {
         val galleries = mutableListOf(String())
         runBlocking {
-            val metadataManga = db.getFavoriteMangaWithMetadata().await()
+            val metadataManga = db.getFavoriteMangaWithMetadata()
 
             val allManga =
                 metadataManga.asFlow().cancellable().mapNotNull { manga ->
@@ -127,7 +127,7 @@ object DebugFunctions {
     fun countAgedFlagInEXHManga(): Int {
         var agedAmount = 0
         runBlocking {
-            val metadataManga = db.getFavoriteMangaWithMetadata().await()
+            val metadataManga = db.getFavoriteMangaWithMetadata()
 
             val allManga =
                 metadataManga.asFlow().cancellable().mapNotNull { manga ->

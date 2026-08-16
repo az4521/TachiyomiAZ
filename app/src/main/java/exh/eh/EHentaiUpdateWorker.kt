@@ -134,7 +134,7 @@ class EHentaiUpdateWorker : JobService(), CoroutineScope {
         val startTime = System.currentTimeMillis()
 
         logger.d("Finding manga with metadata...")
-        val metadataManga = db.getFavoriteMangaWithMetadata().await()
+        val metadataManga = db.getFavoriteMangaWithMetadata()
 
         logger.d("Filtering manga and raising metadata...")
         val curTime = System.currentTimeMillis()

@@ -118,3 +118,43 @@ SELECT * FROM mangas WHERE url = ? AND source = ? LIMIT 1;
 
 getFavoriteMangasFlow:
 SELECT * FROM mangas WHERE favorite = 1 ORDER BY title;
+
+getLastReadManga:
+SELECT mangas.*
+FROM mangas
+JOIN chapters ON mangas._id = chapters.manga_id
+JOIN history ON chapters._id = history.history_chapter_id
+WHERE mangas.favorite = 1
+GROUP BY mangas._id
+ORDER BY MAX(history.history_last_read) DESC;
+
+getTotalChapterManga:
+SELECT mangas.*
+FROM mangas
+JOIN chapters ON mangas._id = chapters.manga_id
+GROUP BY mangas._id
+ORDER BY COUNT(*);
+
+getLatestChapterManga:
+SELECT mangas.*
+FROM mangas
+JOIN chapters ON mangas._id = chapters.manga_id
+GROUP BY mangas._id
+ORDER BY MAX(chapters.date_upload) DESC;
+
+getMangaWithMetadata:
+SELECT mangas.* FROM mangas
+INNER JOIN search_metadata ON mangas._id = search_metadata.manga_id
+ORDER BY mangas._id;
+
+getFavoriteMangaWithMetadata:
+SELECT mangas.* FROM mangas
+INNER JOIN search_metadata ON mangas._id = search_metadata.manga_id
+WHERE mangas.favorite = 1
+ORDER BY mangas._id;
+
+getIdsOfFavoriteMangaWithMetadata:
+SELECT mangas._id FROM mangas
+INNER JOIN search_metadata ON mangas._id = search_metadata.manga_id
+WHERE mangas.favorite = 1
+ORDER BY mangas._id;

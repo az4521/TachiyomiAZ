@@ -237,15 +237,15 @@ class LibraryPresenter(
 
         val lastReadManga by lazy {
             var counter = 0
-            db.getLastReadManga().executeAsBlocking().associate { it.id!! to counter++ }
+            db.getLastReadManga().associate { it.id!! to counter++ }
         }
         val totalChapterManga by lazy {
             var counter = 0
-            db.getTotalChapterManga().executeAsBlocking().associate { it.id!! to counter++ }
+            db.getTotalChapterManga().associate { it.id!! to counter++ }
         }
         val latestChapterManga by lazy {
             var counter = 0
-            db.getLatestChapterManga().executeAsBlocking().associate { it.id!! to counter++ }
+            db.getLatestChapterManga().associate { it.id!! to counter++ }
         }
 
         val sortFn: (LibraryItem, LibraryItem) -> Int = { i1, i2 ->

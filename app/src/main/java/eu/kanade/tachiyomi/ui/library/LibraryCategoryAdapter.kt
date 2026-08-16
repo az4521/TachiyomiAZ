@@ -108,18 +108,9 @@ class LibraryCategoryAdapter(view: LibraryCategoryView, val controller: LibraryC
 
                             ensureActive() // Fail early when cancelled
 
-                            val mangaWithMetaIdsQuery = db.getIdsOfFavoriteMangaWithMetadata().await()
-                            val mangaWithMetaIds = LongArray(mangaWithMetaIdsQuery.count)
-                            if (mangaWithMetaIds.isNotEmpty()) {
-                                val mangaIdCol = mangaWithMetaIdsQuery.getColumnIndex(MangaTable.COL_ID)
-                                mangaWithMetaIdsQuery.moveToFirst()
-                                while (!mangaWithMetaIdsQuery.isAfterLast) {
-                                    ensureActive() // Fail early when cancelled
-
-                                    mangaWithMetaIds[mangaWithMetaIdsQuery.position] = mangaWithMetaIdsQuery.getLong(mangaIdCol)
-                                    mangaWithMetaIdsQuery.moveToNext()
-                                }
-                            }
+                            // SQLDelight returns the ids directly, so the manual cursor walk
+                            // this used to need is gone.
+                            val mangaWithMetaIds = db.getIdsOfFavoriteMangaWithMetadata().toLongArray()
 
                             ensureActive() // Fail early when cancelled
 

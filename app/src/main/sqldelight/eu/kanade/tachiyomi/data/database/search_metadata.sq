@@ -1,0 +1,10 @@
+-- Mirrors SearchMetadataTable.createTableQuery (exh gallery metadata).
+CREATE TABLE search_metadata(
+    manga_id INTEGER NOT NULL PRIMARY KEY,
+    uploader TEXT,
+    extra TEXT NOT NULL,
+    indexed_extra TEXT,
+    extra_version INTEGER NOT NULL,
+    FOREIGN KEY(manga_id) REFERENCES mangas (_id)
+    ON DELETE CASCADE
+);
