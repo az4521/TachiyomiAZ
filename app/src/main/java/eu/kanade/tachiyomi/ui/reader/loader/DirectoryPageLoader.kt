@@ -4,7 +4,8 @@ import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import eu.kanade.tachiyomi.util.lang.compareToCaseInsensitiveNaturalOrder
 import eu.kanade.tachiyomi.util.system.ImageUtil
-import rx.Observable
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import java.io.File
 import java.io.FileInputStream
 
@@ -16,7 +17,7 @@ class DirectoryPageLoader(val file: File) : PageLoader() {
      * Returns an observable containing the pages found on this directory ordered with a natural
      * comparator.
      */
-    override fun getPages(): Observable<List<ReaderPage>> {
+    override suspend fun getPages(): List<ReaderPage> {
         return file.listFiles()
             ?.filter { !it.isDirectory && ImageUtil.isImage(it.name) { FileInputStream(it) } }
             ?.sortedWith(Comparator<File> { f1, f2 -> f1.name.compareToCaseInsensitiveNaturalOrder(f2.name) })
@@ -27,13 +28,13 @@ class DirectoryPageLoader(val file: File) : PageLoader() {
                     status = Page.READY
                 }
             }
-            .let { Observable.just(it) }
+            .orEmpty()
     }
 
     /**
      * Returns an observable that emits a ready state.
      */
-    override fun getPage(page: ReaderPage): Observable<Int> {
-        return Observable.just(Page.READY)
+    override fun getPage(page: ReaderPage): Flow<Int> {
+        return flowOf(Page.READY)
     }
 }

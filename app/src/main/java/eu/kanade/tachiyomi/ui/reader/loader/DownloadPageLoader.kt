@@ -8,7 +8,9 @@ import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
-import rx.Observable
+import eu.kanade.tachiyomi.util.lang.awaitSingle
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import uy.kohesive.injekt.injectLazy
 
 /**
@@ -28,20 +30,19 @@ class DownloadPageLoader(
     /**
      * Returns an observable containing the pages found on this downloaded chapter.
      */
-    override fun getPages(): Observable<List<ReaderPage>> {
+    override suspend fun getPages(): List<ReaderPage> {
         return downloadManager.buildPageList(source, manga, chapter.chapter)
-            .map { pages ->
-                pages.map { page ->
-                    ReaderPage(page.index, page.url, page.imageUrl) {
-                        context.contentResolver.openInputStream(page.uri ?: Uri.EMPTY)!!
-                    }.apply {
-                        status = Page.READY
-                    }
+            .awaitSingle()
+            .map { page ->
+                ReaderPage(page.index, page.url, page.imageUrl) {
+                    context.contentResolver.openInputStream(page.uri ?: Uri.EMPTY)!!
+                }.apply {
+                    status = Page.READY
                 }
             }
     }
 
-    override fun getPage(page: ReaderPage): Observable<Int> {
-        return Observable.just(Page.READY) // TODO maybe check if file still exists?
+    override fun getPage(page: ReaderPage): Flow<Int> {
+        return flowOf(Page.READY) // TODO maybe check if file still exists?
     }
 }

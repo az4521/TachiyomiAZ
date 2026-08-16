@@ -9,17 +9,23 @@ import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import eu.kanade.tachiyomi.ui.reader.viewer.pager.PagerPageHolder
-import eu.kanade.tachiyomi.util.lang.plusAssign
-import eu.kanade.tachiyomi.util.lang.runAsObservable
 import eu.kanade.tachiyomi.util.system.ImageUtil
+import eu.kanade.tachiyomi.util.system.launchIO
 import exh.EH_SOURCE_ID
 import exh.EXH_SOURCE_ID
-import rx.Completable
-import rx.Observable
-import rx.schedulers.Schedulers
-import rx.subjects.PublishSubject
-import rx.subjects.SerializedSubject
-import rx.subscriptions.CompositeSubscription
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import timber.log.Timber
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -47,9 +53,9 @@ class HttpPageLoader(
     private val queue = PriorityBlockingQueue<PriorityPage>()
 
     /**
-     * Current active subscriptions.
+     * Scope owning the worker loops and any boosted page requests.
      */
-    private val subscriptions = CompositeSubscription()
+    private val scope = CoroutineScope(SupervisorJob())
 
     private val preloadSize = prefs.eh_preload_size().get()
 
@@ -73,27 +79,28 @@ class HttpPageLoader(
         // EXH -->
         workerExecutors.forEach { executor ->
             // EXH <--
-            val worker = Schedulers.from(executor)
-            subscriptions +=
-                Observable.defer { Observable.just(queue.take().page) }
-                    .filter { it.status == Page.QUEUE }
-                    .concatMap(::loadPageSafely)
-                    // Hop back onto this worker's own thread before repeating. Without this the
-                    // loop resubscribes on whichever thread signalled completion (an OkHttp
-                    // dispatcher thread) and then blocks it indefinitely in `queue.take()`,
-                    // permanently consuming one of OkHttp's per-host request slots.
-                    .observeOn(worker)
-                    .repeat()
-                    .subscribeOn(worker)
-                    .subscribe(
-                        {
-                        },
-                        { error ->
-                            if (error !is InterruptedException) {
-                                Timber.e(error)
-                            }
+            // Each worker stays pinned to its own single-thread dispatcher. queue.take() parks
+            // the thread while the queue is empty, so this must never move onto a shared pool:
+            // a parked shared thread would be handed to unrelated work that then never runs, and
+            // resuming on an OkHttp dispatcher thread would hold one of its per-host slots.
+            val worker = executor.asCoroutineDispatcher()
+            scope.launch(worker) {
+                while (isActive) {
+                    try {
+                        val page = queue.take().page
+                        if (page.status == Page.QUEUE) {
+                            loadPageSafely(page)
                         }
-                    )
+                    } catch (e: InterruptedException) {
+                        // recycle() interrupts the parked threads; stop rather than spin.
+                        break
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Throwable) {
+                        Timber.e(e)
+                    }
+                }
+            }
             // EXH -->
         }
         // EXH <--
@@ -104,7 +111,7 @@ class HttpPageLoader(
      */
     override fun recycle() {
         super.recycle()
-        subscriptions.unsubscribe()
+        scope.cancel()
         queue.clear()
         // Unsubscribing does not wake a worker parked in `queue.take()`, so interrupt the threads
         // explicitly. Otherwise every recycled loader leaks its workers for the life of the process.
@@ -113,15 +120,17 @@ class HttpPageLoader(
         // Cache current page list progress for online chapters to allow a faster reopen
         val pages = chapter.pages
         if (pages != null) {
-            Completable
-                .fromAction {
+            // Deliberately not scope: that has just been cancelled, and this cache write should
+            // still complete. Errors were swallowed by onErrorComplete before.
+            launchIO {
+                try {
                     // Convert to pages without reader information
                     val pagesToSave = pages.map { Page(it.index, it.url, it.imageUrl) }
                     chapterCache.putPageListToCache(chapter.chapter, pagesToSave)
+                } catch (e: Throwable) {
+                    Timber.e(e)
                 }
-                .onErrorComplete()
-                .subscribeOn(Schedulers.io())
-                .subscribe()
+            }
         }
     }
 
@@ -129,34 +138,36 @@ class HttpPageLoader(
      * Returns an observable with the page list for a chapter. It tries to return the page list from
      * the local cache, otherwise fallbacks to network.
      */
-    override fun getPages(): Observable<List<ReaderPage>> {
-        return Observable.fromCallable { chapterCache.getPageListFromCache(chapter.chapter) }
-            .onErrorResumeNext { runAsObservable({ source.getPageList(chapter.chapter) }) }
-            .map { pages ->
-                val rp =
-                    pages.mapIndexed { index, page ->
-                        // Don't trust sources and use our own indexing
-                        ReaderPage(index, page.url, page.imageUrl)
-                    }
-                if (prefs.eh_aggressivePageLoading().get()) {
-                    rp.mapNotNull {
-                        if (it.status == Page.QUEUE) {
-                            PriorityPage(it, 0)
-                        } else {
-                            null
-                        }
-                    }.forEach { queue.offer(it) }
-                }
-                rp
+    override suspend fun getPages(): List<ReaderPage> {
+        val pages =
+            try {
+                chapterCache.getPageListFromCache(chapter.chapter)
+            } catch (e: Throwable) {
+                source.getPageList(chapter.chapter)
             }
+        val rp =
+            pages.mapIndexed { index, page ->
+                // Don't trust sources and use our own indexing
+                ReaderPage(index, page.url, page.imageUrl)
+            }
+        if (prefs.eh_aggressivePageLoading().get()) {
+            rp.mapNotNull {
+                if (it.status == Page.QUEUE) {
+                    PriorityPage(it, 0)
+                } else {
+                    null
+                }
+            }.forEach { queue.offer(it) }
+        }
+        return rp
     }
 
     /**
      * Returns an observable that loads a page through the queue and listens to its result to
      * emit new states. It handles re-enqueueing pages if they were evicted from the cache.
      */
-    override fun getPage(page: ReaderPage): Observable<Int> {
-        return Observable.defer {
+    override fun getPage(page: ReaderPage): Flow<Int> =
+        channelFlow {
             val imageUrl = page.imageUrl
 
             // Check if the image has been deleted
@@ -164,13 +175,13 @@ class HttpPageLoader(
                 page.status = Page.QUEUE
             }
 
-            // Automatically retry failed pages when subscribed to this page
+            // Automatically retry failed pages when collected
             if (page.status == Page.ERROR) {
                 page.status = Page.QUEUE
             }
 
-            val statusSubject = SerializedSubject(PublishSubject.create<Int>())
-            page.setStatusSubject(statusSubject)
+            val statusFlow = MutableSharedFlow<Int>(extraBufferCapacity = 8)
+            page.setStatusFlow(statusFlow)
 
             val queuedPages = mutableListOf<PriorityPage>()
             if (page.status == Page.QUEUE) {
@@ -178,18 +189,21 @@ class HttpPageLoader(
             }
             queuedPages += preloadNextPages(page, preloadSize)
 
-            statusSubject.startWith(page.status)
-                .doOnUnsubscribe {
-                    queuedPages.forEach {
-                        if (it.page.status == Page.QUEUE) {
-                            queue.remove(it)
-                        }
+            send(page.status)
+            val job = launch { statusFlow.collect { send(it) } }
+
+            awaitClose {
+                job.cancel()
+                page.setStatusFlow(null)
+                // Previously doOnUnsubscribe: drop anything still queued for a page nobody is
+                // watching any more, so the workers do not fetch pages that scrolled away.
+                queuedPages.forEach {
+                    if (it.page.status == Page.QUEUE) {
+                        queue.remove(it)
                     }
                 }
-        }
-            .subscribeOn(Schedulers.io())
-            .unsubscribeOn(Schedulers.io())
-    }
+            }
+        }.flowOn(Dispatchers.IO)
 
     /**
      * Preloads the given [amount] of pages after the [currentPage] with a lower priority.
@@ -260,9 +274,9 @@ class HttpPageLoader(
      *
      * @param page the page whose source image has to be downloaded.
      */
-    private fun HttpSource.fetchImageFromCacheThenNet(page: ReaderPage): Observable<ReaderPage> {
+    private suspend fun HttpSource.fetchImageFromCacheThenNet(page: ReaderPage): ReaderPage {
         return if (page.imageUrl.isNullOrEmpty()) {
-            fetchPageImageUrl(page).flatMap { getCachedImage(it) }
+            getCachedImage(fetchPageImageUrl(page))
         } else {
             getCachedImage(page)
         }
@@ -274,24 +288,28 @@ class HttpPageLoader(
      * permanently reduce the configured download concurrency and can eventually leave the queue
      * with no consumers at all.
      */
-    private fun loadPageSafely(page: ReaderPage): Observable<ReaderPage> {
-        return Observable.defer { source.fetchImageFromCacheThenNet(page) }
-            .doOnNext { XLog.d("Downloaded page: ${it.number}!") }
-            .doOnError { error ->
-                page.status = Page.ERROR
-                Timber.e(error, "Reader page worker failed on page ${page.number}")
-            }
-            .onErrorResumeNext(Observable.empty())
+    private suspend fun loadPageSafely(page: ReaderPage) {
+        try {
+            val loaded = source.fetchImageFromCacheThenNet(page)
+            XLog.d("Downloaded page: ${loaded.number}!")
+        } catch (e: CancellationException) {
+            throw e
+        } catch (error: Throwable) {
+            page.status = Page.ERROR
+            Timber.e(error, "Reader page worker failed on page ${page.number}")
+        }
     }
 
-    private fun HttpSource.fetchPageImageUrl(page: ReaderPage): Observable<ReaderPage> {
+    private suspend fun HttpSource.fetchPageImageUrl(page: ReaderPage): ReaderPage {
         page.status = Page.LOAD_PAGE
         // Use the suspend API so sources that only override `getImageUrl` (the current
         // extensions-lib surface) resolve correctly instead of falling through to the
         // deprecated no-op default.
-        return runAsObservable({ getImageUrl(page) })
-            .doOnError { page.status = Page.ERROR }
-            .onErrorReturn {
+        val imageUrl =
+            try {
+                getImageUrl(page)
+            } catch (it: Throwable) {
+                page.status = Page.ERROR
                 // [EXH]
                 XLog.w("> Failed to fetch image URL!", it)
                 XLog.w(
@@ -307,8 +325,8 @@ class HttpPageLoader(
 
                 null
             }
-            .doOnNext { page.imageUrl = it }
-            .map { page }
+        page.imageUrl = imageUrl
+        return page
     }
 
     /**
@@ -317,18 +335,14 @@ class HttpPageLoader(
      *
      * @param page the page.
      */
-    private fun HttpSource.getCachedImage(page: ReaderPage): Observable<ReaderPage> {
-        val imageUrl = page.imageUrl ?: return Observable.just(page)
+    private suspend fun HttpSource.getCachedImage(page: ReaderPage): ReaderPage {
+        val imageUrl = page.imageUrl ?: return page
 
-        return Observable.just(page)
-            .flatMap {
-                if (!chapterCache.isImageInCache(imageUrl)) {
-                    cacheImage(page)
-                } else {
-                    Observable.just(page)
-                }
+        try {
+            if (!chapterCache.isImageInCache(imageUrl)) {
+                cacheImage(page)
             }
-            .doOnNext {
+            run {
                 // SY -->
                 val readerTheme = prefs.readerTheme().get()
                 if (readerTheme >= 3) {
@@ -347,7 +361,7 @@ class HttpPageLoader(
                 page.stream = { chapterCache.getImageFile(imageUrl).inputStream() }
                 page.status = Page.READY
             }
-            .doOnError {
+        } catch (it: Throwable) {
                 // [EXH]
                 XLog.w("> Failed to fetch image!", it)
                 XLog.w(
@@ -361,9 +375,9 @@ class HttpPageLoader(
                     page.chapter.chapter.url
                 )
 
-                page.status = Page.ERROR
-            }
-            .onErrorReturn { page }
+            page.status = Page.ERROR
+        }
+        return page
     }
 
     /**
@@ -371,11 +385,10 @@ class HttpPageLoader(
      *
      * @param page the page.
      */
-    private fun HttpSource.cacheImage(page: ReaderPage): Observable<ReaderPage> {
+    private suspend fun HttpSource.cacheImage(page: ReaderPage): ReaderPage {
         page.status = Page.DOWNLOAD_IMAGE
-        return runAsObservable({ getImage(page) })
-            .doOnNext { chapterCache.putImageToCache(page.imageUrl!!, it) }
-            .map { page }
+        chapterCache.putImageToCache(page.imageUrl!!, getImage(page))
+        return page
     }
 
     // EXH -->
@@ -383,19 +396,9 @@ class HttpPageLoader(
         if (page.status == Page.QUEUE) {
             // Avoid racing the forced request with a stale queued copy of the same page.
             queue.filter { it.page === page }.forEach(queue::remove)
-            subscriptions +=
-                Observable.just(page)
-                    .concatMap(::loadPageSafely)
-                    .subscribeOn(Schedulers.io())
-                    .subscribe(
-                        {
-                        },
-                        { error ->
-                            if (error !is InterruptedException) {
-                                Timber.e(error)
-                            }
-                        }
-                    )
+            scope.launch(Dispatchers.IO) {
+                loadPageSafely(page)
+            }
         }
     }
     // EXH <--

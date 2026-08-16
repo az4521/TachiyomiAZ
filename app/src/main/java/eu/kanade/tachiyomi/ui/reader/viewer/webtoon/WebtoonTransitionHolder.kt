@@ -11,10 +11,11 @@ import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.ui.reader.model.ChapterTransition
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import eu.kanade.tachiyomi.ui.reader.viewer.ReaderTransitionView
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import eu.kanade.tachiyomi.util.system.dpToPx
 import eu.kanade.tachiyomi.util.view.visibleIf
-import rx.Subscription
-import rx.android.schedulers.AndroidSchedulers
 
 /**
  * Holder of the webtoon viewer that contains a chapter transition.
@@ -26,7 +27,7 @@ class WebtoonTransitionHolder(
     /**
      * Subscription for status changes of the transition page.
      */
-    private var statusSubscription: Subscription? = null
+    private var statusJob: Job? = null
 
     private val transitionView = ReaderTransitionView(context)
 
@@ -85,10 +86,9 @@ class WebtoonTransitionHolder(
     ) {
         unsubscribeStatus()
 
-        statusSubscription =
+        statusJob =
             chapter.stateObserver
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe { state ->
+                .onEach { state ->
                     pagesContainer.removeAllViews()
                     when (state) {
                         is ReaderChapter.State.Wait -> {
@@ -99,16 +99,17 @@ class WebtoonTransitionHolder(
                     }
                     pagesContainer.visibleIf { pagesContainer.childCount > 0 }
                 }
+                .launchIn(viewer.scope)
 
-        addSubscription(statusSubscription)
+        addJob(statusJob)
     }
 
     /**
      * Unsubscribes from the status subscription.
      */
     private fun unsubscribeStatus() {
-        removeSubscription(statusSubscription)
-        statusSubscription = null
+        removeJob(statusJob)
+        statusJob = null
     }
 
     /**

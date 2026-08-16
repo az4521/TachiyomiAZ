@@ -2,7 +2,7 @@ package eu.kanade.tachiyomi.source.model
 
 import android.net.Uri
 import eu.kanade.tachiyomi.network.ProgressListener
-import rx.subjects.Subject
+import kotlinx.coroutines.flow.MutableSharedFlow
 
 open class Page(
     val index: Int,
@@ -18,7 +18,7 @@ open class Page(
     var status: Int = 0
         set(value) {
             field = value
-            statusSubject?.onNext(value)
+            statusFlow?.tryEmit(value)
             statusCallback?.invoke(this)
         }
 
@@ -31,7 +31,7 @@ open class Page(
         }
 
     @Transient
-    private var statusSubject: Subject<Int, Int>? = null
+    private var statusFlow: MutableSharedFlow<Int>? = null
 
     @Transient
     private var statusCallback: ((Page) -> Unit)? = null
@@ -49,8 +49,8 @@ open class Page(
             }
     }
 
-    fun setStatusSubject(subject: Subject<Int, Int>?) {
-        this.statusSubject = subject
+    fun setStatusFlow(flow: MutableSharedFlow<Int>?) {
+        this.statusFlow = flow
     }
 
     fun setStatusCallback(f: ((Page) -> Unit)?) {

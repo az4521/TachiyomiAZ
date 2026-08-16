@@ -4,7 +4,6 @@ import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.data.download.DownloadStore
 import eu.kanade.tachiyomi.source.model.Page
-import eu.kanade.tachiyomi.util.lang.asFlow
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -14,7 +13,6 @@ import kotlinx.coroutines.flow.flatMapMerge
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
-import rx.subjects.PublishSubject
 import java.util.concurrent.CopyOnWriteArrayList
 
 class DownloadQueue(
@@ -90,7 +88,7 @@ class DownloadQueue(
 
     private fun setPagesFor(download: Download) {
         if (download.status == Download.DOWNLOADED || download.status == Download.ERROR) {
-            setPagesSubject(download.pages, null)
+            setPagesFlow(download.pages, null)
         }
     }
 
@@ -100,27 +98,23 @@ class DownloadQueue(
             .onStart { getActiveDownloads().forEach { emit(it) } }
             .flatMapMerge { download ->
                 if (download.status == Download.DOWNLOADING) {
-                    // Page still exposes an RxJava status subject because it is part of the
-                    // extension-facing API, so bridge it rather than changing that surface.
-                    val pageStatusSubject = PublishSubject.create<Int>()
-                    setPagesSubject(download.pages, pageStatusSubject)
-                    return@flatMapMerge pageStatusSubject
-                        .onBackpressureBuffer()
-                        .asFlow()
+                    val pageStatusFlow = MutableSharedFlow<Int>(extraBufferCapacity = 64)
+                    setPagesFlow(download.pages, pageStatusFlow)
+                    return@flatMapMerge pageStatusFlow
                         .filter { it == Page.READY }
                         .map { download }
                 } else if (download.status == Download.DOWNLOADED || download.status == Download.ERROR) {
-                    setPagesSubject(download.pages, null)
+                    setPagesFlow(download.pages, null)
                 }
                 flowOf(download)
             }
             .filter { it.status == Download.DOWNLOADING }
     }
 
-    private fun setPagesSubject(
+    private fun setPagesFlow(
         pages: List<Page>?,
-        subject: PublishSubject<Int>?
+        flow: MutableSharedFlow<Int>?
     ) {
-        pages?.forEach { it.setStatusSubject(subject) }
+        pages?.forEach { it.setStatusFlow(flow) }
     }
 }

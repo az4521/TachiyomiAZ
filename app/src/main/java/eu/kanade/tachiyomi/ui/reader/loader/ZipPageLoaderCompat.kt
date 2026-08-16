@@ -4,7 +4,8 @@ import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import eu.kanade.tachiyomi.util.lang.compareToCaseInsensitiveNaturalOrder
 import eu.kanade.tachiyomi.util.system.ImageUtil
-import rx.Observable
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import java.io.File
 import java.util.zip.ZipFile
 
@@ -26,7 +27,7 @@ class ZipPageLoaderCompat(private val zip: ZipFile) : PageLoader() {
      * Returns an observable containing the pages found on this zip archive ordered with a natural
      * comparator.
      */
-    override fun getPages(): Observable<List<ReaderPage>> {
+    override suspend fun getPages(): List<ReaderPage> {
         return zip.entries().toList()
             .filter { !it.isDirectory && ImageUtil.isImage(it.name) { zip.getInputStream(it) } }
             .sortedWith { f1, f2 -> f1.name.compareToCaseInsensitiveNaturalOrder(f2.name) }
@@ -37,14 +38,13 @@ class ZipPageLoaderCompat(private val zip: ZipFile) : PageLoader() {
                     status = Page.READY
                 }
             }
-            .let { Observable.just(it) }
     }
 
     /**
      * Returns an observable that emits a ready state unless the loader was recycled.
      */
-    override fun getPage(page: ReaderPage): Observable<Int> {
-        return Observable.just(
+    override fun getPage(page: ReaderPage): Flow<Int> {
+        return flowOf(
             if (isRecycled) {
                 Page.ERROR
             } else {

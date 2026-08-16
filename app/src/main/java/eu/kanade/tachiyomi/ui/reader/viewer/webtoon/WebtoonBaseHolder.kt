@@ -4,7 +4,7 @@ import android.content.Context
 import android.view.View
 import android.view.ViewGroup.LayoutParams
 import eu.kanade.tachiyomi.ui.base.holder.BaseViewHolder
-import rx.Subscription
+import kotlinx.coroutines.Job
 
 abstract class WebtoonBaseHolder(
     view: View,
@@ -21,18 +21,21 @@ abstract class WebtoonBaseHolder(
     open fun recycle() {}
 
     /**
-     * Adds a subscription to a list of subscriptions that will automatically unsubscribe when the
-     * activity or the reader is destroyed.
+     * Adds a job to a list of jobs that will automatically be cancelled when the activity or the
+     * reader is destroyed.
      */
-    protected fun addSubscription(subscription: Subscription?) {
-        viewer.subscriptions.add(subscription)
+    protected fun addJob(job: Job?) {
+        job?.let { viewer.jobs.add(it) }
     }
 
     /**
-     * Removes a subscription from the list of subscriptions.
+     * Removes a job from the list of jobs, cancelling it.
      */
-    protected fun removeSubscription(subscription: Subscription?) {
-        subscription?.let { viewer.subscriptions.remove(it) }
+    protected fun removeJob(job: Job?) {
+        job?.let {
+            it.cancel()
+            viewer.jobs.remove(it)
+        }
     }
 
     /**
