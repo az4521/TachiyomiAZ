@@ -33,10 +33,10 @@ fun DatabaseHelper.getFlatMetadataForManga(mangaId: Long): PreparedOperation<Fla
     // We have to use fromCallable because StorIO messes up the thread scheduling if we use their rx functions
     val single =
         Single.fromCallable {
-            val meta = getSearchMetadataForManga(mangaId).executeAsBlocking()
+            val meta = getSearchMetadataForManga(mangaId)
             if (meta != null) {
-                val tags = getSearchTagsForManga(mangaId).executeAsBlocking()
-                val titles = getSearchTitlesForManga(mangaId).executeAsBlocking()
+                val tags = getSearchTagsForManga(mangaId)
+                val titles = getSearchTitlesForManga(mangaId)
 
                 FlatMetadata(meta, tags, titles)
             } else {
@@ -98,7 +98,7 @@ fun DatabaseHelper.insertFlatMetadata(flatMetadata: FlatMetadata): Completable =
         require(flatMetadata.metadata.mangaId != -1L)
 
         inTransaction {
-            insertSearchMetadata(flatMetadata.metadata).executeAsBlocking()
+            insertSearchMetadata(flatMetadata.metadata)
             setSearchTagsForManga(flatMetadata.metadata.mangaId, flatMetadata.tags)
             setSearchTitlesForManga(flatMetadata.metadata.mangaId, flatMetadata.titles)
         }

@@ -195,11 +195,11 @@ object DebugFunctions {
 
     fun countMangaInDatabase() = db.getMangas().size
 
-    fun countMetadataInDatabase() = db.getSearchMetadata().executeAsBlocking().size
+    fun countMetadataInDatabase() = db.getSearchMetadata().size
 
     fun countMangaInLibraryWithMissingMetadata() =
         db.getMangas().count {
-            it.favorite && db.getSearchMetadataForManga(it.id!!).executeAsBlocking() == null
+            it.favorite && db.getSearchMetadataForManga(it.id!!) == null
         }
 
     fun clearSavedSearches() = prefs.eh_savedSearches().set(emptySet())

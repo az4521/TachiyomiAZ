@@ -8,3 +8,22 @@ CREATE TABLE search_metadata(
     FOREIGN KEY(manga_id) REFERENCES mangas (_id)
     ON DELETE CASCADE
 );
+
+getSearchMetadataForManga:
+SELECT * FROM search_metadata WHERE manga_id = ?;
+
+getSearchMetadata:
+SELECT * FROM search_metadata;
+
+getSearchMetadataByIndexedExtra:
+SELECT * FROM search_metadata WHERE indexed_extra = ?;
+
+insertSearchMetadata:
+INSERT OR REPLACE INTO search_metadata(manga_id, uploader, extra, indexed_extra, extra_version)
+VALUES (?, ?, ?, ?, ?);
+
+deleteSearchMetadata:
+DELETE FROM search_metadata WHERE manga_id = ?;
+
+deleteAllSearchMetadata:
+DELETE FROM search_metadata;

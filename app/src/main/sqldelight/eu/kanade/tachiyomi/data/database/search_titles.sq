@@ -1,0 +1,24 @@
+-- Mirrors SearchTitleTable.createTableQuery (exh gallery titles).
+CREATE TABLE search_titles(
+    _id INTEGER NOT NULL PRIMARY KEY,
+    manga_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    type INTEGER NOT NULL,
+    FOREIGN KEY(manga_id) REFERENCES mangas (_id)
+    ON DELETE CASCADE
+);
+
+getSearchTitlesForManga:
+SELECT * FROM search_titles WHERE manga_id = ?;
+
+insertSearchTitle:
+INSERT INTO search_titles(manga_id, title, type) VALUES (?, ?, ?);
+
+deleteSearchTitlesForManga:
+DELETE FROM search_titles WHERE manga_id = ?;
+
+deleteAllSearchTitles:
+DELETE FROM search_titles;
+
+lastInsertRowId:
+SELECT last_insert_rowid();
