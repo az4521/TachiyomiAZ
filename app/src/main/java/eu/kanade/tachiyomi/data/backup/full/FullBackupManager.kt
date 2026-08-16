@@ -430,12 +430,11 @@ class FullBackupManager(context: Context) : AbstractBackupManager(context) {
 
         mergeBackupChapters(manga, chapters, dbChapters)
 
-        // NOTE: this path writes every chapter, including ones with no match in the database and
-        // therefore a null id, while restoreChaptersForMangaOffline below writes only the matched
-        // ones. That difference is pre-existing and looks unintentional -- the line here used to
-        // read `chapters.filter { it.id != null }` with the result discarded, so the comment
-        // claimed a filter that never happened. Behaviour is left exactly as it was rather than
-        // silently changed; see the note in BackupChapterMerge's KDoc.
+        // updateChapters only writes rows that already have an id -- updateChapterProgress is a
+        // no-op when it is null -- so a backup chapter whose url matched nothing is silently
+        // dropped here, while the offline variant below inserts it. The guard above means this
+        // only runs when the database already holds at least as many chapters as the backup, so
+        // it takes a changed url to hit; narrow, but a gap rather than a decision.
         updateChapters(chapters)
         return true
     }
@@ -448,7 +447,9 @@ class FullBackupManager(context: Context) : AbstractBackupManager(context) {
 
         mergeBackupChapters(manga, chapters, dbChapters)
 
-        // Unlike the online path above, this writes only chapters that matched an existing row.
+        // Matched rows are updated, unmatched ones inserted. No fetch is coming to supply them,
+        // so this path has to add them itself -- which is what the fetch-capable path above
+        // does not do.
         updateChapters(chapters.filter { it.id != null })
         insertChapters(chapters.filter { it.id == null })
     }
