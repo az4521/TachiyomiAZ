@@ -46,9 +46,8 @@ import exh.NHENTAI_SOURCE_ID
 import exh.debug.SettingsDebugController
 import exh.log.EHLogLevel
 import exh.source.BlacklistedSources
-import rx.Observable
-import rx.android.schedulers.AndroidSchedulers
-import rx.schedulers.Schedulers
+import eu.kanade.tachiyomi.util.system.withIOContext
+import kotlinx.coroutines.launch
 import uy.kohesive.injekt.injectLazy
 import eu.kanade.tachiyomi.data.preference.PreferenceKeys as Keys
 
@@ -323,23 +322,22 @@ class SettingsAdvancedController : SettingsController() {
 
         var deletedFiles = 0
 
-        Observable.defer { Observable.from(files) }
-            .doOnNext { file ->
-                if (chapterCache.removeFileFromCache(file.name)) {
-                    deletedFiles++
+        viewScope.launch {
+            try {
+                withIOContext {
+                    files.forEach { file ->
+                        if (chapterCache.removeFileFromCache(file.name)) {
+                            deletedFiles++
+                        }
+                    }
                 }
-            }
-            .subscribeOn(Schedulers.io())
-            .observeOn(AndroidSchedulers.mainThread())
-            .doOnError {
-                activity?.toast(R.string.cache_delete_error)
-            }
-            .doOnCompleted {
                 activity?.toast(resources?.getString(R.string.cache_deleted, deletedFiles))
                 findPreference(CLEAR_CACHE_KEY)?.summary =
                     resources?.getString(R.string.used_cache, chapterCache.readableSize)
+            } catch (e: Throwable) {
+                activity?.toast(R.string.cache_delete_error)
             }
-            .subscribe()
+        }
     }
 
     class ClearDatabaseDialogController : DialogController() {
