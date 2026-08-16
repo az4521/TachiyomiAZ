@@ -108,8 +108,12 @@ class DownloadQueue(
             .onStart { getActiveDownloads().forEach { emit(it) } }
             .flatMapMerge { download ->
                 if (download.status == Download.DOWNLOADING) {
+                    // replay = 1: setPagesFlow installs this on the pages immediately, but
+                    // flatMapMerge only subscribes once this returns, so page statuses raised in
+                    // between would be dropped and the progress bar would sit still.
                     val pageStatusFlow =
                         MutableSharedFlow<Int>(
+                            replay = 1,
                             extraBufferCapacity = 64,
                             onBufferOverflow = BufferOverflow.DROP_OLDEST
                         )

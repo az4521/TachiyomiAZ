@@ -9,6 +9,7 @@ import eu.kanade.tachiyomi.ui.base.presenter.BasePresenter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.flowOf
@@ -38,6 +39,16 @@ class SourcePresenter(
      * Subscription for retrieving enabled sources.
      */
     private var sourceJob: Job? = null
+
+    /**
+     * The last used source, held as state rather than pushed as a one-off event so that a view
+     * recreated by back-navigation is handed it again.
+     */
+    private val lastUsedSourceFlow = MutableStateFlow<SourceItem?>(null)
+
+    private var lastUsedSourceJob: Job? = null
+
+    private var lastUsedPrefJob: Job? = null
 
     override fun onCreate(savedState: Bundle?) {
         super.onCreate(savedState)
@@ -89,25 +100,41 @@ class SourcePresenter(
         // Immediate initial load
         preferences.lastUsedCatalogueSource().get().let { updateLastUsedSource(it) }
 
-        // Subsequent updates
-        preferences.lastUsedCatalogueSource().asFlow()
-            .drop(1)
-            .distinctUntilChanged()
-            .onEach { updateLastUsedSource(it) }
-            .launchIn(scope)
+        // Subsequent updates. Cancelled first because updateSources() runs again whenever the
+        // enabled sources change, and each call used to leave another collector on scope.
+        lastUsedPrefJob?.cancel()
+        lastUsedPrefJob =
+            preferences.lastUsedCatalogueSource().asFlow()
+                .drop(1)
+                .distinctUntilChanged()
+                .onEach { updateLastUsedSource(it) }
+                .launchIn(scope)
+
+        // collectLatestCache, not deliverToView: this is state, so it has to be re-delivered to a
+        // view that gets recreated. Pushed as a one-off event it arrived once and never again,
+        // which left the row missing after navigating into a source and back.
+        lastUsedSourceJob?.cancel()
+        lastUsedSourceJob =
+            lastUsedSourceFlow.collectLatestCache(
+                onNext = { view, item -> view.setLastUsedSource(item) }
+            )
     }
 
     private fun updateLastUsedSource(sourceId: Long) {
         if (preferences.hideLastUsedSource().get()) {
-            deliverToView { it.setLastUsedSource(null) }
-        } else {
-            val source =
-                (sourceManager.get(sourceId) as? CatalogueSource)?.let {
-                    SourceItem(it, showButtons = controllerMode == SourceController.Mode.CATALOGUE)
-                }
-            source?.let {
-                deliverToView { view -> view.setLastUsedSource(it) }
+            lastUsedSourceFlow.value = null
+            return
+        }
+
+        val source =
+            (sourceManager.get(sourceId) as? CatalogueSource)?.let {
+                SourceItem(it, showButtons = controllerMode == SourceController.Mode.CATALOGUE)
             }
+
+        // Leave whatever is already showing when the source can't be resolved, as the previous
+        // null-check did.
+        if (source != null) {
+            lastUsedSourceFlow.value = source
         }
     }
 

@@ -181,11 +181,16 @@ class HttpPageLoader(
                 page.status = Page.QUEUE
             }
 
-            // DROP_OLDEST rather than the default: losing the newest status (READY) would
-            // leave the page spinning forever, whereas losing an older intermediate status is
-            // harmless.
+            // replay = 1 because the flow is installed on the page below and the page is queued
+            // for the workers before the collector subscribes further down. A worker on another
+            // thread can take the page and drive it to READY inside that window, and a
+            // replay-less SharedFlow would discard that with nobody subscribed -- leaving the
+            // page spinning forever. Replaying the last status means a late collector still sees
+            // the current one. DROP_OLDEST for the same reason: the newest status is the one that
+            // matters, an older intermediate one is not.
             val statusFlow =
                 MutableSharedFlow<Int>(
+                    replay = 1,
                     extraBufferCapacity = 8,
                     onBufferOverflow = BufferOverflow.DROP_OLDEST
                 )
