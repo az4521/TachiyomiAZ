@@ -6,11 +6,9 @@ import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.data.track.job.DelayedTrackingStore
 import eu.kanade.tachiyomi.data.track.job.DelayedTrackingUpdateJob
-import eu.kanade.tachiyomi.util.lang.runAsObservable
+import eu.kanade.tachiyomi.util.system.launchIO
 import eu.kanade.tachiyomi.util.system.isOnline
-import rx.Completable
-import rx.Observable
-import rx.schedulers.Schedulers
+import timber.log.Timber
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -31,33 +29,31 @@ fun updateTrackChapterMarkedRead(
     val delayedTrackingStore: DelayedTrackingStore = Injekt.get()
     val context: Application = Injekt.get()
 
-    db.getTracks(manga).asRxSingle()
-        .flatMapCompletable { trackList ->
-            Completable.concat(
-                trackList.map { track ->
-                    val service = trackManager.getService(track.sync_id)
-                    if (service != null && service.isLogged && chapterRead > track.last_chapter_read) {
-                        track.last_chapter_read = chapterRead
+    // These should finish even if the caller goes away.
+    launchIO {
+        try {
+            db.getTracks(manga).executeAsBlocking().forEach { track ->
+                val service = trackManager.getService(track.sync_id)
+                if (service != null && service.isLogged && chapterRead > track.last_chapter_read) {
+                    track.last_chapter_read = chapterRead
 
-                        // These should finish even if the caller goes away.
+                    try {
                         if (context.isOnline()) {
-                            runAsObservable({ service.update(track) })
-                                .map { db.insertTrack(track).executeAsBlocking() }
-                                .toCompletable()
-                                .onErrorComplete()
+                            service.update(track)
+                            db.insertTrack(track).executeAsBlocking()
                         } else {
-                            Observable.fromCallable { delayedTrackingStore.addItem(track) }
-                                .map { DelayedTrackingUpdateJob.setupTask(context) }
-                                .toCompletable()
-                                .onErrorComplete()
+                            delayedTrackingStore.addItem(track)
+                            DelayedTrackingUpdateJob.setupTask(context)
                         }
-                    } else {
-                        Completable.complete()
+                    } catch (e: Throwable) {
+                        // Previously onErrorComplete per track: one failure must not stop
+                        // the others.
+                        Timber.e(e)
                     }
                 }
-            )
+            }
+        } catch (e: Throwable) {
+            Timber.e(e)
         }
-        .onErrorComplete()
-        .subscribeOn(Schedulers.io())
-        .subscribe()
+    }
 }

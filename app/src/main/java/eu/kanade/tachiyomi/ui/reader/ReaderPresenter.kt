@@ -43,8 +43,6 @@ import eu.kanade.tachiyomi.util.updateCoverLastModified
 import exh.util.defaultReaderType
 import rx.Completable
 import rx.Observable
-import rx.Subscription
-import rx.android.schedulers.AndroidSchedulers
 import rx.schedulers.Schedulers
 import timber.log.Timber
 import uy.kohesive.injekt.Injekt
