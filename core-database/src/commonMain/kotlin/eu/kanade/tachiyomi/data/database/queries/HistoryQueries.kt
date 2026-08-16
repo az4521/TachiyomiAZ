@@ -9,7 +9,6 @@ import eu.kanade.tachiyomi.data.database.models.History
 import eu.kanade.tachiyomi.data.database.models.MangaChapterHistory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import java.util.Date
 
 interface HistoryQueries : DbProvider {
     /**
@@ -32,21 +31,21 @@ interface HistoryQueries : DbProvider {
      * @param date recent date range
      */
     fun getRecentManga(
-        date: Date,
+        date: Long,
         offset: Int = 0,
         search: String = ""
     ): List<MangaChapterHistory> =
         sqlDatabase.historyQueries
-            .getRecentMangas(date.time, search.lowercase(), 25, offset.toLong(), ::mapMangaChapterHistory)
+            .getRecentMangas(date, search.lowercase(), 25, offset.toLong(), ::mapMangaChapterHistory)
             .executeAsList()
 
     fun getRecentMangaAsFlow(
-        date: Date,
+        date: Long,
         offset: Int = 0,
         search: String = ""
     ): Flow<List<MangaChapterHistory>> =
         sqlDatabase.historyQueries
-            .getRecentMangas(date.time, search.lowercase(), 25, offset.toLong(), ::mapMangaChapterHistory)
+            .getRecentMangas(date, search.lowercase(), 25, offset.toLong(), ::mapMangaChapterHistory)
             .asFlow()
             .mapToList(Dispatchers.IO)
 
@@ -54,21 +53,21 @@ interface HistoryQueries : DbProvider {
      * Same query with an explicit row limit rather than a fixed page of 25.
      */
     fun getRecentMangaLimit(
-        date: Date,
+        date: Long,
         limit: Int = 0,
         search: String = ""
     ): List<MangaChapterHistory> =
         sqlDatabase.historyQueries
-            .getRecentMangas(date.time, search.lowercase(), limit.toLong(), 0, ::mapMangaChapterHistory)
+            .getRecentMangas(date, search.lowercase(), limit.toLong(), 0, ::mapMangaChapterHistory)
             .executeAsList()
 
     fun getRecentMangaLimitAsFlow(
-        date: Date,
+        date: Long,
         limit: Int = 0,
         search: String = ""
     ): Flow<List<MangaChapterHistory>> =
         sqlDatabase.historyQueries
-            .getRecentMangas(date.time, search.lowercase(), limit.toLong(), 0, ::mapMangaChapterHistory)
+            .getRecentMangas(date, search.lowercase(), limit.toLong(), 0, ::mapMangaChapterHistory)
             .asFlow()
             .mapToList(Dispatchers.IO)
 

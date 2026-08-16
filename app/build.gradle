@@ -6,7 +6,6 @@ apply plugin: 'com.android.application'
 apply plugin: 'com.google.android.gms.oss-licenses-plugin'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlinx-serialization'
-apply plugin: 'app.cash.sqldelight'
 apply plugin: 'kotlin-parcelize'
 // Realm (EH)
 apply plugin: 'kotlin-kapt'
@@ -170,18 +169,6 @@ android {
 //kapt {
 //    correctErrorTypes true
 //}
-
-sqldelight {
-    databases {
-        Database {
-            packageName = "eu.kanade.tachiyomi.data.database"
-            // The schema is owned by DbOpenCallback, which already manages creation and the
-            // 18 upgrade steps against real user databases. SQLDelight only generates typed
-            // queries here; it must not try to create or migrate anything itself.
-            generateAsync = false
-        }
-    }
-}
 
 dependencies {
     //desugaring
@@ -368,6 +355,7 @@ dependencies {
     testImplementation "org.robolectric:shadows-play-services:$robolectric_version"
 
     implementation project(":core-model")
+    implementation project(":core-database")
 
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
     implementation "org.jetbrains.kotlin:kotlin-reflect:$kotlin_version"

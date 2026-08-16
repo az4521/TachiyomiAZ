@@ -66,7 +66,7 @@ class HistoryPresenter : BasePresenter<HistoryController>() {
         cal.time = Date()
         cal.add(Calendar.YEAR, -50)
 
-        return db.getRecentMangaAsFlow(cal.time, offset, search)
+        return db.getRecentMangaAsFlow(cal.timeInMillis, offset, search)
             .map { recents ->
                 val map = TreeMap<Date, MutableList<MangaChapterHistory>> { d1, d2 -> d2.compareTo(d1) }
                 val byDay =
@@ -92,7 +92,7 @@ class HistoryPresenter : BasePresenter<HistoryController>() {
         cal.time = Date()
         cal.add(Calendar.YEAR, -50)
 
-        return db.getRecentMangaLimitAsFlow(cal.time, lastCount, search)
+        return db.getRecentMangaLimitAsFlow(cal.timeInMillis, lastCount, search)
             .map { recents ->
                 val map = TreeMap<Date, MutableList<MangaChapterHistory>> { d1, d2 -> d2.compareTo(d1) }
                 val byDay =

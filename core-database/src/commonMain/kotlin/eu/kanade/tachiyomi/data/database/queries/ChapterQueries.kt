@@ -11,7 +11,6 @@ import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.data.database.models.MangaChapter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import java.util.Date
 
 interface ChapterQueries : DbProvider {
     fun getChapters(manga: Manga): List<Chapter> = getChaptersByMangaId(manga.id)
@@ -35,14 +34,14 @@ interface ChapterQueries : DbProvider {
             .getChaptersByMergedMangaId(mangaId, ::mapChapter)
             .executeAsList()
 
-    fun getRecentChapters(date: Date): List<MangaChapter> =
+    fun getRecentChapters(date: Long): List<MangaChapter> =
         sqlDatabase.chaptersQueries
-            .getRecentChapters(date.time, ::mapMangaChapter)
+            .getRecentChapters(date, ::mapMangaChapter)
             .executeAsList()
 
-    fun getRecentChaptersAsFlow(date: Date): Flow<List<MangaChapter>> =
+    fun getRecentChaptersAsFlow(date: Long): Flow<List<MangaChapter>> =
         sqlDatabase.chaptersQueries
-            .getRecentChapters(date.time, ::mapMangaChapter)
+            .getRecentChapters(date, ::mapMangaChapter)
             .asFlow()
             .mapToList(Dispatchers.IO)
 

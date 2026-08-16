@@ -60,7 +60,7 @@ class UpdatesPresenter(
                 add(Calendar.MONTH, -1)
             }
 
-        return db.getRecentChaptersAsFlow(cal.time)
+        return db.getRecentChaptersAsFlow(cal.timeInMillis)
             // Convert to a list of recent chapters.
             .map { mangaChapters ->
                 val map = TreeMap<Date, MutableList<MangaChapter>> { d1, d2 -> d2.compareTo(d1) }
