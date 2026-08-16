@@ -7,4 +7,5 @@ object BuildPluginsVersion {
     const val KOTLIN = "2.3.10"
     const val KTLINT = "12.1.0"
     const val VERSIONS_PLUGIN = "0.28.0"
+    const val SQLDELIGHT = "2.0.2"
 }

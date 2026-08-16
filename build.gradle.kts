@@ -50,6 +50,7 @@ buildscript {
         classpath("com.android.tools:r8:9.1.31")
         classpath("com.github.ben-manes:gradle-versions-plugin:0.52.0")
         classpath("com.google.gms:google-services:4.4.4")
+        classpath("app.cash.sqldelight:gradle-plugin:${BuildPluginsVersion.SQLDELIGHT}")
         classpath("com.google.android.gms:oss-licenses-plugin:0.10.10")
         classpath(kotlin("serialization", version = "1.9.22"))
         // Realm (EH)

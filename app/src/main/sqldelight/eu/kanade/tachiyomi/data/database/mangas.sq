@@ -1,0 +1,35 @@
+-- Mirrors MangaTable.createTableQuery exactly. DbOpenCallback owns creation and migration
+-- of the real database; this definition exists only so SQLDelight can type the queries.
+CREATE TABLE mangas(
+    _id INTEGER NOT NULL PRIMARY KEY,
+    source INTEGER NOT NULL,
+    url TEXT NOT NULL,
+    artist TEXT,
+    author TEXT,
+    description TEXT,
+    genre TEXT,
+    title TEXT NOT NULL,
+    status INTEGER NOT NULL,
+    thumbnail_url TEXT,
+    favorite INTEGER NOT NULL,
+    last_update INTEGER,
+    initialized INTEGER NOT NULL,
+    viewer INTEGER NOT NULL,
+    chapter_flags INTEGER NOT NULL,
+    cover_last_modified INTEGER NOT NULL,
+    date_added INTEGER NOT NULL,
+    update_strategy INTEGER NOT NULL DEFAULT 0,
+    memo BLOB NOT NULL DEFAULT '{}'
+);
+
+CREATE INDEX mangas_url_index ON mangas(url);
+CREATE INDEX library_favorite_index ON mangas(favorite) WHERE favorite = 1;
+
+getMangaById:
+SELECT * FROM mangas WHERE _id = ?;
+
+getMangaByUrlAndSource:
+SELECT * FROM mangas WHERE url = ? AND source = ? LIMIT 1;
+
+getFavoriteMangas:
+SELECT * FROM mangas WHERE favorite = 1 ORDER BY title;

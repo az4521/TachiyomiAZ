@@ -6,6 +6,7 @@ apply plugin: 'com.android.application'
 apply plugin: 'com.google.android.gms.oss-licenses-plugin'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlinx-serialization'
+apply plugin: 'app.cash.sqldelight'
 apply plugin: 'kotlin-parcelize'
 // Realm (EH)
 apply plugin: 'kotlin-kapt'
@@ -170,6 +171,18 @@ android {
 //    correctErrorTypes true
 //}
 
+sqldelight {
+    databases {
+        Database {
+            packageName = "eu.kanade.tachiyomi.data.database"
+            // The schema is owned by DbOpenCallback, which already manages creation and the
+            // 18 upgrade steps against real user databases. SQLDelight only generates typed
+            // queries here; it must not try to create or migrate anything itself.
+            generateAsync = false
+        }
+    }
+}
+
 dependencies {
     //desugaring
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs_nio:2.0.4'
@@ -279,6 +292,8 @@ dependencies {
     implementation 'com.github.inorichi.storio:storio-common:8be19de@aar'
     implementation 'com.github.inorichi.storio:storio-sqlite:8be19de@aar'
     implementation 'com.github.requery:sqlite-android:3.49.0'
+    implementation "app.cash.sqldelight:android-driver:${BuildPluginsVersion.SQLDELIGHT}"
+    implementation "app.cash.sqldelight:coroutines-extensions:${BuildPluginsVersion.SQLDELIGHT}"
 
     // Preferences
     implementation 'com.github.tfcporciuncula.flow-preferences:flow-preferences:1.3.3'

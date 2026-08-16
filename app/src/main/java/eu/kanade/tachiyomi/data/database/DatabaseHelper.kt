@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.data.database
 
 import android.content.Context
 import androidx.sqlite.db.SupportSQLiteOpenHelper
+import app.cash.sqldelight.driver.android.AndroidSqliteDriver
 import com.pushtorefresh.storio.sqlite.impl.DefaultStorIOSQLite
 import eu.kanade.tachiyomi.data.database.mappers.CategoryTypeMapping
 import eu.kanade.tachiyomi.data.database.mappers.ChapterTypeMapping
@@ -51,9 +52,23 @@ open class DatabaseHelper(context: Context) :
             .callback(DbOpenCallback())
             .build()
 
+    /**
+     * Hoisted so storio and SQLDelight share one open helper, and therefore one connection and
+     * one transaction scope. DbOpenCallback remains the sole owner of schema creation and the
+     * version-18 upgrade path; SQLDelight is given a driver over the already-open database and
+     * never applies a schema of its own.
+     */
+    private val openHelper = RequerySQLiteOpenHelperFactory().create(configuration)
+
+    /**
+     * Typed query access, generated from app/src/main/sqldelight. Call sites migrate off storio
+     * onto this incrementally; both read the same database in the meantime.
+     */
+    val sqlDatabase: Database = Database(AndroidSqliteDriver(openHelper))
+
     override val db =
         DefaultStorIOSQLite.builder()
-            .sqliteOpenHelper(RequerySQLiteOpenHelperFactory().create(configuration))
+            .sqliteOpenHelper(openHelper)
             .addTypeMapping(Manga::class.java, MangaTypeMapping())
             .addTypeMapping(Chapter::class.java, ChapterTypeMapping())
             .addTypeMapping(Track::class.java, TrackTypeMapping())
