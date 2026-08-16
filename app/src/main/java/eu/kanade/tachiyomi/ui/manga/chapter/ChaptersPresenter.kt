@@ -13,6 +13,7 @@ import eu.kanade.tachiyomi.ui.base.presenter.BasePresenter
 import eu.kanade.tachiyomi.util.system.withIOContext
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
@@ -20,19 +21,14 @@ import eu.kanade.tachiyomi.ui.manga.MangaUpdateCoordinator
 import eu.kanade.tachiyomi.util.chapter.NoChaptersException
 import eu.kanade.tachiyomi.util.chapter.updateTrackChapterMarkedRead
 import eu.kanade.tachiyomi.util.isLocal
-import eu.kanade.tachiyomi.util.lang.isNullOrUnsubscribed
 import eu.kanade.tachiyomi.util.system.launchIO
-import eu.kanade.tachiyomi.util.lang.runAsObservable
 import eu.kanade.tachiyomi.util.shouldDownloadNewChapters
 import exh.EH_SOURCE_ID
 import exh.EXH_SOURCE_ID
 import exh.debug.DebugToggles
 import exh.eh.EHentaiUpdateHelper
-import rx.Observable
-import rx.Subscription
-import rx.android.schedulers.AndroidSchedulers
-import rx.schedulers.Schedulers
 import timber.log.Timber
+import rx.schedulers.Schedulers
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
@@ -74,7 +70,7 @@ class ChaptersPresenter(
     /**
      * Subscription to retrieve the new list of chapters from the source.
      */
-    private var fetchChaptersSubscription: Subscription? = null
+    private var fetchChaptersJob: Job? = null
 
     /**
      * Subscription to observe download status changes.
@@ -206,28 +202,25 @@ class ChaptersPresenter(
     fun fetchChaptersFromSource(manualFetch: Boolean = false) {
         hasRequested = true
 
-        if (!fetchChaptersSubscription.isNullOrUnsubscribed()) return
-        fetchChaptersSubscription =
-            Observable.defer {
-                runAsObservable({
-                    // The coordinator fetches and syncs; a source that returns nothing at all is
-                    // still an error worth surfacing on this tab.
-                    updateCoordinator.awaitUpdate(force = manualFetch).chapters ?: throw NoChaptersException()
-                })
-            }
-                .subscribeOn(Schedulers.io())
-                .doOnNext {
+        if (fetchChaptersJob?.isActive == true) return
+        fetchChaptersJob =
+            presenterScope.launch {
+                try {
+                    val chapters =
+                        withIOContext {
+                            // The coordinator fetches and syncs; a source that returns nothing at
+                            // all is still an error worth surfacing on this tab.
+                            updateCoordinator.awaitUpdate(force = manualFetch).chapters
+                                ?: throw NoChaptersException()
+                        }
                     if (manualFetch) {
-                        downloadNewChapters(it.first)
+                        downloadNewChapters(chapters.first)
                     }
+                    view?.onFetchChaptersDone()
+                } catch (error: Throwable) {
+                    view?.onFetchChaptersError(error)
                 }
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribeFirst(
-                    { view, _ ->
-                        view.onFetchChaptersDone()
-                    },
-                    ChaptersController::onFetchChaptersError
-                )
+            }
     }
 
     /**
@@ -369,14 +362,12 @@ class ChaptersPresenter(
         selectedChapters: List<ChapterItem>,
         bookmarked: Boolean
     ) {
-        Observable.from(selectedChapters)
-            .doOnNext { chapter ->
+        launchIO {
+            selectedChapters.forEach { chapter ->
                 chapter.bookmark = bookmarked
             }
-            .toList()
-            .flatMap { db.updateChaptersProgress(it).asRxObservable() }
-            .subscribeOn(Schedulers.io())
-            .subscribe()
+            db.updateChaptersProgress(selectedChapters).executeAsBlocking()
+        }
     }
 
     /**
@@ -384,17 +375,17 @@ class ChaptersPresenter(
      * @param chapters the list of chapters to delete.
      */
     fun deleteChapters(chapters: List<ChapterItem>) {
-        Observable.just(chapters)
-            .doOnNext { deleteChaptersInternal(chapters) }
-            .doOnNext { if (onlyDownloaded()) refreshChapters() }
-            .subscribeOn(Schedulers.io())
-            .observeOn(AndroidSchedulers.mainThread())
-            .subscribeFirst(
-                { view, _ ->
-                    view.onChaptersDeleted(chapters)
-                },
-                ChaptersController::onChaptersDeletedError
-            )
+        presenterScope.launch {
+            try {
+                withIOContext {
+                    deleteChaptersInternal(chapters)
+                    if (onlyDownloaded()) refreshChapters()
+                }
+                view?.onChaptersDeleted(chapters)
+            } catch (error: Throwable) {
+                view?.onChaptersDeletedError(error)
+            }
+        }
     }
 
     private fun downloadNewChapters(chapters: List<Chapter>) {
