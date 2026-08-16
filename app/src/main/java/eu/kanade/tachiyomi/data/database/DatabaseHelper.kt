@@ -42,8 +42,7 @@ open class DatabaseHelper(context: Context) :
     internal val openHelper = RequerySQLiteOpenHelperFactory().create(configuration)
 
     /**
-     * Typed query access, generated from app/src/main/sqldelight. Call sites migrate off storio
-     * onto this incrementally; both read the same database in the meantime.
+     * Typed query access, generated from app/src/main/sqldelight.
      */
     override val sqlDatabase: Database = Database(AndroidSqliteDriver(openHelper))
 
@@ -51,7 +50,7 @@ open class DatabaseHelper(context: Context) :
      * Runs a dynamically built query and returns the ids in its [idColumn].
      *
      * The exh search engine composes its SQL at runtime, so it cannot be a static SQLDelight
-     * query. It goes straight to the shared open helper rather than through storio.
+     * query, so it goes straight to the open helper.
      */
     fun rawQueryIds(
         sql: String,

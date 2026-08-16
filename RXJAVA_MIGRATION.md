@@ -1,39 +1,76 @@
 # Migrating TachiyomiAZ off RxJava
 
-Status: in progress — 103 -> 34 files; exh/EH subsystem and a few leftovers remain
+Status: RxJava mostly done; storio replaced by SQLDelight
 Last updated: 2026-08-15
 Branch: `rxjava-migration`
 
-Files importing `rx.*`: **103 at start, 34 now.**
+**RxJava**: 103 files at the start, 33 now. Five of those must keep it
+permanently as the extension shim (`Source.kt`, `CatalogueSource.kt`,
+`HttpSource.kt`, `network/OkHttpExtensions.kt`, `util/lang/RxCoroutineBridge.kt`),
+and 18 are the `exh`/EH subsystem, which is fork-only and shares `RxUtil` and
+`DelegatedHttpSource` so it converts as one unit or not at all.
 
-Five must keep RxJava permanently as the extension shim: `Source.kt`,
-`CatalogueSource.kt`, `HttpSource.kt`, `network/OkHttpExtensions.kt`, and
-`util/lang/RxCoroutineBridge.kt`.
+**storio**: gone. All seven tables plus the three exh metadata tables are on
+SQLDelight, the dependency is out of `app/build.gradle`, and the 14 resolvers,
+6 type mappings, `DbExtensions` and exh's `DatabaseExtensions` are deleted.
 
-Remaining, by group:
+**Nucleus and Conductor stay.** They are Android UI libraries, and the iOS app
+has its own UI, so presenters are never shared and neither library affects what
+can compile for Kotlin/Native. Removing them would be a lifecycle refactor, not
+a modernisation one. Nucleus sits in the same "boundary library" tier as
+ReactiveNetwork and the extension `Source` API.
 
-| Group | Files | Notes |
-|---|---|---|
-| extension shim — keep | 5 | Mihon keeps the same set |
-| `exh/` | 11 | fork-only, no upstream reference |
-| EH-adjacent sources | 7 | `EHentai`, `NHentai`, `HentaiCafe`, `Pururin`, `Tsumino`, `LewdSource`, `SourceManager` |
-| UI leftovers | 8 | `RxController`, `BasePresenter` (Nucleus), `LibraryController`/`CategoryView`, `ChaptersPresenter`, `ReaderActivity`, `ReaderPresenter`, `SettingsController` |
-| `extension/` | 2 | `ExtensionManager.installExtension`, `ExtensionInstaller` |
-| `util/lang/RxExtensions.kt` | 1 | `plusAssign`/`isNullOrUnsubscribed`, used by the above |
+## Database notes for whoever works here next
 
-Everything below the UI — trackers, backup, library update, downloads, the
-reader, page loading — is off RxJava. `Downloader` and the reader, the two
-items flagged as hardest, are done.
+- `DbOpenCallback` still owns schema creation and all 18 upgrade steps. The
+  `.sq` `CREATE TABLE` statements exist only so SQLDelight can type the
+  queries; it is handed an `AndroidSqliteDriver` over the already-open helper
+  and must never be switched to `Database.Schema`, which would try to create
+  tables that already exist on real installs.
+- storio and SQLDelight shared one open helper during the migration, which is
+  what let call sites move one at a time without splitting transactions.
+- `DatabaseHelper.inTransaction` is `inline` on purpose: callers invoke suspend
+  functions inside it, and SQLDelight's `transaction` takes a non-inline lambda.
+- Two escape hatches remain for things a typed layer cannot express:
+  `executeSQL` for schema-era `EXHMigrations` statements, and `rawQueryIds` for
+  the exh search engine, which composes SQL at runtime.
+- `mangas.sq` deliberately omits `unread` and `category`. `MangaTable` declares
+  them as if they were columns, but they are aliases computed by the library
+  query.
+- SQLDelight's default dialect predates `ON CONFLICT DO UPDATE`, so upserts are
+  written as update-then-insert-if-no-rows-changed.
 
-**The remaining 18 files in `exh/` and the EH-adjacent sources are one
-subsystem.** They share `RxUtil`, `DelegatedHttpSource` and the EH metadata
-types, so they convert together or not at all. Leaving them on RxJava is a
-legitimate stopping point: the library stays on the classpath for extensions
-regardless, and this code has no upstream counterpart.
+## Bugs found and fixed while porting
 
-The 8 UI leftovers are blocked on `BasePresenter`/`RxController`, which keep
-their Rx halves until every subclass is converted — and `BasePresenter` cannot
-stop extending Nucleus's `RxPresenter` until Nucleus itself goes.
+- `getMergedChaptersQuery` interpolated `$(Merged.COL_MERGE_ID}` -- a paren
+  instead of a brace -- so Kotlin emitted it as literal text and the query was
+  invalid SQL at runtime.
+- `BrowseSourcePresenter` delivered page errors through
+  `view().subscribe { ... }`, which stays subscribed and re-fires on every
+  later view emission.
+- `Bangumi.bind` built an `add(track)` Observable and dropped it without
+  subscribing, so the add never ran.
+- `getRecentManga` interpolated the search term and offset straight into SQL;
+  they are bind parameters now.
+
+## Still to do
+
+- `exh`/EH off RxJava (18 files), or leave it -- the library stays on the
+  classpath for extensions either way.
+- OkHttp -> Ktor for trackers only, never for sources.
+- Extract a `:core` KMP module: models, chapter recognition, backup schema,
+  sort/filter predicates, preference keys.
+
+Sources cannot go to KMP: `HttpSource` exposes OkHttp `Request`/`Response`,
+jsoup `Document` and `Observable`, and every third-party extension links
+against exactly those types.
+
+## Build
+
+Gradle cannot build on `Z:` -- it is an SMB share and Gradle's
+create-directory-then-stat pattern fails against SMB metadata caching. Mirror
+the tree to local disk and build there; `JAVA_HOME` also points at a Java 8 JDK
+while AGP 8.13 needs 17+, so export it explicitly.
 
 
 ## 1. The goal has to be restated
