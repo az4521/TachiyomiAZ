@@ -1,12 +1,14 @@
 package eu.kanade.tachiyomi.data.database.queries
 
-import com.pushtorefresh.storio.sqlite.queries.RawQuery
 import eu.kanade.tachiyomi.data.database.DbProvider
+import app.cash.sqldelight.coroutines.asFlow
+import app.cash.sqldelight.coroutines.mapToList
 import eu.kanade.tachiyomi.data.database.mapHistory
+import eu.kanade.tachiyomi.data.database.mapMangaChapterHistory
 import eu.kanade.tachiyomi.data.database.models.History
 import eu.kanade.tachiyomi.data.database.models.MangaChapterHistory
-import eu.kanade.tachiyomi.data.database.resolvers.MangaChapterHistoryGetResolver
-import eu.kanade.tachiyomi.data.database.tables.HistoryTable
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import java.util.Date
 
 interface HistoryQueries : DbProvider {
@@ -26,45 +28,49 @@ interface HistoryQueries : DbProvider {
     }
 
     /**
-     * Returns history of recent manga containing last read chapter
+     * Recently read manga, most recent chapter per manga.
      * @param date recent date range
      */
     fun getRecentManga(
         date: Date,
         offset: Int = 0,
         search: String = ""
-    ) = db.get()
-        .listOfObjects(MangaChapterHistory::class.java)
-        .withQuery(
-            RawQuery.builder()
-                .query(getRecentMangasQuery(offset, search))
-                .args(date.time)
-                .observesTables(HistoryTable.TABLE)
-                .build()
-        )
-        .withGetResolver(MangaChapterHistoryGetResolver.INSTANCE)
-        .prepare()
+    ): List<MangaChapterHistory> =
+        sqlDatabase.historyQueries
+            .getRecentMangas(date.time, search.lowercase(), 25, offset.toLong(), ::mapMangaChapterHistory)
+            .executeAsList()
+
+    fun getRecentMangaAsFlow(
+        date: Date,
+        offset: Int = 0,
+        search: String = ""
+    ): Flow<List<MangaChapterHistory>> =
+        sqlDatabase.historyQueries
+            .getRecentMangas(date.time, search.lowercase(), 25, offset.toLong(), ::mapMangaChapterHistory)
+            .asFlow()
+            .mapToList(Dispatchers.IO)
 
     /**
-     * Returns history of recent manga containing last read chapter in 25s
-     * @param date recent date range
-     * @offset offset the db by
+     * Same query with an explicit row limit rather than a fixed page of 25.
      */
     fun getRecentMangaLimit(
         date: Date,
         limit: Int = 0,
         search: String = ""
-    ) = db.get()
-        .listOfObjects(MangaChapterHistory::class.java)
-        .withQuery(
-            RawQuery.builder()
-                .query(getRecentMangasLimitQuery(limit, search))
-                .args(date.time)
-                .observesTables(HistoryTable.TABLE)
-                .build()
-        )
-        .withGetResolver(MangaChapterHistoryGetResolver.INSTANCE)
-        .prepare()
+    ): List<MangaChapterHistory> =
+        sqlDatabase.historyQueries
+            .getRecentMangas(date.time, search.lowercase(), limit.toLong(), 0, ::mapMangaChapterHistory)
+            .executeAsList()
+
+    fun getRecentMangaLimitAsFlow(
+        date: Date,
+        limit: Int = 0,
+        search: String = ""
+    ): Flow<List<MangaChapterHistory>> =
+        sqlDatabase.historyQueries
+            .getRecentMangas(date.time, search.lowercase(), limit.toLong(), 0, ::mapMangaChapterHistory)
+            .asFlow()
+            .mapToList(Dispatchers.IO)
 
     fun getHistoryByMangaId(mangaId: Long): List<History> =
         sqlDatabase.historyQueries.getHistoryByMangaId(mangaId, ::mapHistory).executeAsList()

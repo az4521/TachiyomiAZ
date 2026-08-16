@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.data.database
 import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.data.database.models.LibraryManga
 import eu.kanade.tachiyomi.data.database.models.MangaChapter
+import eu.kanade.tachiyomi.data.database.models.MangaChapterHistory
 import eu.kanade.tachiyomi.data.database.models.MangaImpl
 
 @Suppress("LongParameterList")
@@ -150,4 +151,56 @@ fun mapMangaChapter(
         )
     manga.id = chapter.manga_id
     return MangaChapter(manga, chapter)
+}
+
+/** Mirrors MangaChapterHistoryGetResolver. */
+@Suppress("LongParameterList")
+fun mapMangaChapterHistory(
+    mangaId: Long,
+    source: Long,
+    mangaUrl: String,
+    artist: String?,
+    author: String?,
+    description: String?,
+    genre: String?,
+    title: String,
+    status: Long,
+    thumbnailUrl: String?,
+    favorite: Long,
+    lastUpdate: Long?,
+    initialized: Long,
+    viewer: Long,
+    chapterFlags: Long,
+    coverLastModified: Long,
+    dateAdded: Long,
+    updateStrategy: Long,
+    mangaMemo: ByteArray,
+    chapterId: Long,
+    chapterMangaId: Long,
+    chapterUrl: String,
+    chapterName: String,
+    scanlator: String?,
+    read: Long,
+    bookmark: Long,
+    lastPageRead: Long,
+    chapterNumber: Double,
+    sourceOrder: Long,
+    dateFetch: Long,
+    dateUpload: Long,
+    chapterMemo: ByteArray,
+    historyId: Long,
+    historyChapterId: Long,
+    historyLastRead: Long?,
+    historyTimeRead: Long?
+): MangaChapterHistory {
+    val mangaChapter =
+        mapMangaChapter(
+            mangaId, source, mangaUrl, artist, author, description, genre, title, status,
+            thumbnailUrl, favorite, lastUpdate, initialized, viewer, chapterFlags,
+            coverLastModified, dateAdded, updateStrategy, mangaMemo,
+            chapterId, chapterMangaId, chapterUrl, chapterName, scanlator, read, bookmark,
+            lastPageRead, chapterNumber, sourceOrder, dateFetch, dateUpload, chapterMemo
+        )
+    val history = mapHistory(historyId, historyChapterId, historyLastRead, historyTimeRead)
+    return MangaChapterHistory(mangaChapter.manga, mangaChapter.chapter, history)
 }

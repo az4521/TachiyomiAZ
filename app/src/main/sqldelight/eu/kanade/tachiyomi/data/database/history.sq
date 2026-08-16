@@ -45,3 +45,34 @@ DELETE FROM history WHERE history_last_read = 0;
 
 lastInsertRowId:
 SELECT last_insert_rowid();
+
+-- Recently read manga, one row per manga at its most recently read chapter.
+-- offset/limit and the search term were interpolated into the raw SQL before; they are bind
+-- parameters now, so the query is static and SQLDelight can type it.
+getRecentMangas:
+SELECT
+    mangas._id AS m_id, mangas.source AS m_source, mangas.url AS mangaUrl,
+    mangas.artist AS m_artist, mangas.author AS m_author, mangas.description AS m_description,
+    mangas.genre AS m_genre, mangas.title AS m_title, mangas.status AS m_status,
+    mangas.thumbnail_url AS m_thumbnail_url, mangas.favorite AS m_favorite,
+    mangas.last_update AS m_last_update, mangas.initialized AS m_initialized,
+    mangas.viewer AS m_viewer, mangas.chapter_flags AS m_chapter_flags,
+    mangas.cover_last_modified AS m_cover_last_modified, mangas.date_added AS m_date_added,
+    mangas.update_strategy AS m_update_strategy, mangas.memo AS m_memo,
+    chapters.*,
+    history.*
+FROM mangas
+JOIN chapters ON mangas._id = chapters.manga_id
+JOIN history ON chapters._id = history.history_chapter_id
+JOIN (
+    SELECT chapters.manga_id, chapters._id AS history_chapter_id,
+           MAX(history.history_last_read) AS history_last_read
+    FROM chapters JOIN history ON chapters._id = history.history_chapter_id
+    GROUP BY chapters.manga_id
+) AS max_last_read
+ON chapters.manga_id = max_last_read.manga_id
+WHERE history.history_last_read > :after
+AND max_last_read.history_chapter_id = history.history_chapter_id
+AND lower(mangas.title) LIKE ('%' || :search || '%')
+ORDER BY max_last_read.history_last_read DESC
+LIMIT :limit OFFSET :offset;
