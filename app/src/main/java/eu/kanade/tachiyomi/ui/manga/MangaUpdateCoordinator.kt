@@ -16,7 +16,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.withContext
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -92,7 +91,11 @@ class MangaUpdateCoordinator(
                 throw e
             }
 
-        save(fetched.update.manga, updateMetadata, force)
+        // In this coordinator's scope for the same reason the fetch is: a tab that goes away
+        // mid-save cancels only its own wait, never the write. Doing it in the caller's scope
+        // would let leaving the screen abandon a fetch that had already succeeded.
+        scope.async { save(fetched.update.manga, updateMetadata, force) }.await()
+
         return Result(fetched.chapters)
     }
 
@@ -113,9 +116,8 @@ class MangaUpdateCoordinator(
             if (metadataSaved) return
             if (updateMetadata) metadataSaved = true
 
-            withContext(Dispatchers.IO) {
-                manga.saveMangaUpdate(sManga, db, coverCache, updateMetadata, manualFetch)
-            }
+            // Already on Dispatchers.IO -- this only ever runs in [scope].
+            manga.saveMangaUpdate(sManga, db, coverCache, updateMetadata, manualFetch)
         }
     }
 }
