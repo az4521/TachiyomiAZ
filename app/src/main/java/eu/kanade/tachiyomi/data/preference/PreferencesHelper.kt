@@ -10,6 +10,7 @@ import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.preference.PreferenceValues.DisplayMode
 import eu.kanade.tachiyomi.data.preference.PreferenceValues.NsfwAllowance
 import eu.kanade.tachiyomi.data.track.TrackService
+import eu.kanade.tachiyomi.domain.manga.DownloadPreferences
 import eu.kanade.tachiyomi.data.track.anilist.Anilist
 import eu.kanade.tachiyomi.util.system.MiuiUtil
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -30,7 +31,16 @@ fun <T> Preference<T>.asImmediateFlow(block: (value: T) -> Unit): Flow<T> {
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class PreferencesHelper(val context: Context) {
+class PreferencesHelper(val context: Context) : DownloadPreferences {
+    /**
+     * Resolved values for the shared domain rules, which cannot see SharedPreferences.
+     */
+    override val downloadNewChapters: Boolean
+        get() = downloadNew().get()
+
+    override val downloadNewCategories: List<Int>
+        get() = downloadNewCategories().get().map(String::toInt)
+
     private val prefs = PreferenceManager.getDefaultSharedPreferences(context)
     val flowPrefs = FlowSharedPreferences(prefs)
 

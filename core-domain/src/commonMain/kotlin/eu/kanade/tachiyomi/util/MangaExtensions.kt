@@ -1,20 +1,28 @@
 package eu.kanade.tachiyomi.util
 
-import eu.kanade.tachiyomi.data.cache.CoverCache
-import eu.kanade.tachiyomi.data.database.DatabaseHelper
+import eu.kanade.tachiyomi.data.database.DatabaseHandler
 import eu.kanade.tachiyomi.data.database.models.Manga
-import eu.kanade.tachiyomi.data.preference.PreferencesHelper
-import eu.kanade.tachiyomi.source.LocalSource
+import eu.kanade.tachiyomi.domain.manga.CoverStore
+import eu.kanade.tachiyomi.domain.manga.DownloadPreferences
 import eu.kanade.tachiyomi.source.model.SManga
-import java.util.Date
+import kotlinx.datetime.Clock
 
-fun Manga.isLocal() = source == LocalSource.ID
+/**
+ * Id of the built-in local source. Declared here so shared rules can recognise local manga
+ * without depending on LocalSource, which is Android-only; LocalSource.ID reads from this so the
+ * two cannot drift apart.
+ */
+const val LOCAL_SOURCE_ID = 0L
+
+private fun now(): Long = Clock.System.now().toEpochMilliseconds()
+
+fun Manga.isLocal() = source == LOCAL_SOURCE_ID
 
 /**
  * Call before updating [Manga.thumbnail_url] to ensure old cover can be cleared from cache
  */
 fun Manga.prepUpdateCover(
-    coverCache: CoverCache,
+    coverCache: CoverStore,
     remoteManga: SManga,
     refreshSameUrl: Boolean
 ) {
@@ -28,13 +36,13 @@ fun Manga.prepUpdateCover(
 
     when {
         isLocal() -> {
-            cover_last_modified = Date().time
+            cover_last_modified = now()
         }
-        hasCustomCover(coverCache) -> {
+        coverCache.hasCustomCover(this) -> {
             coverCache.deleteFromCache(this, false)
         }
         else -> {
-            cover_last_modified = Date().time
+            cover_last_modified = now()
             coverCache.deleteFromCache(this, false)
         }
     }
@@ -64,8 +72,8 @@ fun Manga.copyMemoFrom(other: SManga): Boolean {
  */
 fun Manga.saveMangaUpdate(
     sManga: SManga,
-    db: DatabaseHelper,
-    coverCache: CoverCache,
+    db: DatabaseHandler,
+    coverCache: CoverStore,
     updateMetadata: Boolean,
     manualFetch: Boolean = false
 ) {
@@ -86,33 +94,31 @@ fun Manga.saveMangaUpdate(
     db.insertManga(this)
 }
 
-fun Manga.hasCustomCover(coverCache: CoverCache): Boolean {
-    return coverCache.getCustomCoverFile(this).exists()
-}
+fun Manga.hasCustomCover(coverCache: CoverStore): Boolean = coverCache.hasCustomCover(this)
 
-fun Manga.removeCovers(coverCache: CoverCache) {
+fun Manga.removeCovers(coverCache: CoverStore) {
     if (isLocal()) return
 
-    cover_last_modified = Date().time
+    cover_last_modified = now()
     coverCache.deleteFromCache(this, true)
 }
 
-fun Manga.updateCoverLastModified(db: DatabaseHelper) {
-    cover_last_modified = Date().time
+fun Manga.updateCoverLastModified(db: DatabaseHandler) {
+    cover_last_modified = now()
     db.updateMangaCoverLastModified(this)
 }
 
 fun Manga.shouldDownloadNewChapters(
-    db: DatabaseHelper,
-    prefs: PreferencesHelper
+    db: DatabaseHandler,
+    prefs: DownloadPreferences
 ): Boolean {
     if (!favorite) return false
 
     // Boolean to determine if user wants to automatically download new chapters.
-    val downloadNew = prefs.downloadNew().get()
+    val downloadNew = prefs.downloadNewChapters
     if (!downloadNew) return false
 
-    val categoriesToDownload = prefs.downloadNewCategories().get().map(String::toInt)
+    val categoriesToDownload = prefs.downloadNewCategories
     if (categoriesToDownload.isEmpty()) return true
 
     // Get all categories, else default category (0)

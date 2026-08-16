@@ -45,6 +45,7 @@ kotlin {
             api(project(":core-model"))
             api(project(":core-database"))
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
+            implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.2")
         }
     }
 }

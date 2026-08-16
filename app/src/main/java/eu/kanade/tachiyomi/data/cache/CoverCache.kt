@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.data.cache
 
 import android.content.Context
 import eu.kanade.tachiyomi.data.database.models.Manga
+import eu.kanade.tachiyomi.domain.manga.CoverStore
 import eu.kanade.tachiyomi.util.storage.DiskUtil
 import java.io.File
 import java.io.IOException
@@ -16,7 +17,9 @@ import java.io.InputStream
  * @param context the application context.
  * @constructor creates an instance of the cover cache.
  */
-class CoverCache(private val context: Context) {
+class CoverCache(private val context: Context) : CoverStore {
+    override fun hasCustomCover(manga: Manga): Boolean = getCustomCoverFile(manga).exists()
+
     companion object {
         private const val COVERS_DIR = "covers"
         private const val CUSTOM_COVERS_DIR = "covers/custom"
@@ -75,9 +78,9 @@ class CoverCache(private val context: Context) {
      * @param deleteCustomCover whether the custom cover should be deleted.
      * @return number of files that were deleted.
      */
-    fun deleteFromCache(
+    override fun deleteFromCache(
         manga: Manga,
-        deleteCustomCover: Boolean = false
+        deleteCustomCover: Boolean
     ): Int {
         var deleted = 0
 

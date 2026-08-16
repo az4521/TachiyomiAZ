@@ -1,5 +1,7 @@
 package eu.kanade.tachiyomi.source
 
+import eu.kanade.tachiyomi.util.LOCAL_SOURCE_ID
+
 import android.content.Context
 import android.os.Build
 import com.github.junrar.Archive
@@ -42,7 +44,7 @@ class LocalSource(private val context: Context) : CatalogueSource {
         private val POPULAR_FILTERS = FilterList(OrderBy())
         private val LATEST_FILTERS = FilterList(OrderBy().apply { state = Filter.Sort.Selection(1, false) })
         private val LATEST_THRESHOLD = TimeUnit.MILLISECONDS.convert(7, TimeUnit.DAYS)
-        const val ID = 0L
+        const val ID = LOCAL_SOURCE_ID
 
         fun updateCover(
             context: Context,
