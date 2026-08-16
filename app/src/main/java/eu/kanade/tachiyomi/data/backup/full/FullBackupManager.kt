@@ -231,12 +231,25 @@ class FullBackupManager(context: Context) : AbstractBackupManager(context) {
         return mangaObject
     }
 
+    /**
+     * Merges a backup manga onto one already in the database.
+     *
+     * favorite and initialized are OR-ed rather than overwritten, following Mihon's
+     * MangaRestorer.copyFrom. Restoring must never take a manga out of the library: the backup is
+     * a snapshot of one moment, and this manga is in the library now.
+     *
+     * The line that OR-ed favorite was lost from this fork at some point -- TachiyomiEH still
+     * carries `manga.favorite = true` here -- so a backup whose favorite flag was false silently
+     * unfavorited an existing library entry.
+     */
     fun restoreMangaNoFetch(
         manga: Manga,
         dbManga: Manga
     ) {
         manga.id = dbManga.id
         manga.copyFrom(dbManga)
+        manga.favorite = manga.favorite || dbManga.favorite
+        manga.initialized = manga.initialized || dbManga.initialized
         insertManga(manga)
     }
 
@@ -252,10 +265,15 @@ class FullBackupManager(context: Context) : AbstractBackupManager(context) {
         manga: Manga,
         online: Boolean
     ): Manga {
+        // This is the new-manga path: nothing exists to merge with, so there is no favorite to
+        // preserve. A backup only ever contains library entries, so a restored manga belongs in
+        // the library -- which is what the ancestor's `manga.favorite = true` said before it was
+        // corrupted here into a self-assignment that did nothing.
+        manga.favorite = true
+
         return if (online && source != null) {
             val networkManga = source.getMangaUpdate(manga, emptyList(), fetchDetails = true, fetchChapters = false).manga
             manga.copyFrom(networkManga)
-            manga.favorite = manga.favorite
             manga.initialized = true
             manga.id = insertManga(manga)
             manga
