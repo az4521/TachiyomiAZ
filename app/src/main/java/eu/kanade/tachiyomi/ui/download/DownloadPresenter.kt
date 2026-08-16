@@ -8,8 +8,6 @@ import eu.kanade.tachiyomi.ui.base.presenter.BasePresenter
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
-import rx.Observable
-import rx.android.schedulers.AndroidSchedulers
 import timber.log.Timber
 import uy.kohesive.injekt.injectLazy
 

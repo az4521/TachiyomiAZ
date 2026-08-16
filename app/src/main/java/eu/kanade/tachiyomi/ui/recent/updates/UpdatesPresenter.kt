@@ -13,9 +13,11 @@ import kotlinx.coroutines.flow.onEach
 import eu.kanade.tachiyomi.ui.recent.DateSectionItem
 import eu.kanade.tachiyomi.util.chapter.updateTrackChapterMarkedRead
 import eu.kanade.tachiyomi.util.lang.toDateKey
-import rx.Observable
-import rx.android.schedulers.AndroidSchedulers
-import rx.schedulers.Schedulers
+import eu.kanade.tachiyomi.util.lang.asFlow
+import eu.kanade.tachiyomi.util.system.launchIO
+import eu.kanade.tachiyomi.util.system.withIOContext
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.map
 import timber.log.Timber
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -37,9 +39,8 @@ class UpdatesPresenter(
     override fun onCreate(savedState: Bundle?) {
         super.onCreate(savedState)
 
-        getUpdatesObservable()
-            .observeOn(AndroidSchedulers.mainThread())
-            .subscribeLatestCache(UpdatesController::onNextRecentChapters)
+        getUpdatesFlow()
+            .collectLatestCache(UpdatesController::onNextRecentChapters)
 
         getChapterStatusFlow()
             .collectLatestCache(UpdatesController::onChapterStatusChange) { _, error ->
@@ -52,7 +53,7 @@ class UpdatesPresenter(
      *
      * @return observable containing recent chapters and date
      */
-    private fun getUpdatesObservable(): Observable<List<UpdatesItem>> {
+    private fun getUpdatesFlow(): Flow<List<UpdatesItem>> {
         // Set date limit for recent chapters
         val cal =
             Calendar.getInstance().apply {
@@ -61,6 +62,7 @@ class UpdatesPresenter(
             }
 
         return db.getRecentChapters(cal.time).asRxObservable()
+            .asFlow()
             // Convert to a list of recent chapters.
             .map { mangaChapters ->
                 val map = TreeMap<Date, MutableList<MangaChapter>> { d1, d2 -> d2.compareTo(d1) }
@@ -74,7 +76,7 @@ class UpdatesPresenter(
                         .map { UpdatesItem(it.chapter, it.manga, dateItem) }
                 }
             }
-            .doOnNext { list ->
+            .onEach { list ->
                 list.forEach { item ->
                     // Find an active download for this chapter.
                     val download = downloadManager.queue.find { it.chapter.id == item.chapter.id }
@@ -149,9 +151,7 @@ class UpdatesPresenter(
             }
         }
 
-        Observable.fromCallable { db.updateChaptersProgress(chapters).executeAsBlocking() }
-            .subscribeOn(Schedulers.io())
-            .subscribe()
+        launchIO { db.updateChaptersProgress(chapters).executeAsBlocking() }
 
         if (read && preferences.autoUpdateTrack() && preferences.trackMarkedAsRead()) {
             // Chapters here can span several manga, so sync each one to its own highest chapter.
@@ -170,16 +170,14 @@ class UpdatesPresenter(
      * @param chapters list of chapters
      */
     fun deleteChapters(chapters: List<UpdatesItem>) {
-        Observable.just(chapters)
-            .doOnNext { deleteChaptersInternal(it) }
-            .subscribeOn(Schedulers.io())
-            .observeOn(AndroidSchedulers.mainThread())
-            .subscribeFirst(
-                { view, _ ->
-                    view.onChaptersDeleted()
-                },
-                UpdatesController::onChaptersDeletedError
-            )
+        presenterScope.launch {
+            try {
+                withIOContext { deleteChaptersInternal(chapters) }
+                view?.onChaptersDeleted()
+            } catch (error: Throwable) {
+                view?.onChaptersDeletedError(error)
+            }
+        }
     }
 
     /**
