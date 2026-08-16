@@ -27,7 +27,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -353,22 +353,31 @@ class Downloader(
             download.downloadedImages = 0
             download.status = Download.DOWNLOADING
 
-            // Get all the URLs to the source images, fetch pages if necessary
-            val pages = download.source.getAllImageUrlsFromPageList(pageList)
-
-            // Start downloading images, consider we can have downloaded images already.
-            // Concurrently do 5 pages at a time, as the inner flatMap(..., 5) did.
-            val pageSemaphore = Semaphore(5)
+            // Resolve image URLs and download in one pipeline, as the RxJava chain did: a page
+            // starts downloading as soon as its URL is known rather than after every URL has been
+            // resolved. Doing it in two phases left a long stretch at the start of each chapter
+            // with no progress at all, and finished later for no gain.
             coroutineScope {
-                pages.map { page ->
-                    async {
-                        pageSemaphore.withPermit {
+                val resolved = Channel<Page>(Channel.UNLIMITED)
+
+                launch {
+                    try {
+                        download.source.getAllImageUrlsFromPageList(pageList).collect { resolved.send(it) }
+                    } finally {
+                        resolved.close()
+                    }
+                }
+
+                // Five workers, matching the old flatMap(..., 5) concurrency.
+                repeat(5) {
+                    launch {
+                        for (page in resolved) {
                             getOrDownloadImage(page, download, tmpDir)
                             // Do when page is downloaded.
                             notifier.onProgressChange(download)
                         }
                     }
-                }.awaitAll()
+                }
             }
 
             // Do after download completes
