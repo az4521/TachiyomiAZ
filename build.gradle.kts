@@ -80,11 +80,15 @@ buildscript {
  */
 tasks.register("checkSharedPortability") {
     group = "verification"
-    description = "Compiles :core-model, :core-database and :core-domain for plain JVM."
+    description = "Compiles and tests :core-model, :core-database and :core-domain for plain JVM."
     dependsOn(
         ":core-model:compileKotlinJvm",
         ":core-database:compileKotlinJvm",
-        ":core-domain:compileKotlinJvm"
+        ":core-domain:compileKotlinJvm",
+        // The shared tests run here too: they cover the rules both platforms must agree on, so
+        // a regression in them is a divergence between the two apps, not just a local bug.
+        ":core-model:jvmTest",
+        ":core-domain:jvmTest"
     )
 }
 

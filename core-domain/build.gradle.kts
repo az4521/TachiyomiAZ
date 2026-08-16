@@ -42,6 +42,10 @@ kotlin {
     iosSimulatorArm64()
 
     sourceSets {
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+        }
+
         commonMain.dependencies {
             api(project(":core-model"))
             api(project(":core-database"))
