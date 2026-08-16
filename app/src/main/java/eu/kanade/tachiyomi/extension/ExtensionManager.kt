@@ -15,6 +15,7 @@ import eu.kanade.tachiyomi.extension.util.ExtensionInstaller
 import eu.kanade.tachiyomi.extension.util.ExtensionLoader
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.SourceManager
+import eu.kanade.tachiyomi.util.lang.asFlow
 import eu.kanade.tachiyomi.util.system.launchNow
 import eu.kanade.tachiyomi.util.system.toast
 import exh.EH_SOURCE_ID
@@ -23,7 +24,6 @@ import exh.MERGED_SOURCE_ID
 import exh.NHENTAI_SOURCE_ID
 import exh.source.BlacklistedSources
 import kotlinx.coroutines.async
-import eu.kanade.tachiyomi.util.lang.asFlow
 import kotlinx.coroutines.flow.Flow
 import rx.Observable
 import uy.kohesive.injekt.Injekt

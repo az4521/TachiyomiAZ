@@ -4,13 +4,11 @@ import android.util.Log
 import eu.davidea.flexibleadapter.FlexibleAdapter
 import eu.kanade.tachiyomi.data.database.DatabaseHelper
 import eu.kanade.tachiyomi.data.database.models.Manga
-import eu.kanade.tachiyomi.data.database.tables.MangaTable
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.ui.category.CategoryAdapter
 import exh.isLewdSource
 import exh.metadata.sql.tables.SearchMetadataTable
 import exh.search.SearchEngine
-import exh.util.await
 import exh.util.cancellable
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope

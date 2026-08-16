@@ -17,7 +17,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flow
 import java.util.HashMap
-import java.util.concurrent.TimeUnit
 
 /**
  * Controller that shows the currently active downloads.

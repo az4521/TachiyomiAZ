@@ -18,7 +18,6 @@ import exh.eh.EHentaiUpdateWorker
 import exh.metadata.metadata.EHentaiSearchMetadata
 import exh.metadata.metadata.base.getFlatMetadataForManga
 import exh.metadata.metadata.base.insertFlatMetadata
-import exh.util.await
 import exh.util.cancellable
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.mapNotNull
@@ -153,8 +152,8 @@ object DebugFunctions {
 """
                         UPDATE ${MangaTable.TABLE}
                             SET ${MangaTable.COL_FAVORITE} = 1
-                        """.trimIndent()
-)
+""".trimIndent()
+            )
         }
     }
 
@@ -253,8 +252,8 @@ object DebugFunctions {
                     UPDATE ${MangaTable.TABLE}
                         SET ${MangaTable.COL_SOURCE} = $to
                         WHERE ${MangaTable.COL_SOURCE} = $from
-                    """.trimIndent()
-)
+""".trimIndent()
+        )
     }
 
     class CrashButtonException() : RuntimeException("Crash Button Pressed!")

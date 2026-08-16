@@ -10,10 +10,10 @@ import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.data.track.myanimelist.MyAnimeListApi
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.ui.main.MainActivity
-import kotlinx.coroutines.launch
 import eu.kanade.tachiyomi.ui.webview.BaseWebViewActivity
 import eu.kanade.tachiyomi.util.system.WebViewClientCompat
 import eu.kanade.tachiyomi.util.system.setUserAgent
+import kotlinx.coroutines.launch
 import uy.kohesive.injekt.injectLazy
 
 class MyAnimeListLoginActivity : BaseWebViewActivity() {

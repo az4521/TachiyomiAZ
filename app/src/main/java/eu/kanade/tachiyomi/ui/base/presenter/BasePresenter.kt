@@ -7,7 +7,10 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import nucleus.presenter.RxPresenter
@@ -51,17 +54,34 @@ open class BasePresenter<V> : RxPresenter<V>() {
     private suspend fun awaitAttachedView(): V = view ?: view().filter { it != null }.take(1).awaitSingle()
 
     /**
-     * Coroutine equivalent of [subscribeLatestCache]: collects this flow and hands each value to
-     * the attached view, holding the newest value while no view is attached and dropping any it
-     * supersedes. Cancelled with [presenterScope].
+     * Nucleus exposes the view as a BehaviorSubject that emits the view on attach and null on
+     * detach. Exposed as a Flow so delivery can react to re-attachment.
+     */
+    private fun viewFlow(): Flow<V?> =
+        callbackFlow {
+            val subscription = view().subscribe { trySend(it) }
+            awaitClose { subscription.unsubscribe() }
+        }
+
+    /**
+     * Coroutine equivalent of [subscribeLatestCache].
+     *
+     * Combining with [viewFlow] is what makes this match `deliverLatestCache`: a re-attaching
+     * view re-emits, so the newest value is delivered again to the new view. Collecting the
+     * source alone would only deliver on new emissions, leaving a screen blank when it is
+     * returned to and nothing has changed since.
+     *
+     * The upstream is deliberately not restarted on re-attach -- some sources do real work
+     * (GlobalSearchPresenter searches every source), and restarting would repeat it.
      */
     fun <T> Flow<T>.collectLatestCache(
         onNext: (V, T) -> Unit,
         onError: ((V, Throwable) -> Unit)? = null
     ): Job =
         presenterScope.launch {
-            catch { e -> onError?.invoke(awaitAttachedView(), e) }
-                .collectLatest { value -> onNext(awaitAttachedView(), value) }
+            val values = catch { e -> onError?.invoke(awaitAttachedView(), e) }
+            combine(viewFlow(), values) { view, value -> view to value }
+                .collectLatest { (view, value) -> if (view != null) onNext(view, value) }
         }
 
     /**
@@ -75,8 +95,16 @@ open class BasePresenter<V> : RxPresenter<V>() {
         onError: ((V, Throwable) -> Unit)? = null
     ): Job =
         presenterScope.launch {
-            catch { e -> onError?.invoke(awaitAttachedView(), e) }
-                .collect { value -> onNext(awaitAttachedView(), value) }
+            // Restarted per attached view, so a replaying source (Pager keeps every page in a
+            // replay buffer) hands the whole sequence to a view that was re-created, which is
+            // what deliverReplay did. Safe here precisely because the source is a buffer
+            // rather than work.
+            viewFlow().collectLatest { view ->
+                if (view == null) return@collectLatest
+                this@collectReplay
+                    .catch { e -> onError?.invoke(view, e) }
+                    .collect { value -> onNext(view, value) }
+            }
         }
 
     /**
@@ -87,5 +115,4 @@ open class BasePresenter<V> : RxPresenter<V>() {
         presenterScope.launch {
             block(awaitAttachedView())
         }
-
 }

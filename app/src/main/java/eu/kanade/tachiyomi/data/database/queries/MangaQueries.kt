@@ -3,27 +3,15 @@ package eu.kanade.tachiyomi.data.database.queries
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import app.cash.sqldelight.coroutines.mapToOneOrNull
-import eu.kanade.tachiyomi.data.database.mapLibraryManga
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.Flow
 import eu.kanade.tachiyomi.data.database.DbProvider
-import eu.kanade.tachiyomi.data.database.updateStrategyAdapter
-import eu.kanade.tachiyomi.data.database.memoColumnAdapter
+import eu.kanade.tachiyomi.data.database.mapLibraryManga
 import eu.kanade.tachiyomi.data.database.mapManga
+import eu.kanade.tachiyomi.data.database.memoColumnAdapter
 import eu.kanade.tachiyomi.data.database.models.LibraryManga
 import eu.kanade.tachiyomi.data.database.models.Manga
-import eu.kanade.tachiyomi.data.database.resolvers.LibraryMangaGetResolver
-import eu.kanade.tachiyomi.data.database.resolvers.MangaCoverLastModifiedPutResolver
-import eu.kanade.tachiyomi.data.database.resolvers.MangaFavoritePutResolver
-import eu.kanade.tachiyomi.data.database.resolvers.MangaFlagsPutResolver
-import eu.kanade.tachiyomi.data.database.resolvers.MangaLastUpdatedPutResolver
-import eu.kanade.tachiyomi.data.database.resolvers.MangaTitlePutResolver
-import eu.kanade.tachiyomi.data.database.resolvers.MangaViewerPutResolver
-import eu.kanade.tachiyomi.data.database.tables.CategoryTable
-import eu.kanade.tachiyomi.data.database.tables.ChapterTable
-import eu.kanade.tachiyomi.data.database.tables.MangaCategoryTable
-import eu.kanade.tachiyomi.data.database.tables.MangaTable
-import exh.metadata.sql.tables.SearchMetadataTable
+import eu.kanade.tachiyomi.data.database.updateStrategyAdapter
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 
 interface MangaQueries : DbProvider {
     fun getMangas(): List<Manga> = sqlDatabase.mangasQueries.getMangas(::mapManga).executeAsList()

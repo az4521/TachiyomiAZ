@@ -96,5 +96,4 @@ open class DatabaseHelper(context: Context) :
             database.endTransaction()
         }
     }
-
 }

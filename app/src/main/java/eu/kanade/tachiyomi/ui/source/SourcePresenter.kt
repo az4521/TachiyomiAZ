@@ -9,11 +9,11 @@ import eu.kanade.tachiyomi.ui.base.presenter.BasePresenter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.Job
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.util.TreeMap
@@ -82,7 +82,7 @@ class SourcePresenter(
         }
 
         val items = sourceItems
-        sourceJob = deliverToView { it.setSources(items) }
+        sourceJob = flowOf(items).collectLatestCache(onNext = { view, list -> view.setSources(list) })
     }
 
     private fun loadLastUsedSource() {

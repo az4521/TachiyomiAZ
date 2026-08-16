@@ -408,19 +408,19 @@ class LibraryUpdateService(
             val source = sourceManager.get(manga.source) ?: return@forEach
 
             try {
-                    val update = source.getMangaUpdate(manga, emptyList(), fetchDetails = true, fetchChapters = false)
-                    val sManga = update.manga
-                    manga.prepUpdateCover(coverCache, sManga, true)
-                    // Only the cover is wanted here, but the memo is source-internal metadata that
-                    // shouldn't be thrown away now that we have it.
-                    var changed = manga.copyMemoFrom(sManga)
-                    sManga.thumbnail_url?.let {
-                        manga.thumbnail_url = it
-                        changed = true
-                    }
-                    if (changed) {
-                        db.insertManga(manga)
-                    }
+                val update = source.getMangaUpdate(manga, emptyList(), fetchDetails = true, fetchChapters = false)
+                val sManga = update.manga
+                manga.prepUpdateCover(coverCache, sManga, true)
+                // Only the cover is wanted here, but the memo is source-internal metadata that
+                // shouldn't be thrown away now that we have it.
+                var changed = manga.copyMemoFrom(sManga)
+                sManga.thumbnail_url?.let {
+                    manga.thumbnail_url = it
+                    changed = true
+                }
+                if (changed) {
+                    db.insertManga(manga)
+                }
                 // Sources may hand back chapters even though they weren't asked for.
                 syncChaptersFromUpdate(db, update, manga, source)
             } catch (e: Exception) {

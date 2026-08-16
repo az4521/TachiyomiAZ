@@ -10,26 +10,26 @@ import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.ui.base.presenter.BasePresenter
-import eu.kanade.tachiyomi.util.system.withIOContext
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onEach
 import eu.kanade.tachiyomi.ui.manga.MangaUpdateCoordinator
 import eu.kanade.tachiyomi.util.chapter.NoChaptersException
 import eu.kanade.tachiyomi.util.chapter.updateTrackChapterMarkedRead
 import eu.kanade.tachiyomi.util.isLocal
-import eu.kanade.tachiyomi.util.system.launchIO
 import eu.kanade.tachiyomi.util.shouldDownloadNewChapters
+import eu.kanade.tachiyomi.util.system.launchIO
+import eu.kanade.tachiyomi.util.system.withIOContext
 import exh.EH_SOURCE_ID
 import exh.EXH_SOURCE_ID
 import exh.debug.DebugToggles
 import exh.eh.EHentaiUpdateHelper
-import timber.log.Timber
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.launch
 import rx.schedulers.Schedulers
+import timber.log.Timber
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
@@ -104,52 +104,52 @@ class ChaptersPresenter(
                 chapters.map { it.toModel() }
             }
             .onEach { chapters ->
-                    // Find downloaded chapters
-                    setDownloadedChapters(chapters)
+                // Find downloaded chapters
+                setDownloadedChapters(chapters)
 
-                    // Store the last emission
-                    this.chapters = chapters
+                // Store the last emission
+                this.chapters = chapters
 
-                    // Listen for download status changes
-                    observeDownloads()
+                // Listen for download status changes
+                observeDownloads()
 
-                    // Emit the number of chapters to the info tab.
-                    chapterCountFlow.tryEmit(
-                        chapters.maxByOrNull { it.chapter_number }?.chapter_number
-                            ?: 0f
+                // Emit the number of chapters to the info tab.
+                chapterCountFlow.tryEmit(
+                    chapters.maxByOrNull { it.chapter_number }?.chapter_number
+                        ?: 0f
+                )
+
+                // Emit the upload date of the most recent chapter
+                lastUpdateFlow.tryEmit(
+                    Date(
+                        chapters.maxByOrNull { it.date_upload }?.date_upload
+                            ?: 0
                     )
+                )
 
-                    // Emit the upload date of the most recent chapter
-                    lastUpdateFlow.tryEmit(
-                        Date(
-                            chapters.maxByOrNull { it.date_upload }?.date_upload
-                                ?: 0
-                        )
-                    )
-
-                    // EXH -->
-                    if (chapters.isNotEmpty() &&
-                        (source.id == EXH_SOURCE_ID || source.id == EH_SOURCE_ID) &&
-                        DebugToggles.ENABLE_EXH_ROOT_REDIRECT.enabled
-                    ) {
-                        // Check for gallery in library and accept manga with lowest id
-                        // Find chapters sharing same root
-                        add(
-                            updateHelper.findAcceptedRootAndDiscardOthers(manga.source, chapters)
-                                .subscribeOn(Schedulers.io())
-                                .subscribe { (acceptedChain, _) ->
-                                    // Redirect if we are not the accepted root
-                                    if (manga.id != acceptedChain.manga.id) {
-                                        // Update if any of our chapters are not in accepted manga's chapters
-                                        val ourChapterUrls = chapters.map { it.url }.toSet()
-                                        val acceptedChapterUrls = acceptedChain.chapters.map { it.url }.toSet()
-                                        val update = (ourChapterUrls - acceptedChapterUrls).isNotEmpty()
-                                        redirectUserFlow.tryEmit(EXHRedirect(acceptedChain.manga, update))
-                                    }
+                // EXH -->
+                if (chapters.isNotEmpty() &&
+                    (source.id == EXH_SOURCE_ID || source.id == EH_SOURCE_ID) &&
+                    DebugToggles.ENABLE_EXH_ROOT_REDIRECT.enabled
+                ) {
+                    // Check for gallery in library and accept manga with lowest id
+                    // Find chapters sharing same root
+                    add(
+                        updateHelper.findAcceptedRootAndDiscardOthers(manga.source, chapters)
+                            .subscribeOn(Schedulers.io())
+                            .subscribe { (acceptedChain, _) ->
+                                // Redirect if we are not the accepted root
+                                if (manga.id != acceptedChain.manga.id) {
+                                    // Update if any of our chapters are not in accepted manga's chapters
+                                    val ourChapterUrls = chapters.map { it.url }.toSet()
+                                    val acceptedChapterUrls = acceptedChain.chapters.map { it.url }.toSet()
+                                    val update = (ourChapterUrls - acceptedChapterUrls).isNotEmpty()
+                                    redirectUserFlow.tryEmit(EXHRedirect(acceptedChain.manga, update))
                                 }
-                        )
-                    }
-                    // EXH <--
+                            }
+                    )
+                }
+                // EXH <--
             }
             .onEach { chaptersFlow.tryEmit(it) }
             .launchIn(presenterScope)

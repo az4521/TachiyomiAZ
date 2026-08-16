@@ -4,7 +4,6 @@ import android.os.Bundle
 import eu.kanade.tachiyomi.data.database.DatabaseHelper
 import eu.kanade.tachiyomi.data.database.models.Category
 import eu.kanade.tachiyomi.ui.base.presenter.BasePresenter
-import eu.kanade.tachiyomi.util.lang.asFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import uy.kohesive.injekt.Injekt

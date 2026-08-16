@@ -1,8 +1,8 @@
 package eu.kanade.tachiyomi.data.database.queries
 
-import eu.kanade.tachiyomi.data.database.DbProvider
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
+import eu.kanade.tachiyomi.data.database.DbProvider
 import eu.kanade.tachiyomi.data.database.mapHistory
 import eu.kanade.tachiyomi.data.database.mapMangaChapterHistory
 import eu.kanade.tachiyomi.data.database.models.History

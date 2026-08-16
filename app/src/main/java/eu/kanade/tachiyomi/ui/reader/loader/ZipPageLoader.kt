@@ -4,9 +4,9 @@ import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import eu.kanade.tachiyomi.util.lang.compareToCaseInsensitiveNaturalOrder
 import eu.kanade.tachiyomi.util.system.ImageUtil
-import org.apache.commons.compress.archivers.zip.ZipFile
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
+import org.apache.commons.compress.archivers.zip.ZipFile
 import java.io.File
 import java.nio.channels.SeekableByteChannel
 

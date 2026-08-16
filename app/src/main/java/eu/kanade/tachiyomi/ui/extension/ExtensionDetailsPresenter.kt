@@ -3,9 +3,10 @@ package eu.kanade.tachiyomi.ui.extension
 import android.os.Bundle
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.ui.base.presenter.BasePresenter
-import eu.kanade.tachiyomi.util.lang.asFlow
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.take
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -27,7 +28,10 @@ class ExtensionDetailsPresenter(
             .drop(1)
             .filter { extensions -> extensions.none { it.pkgName == pkgName } }
             .take(1)
-            .collectLatestCache(onNext = { view, _ -> view.onExtensionUninstalled() })
+            // subscribeFirst delivered once; collectLatestCache would re-fire this on every
+            // view re-attach, popping the screen again.
+            .onEach { deliverToView { it.onExtensionUninstalled() } }
+            .launchIn(presenterScope)
     }
 
     fun uninstallExtension() {

@@ -5,13 +5,12 @@ import com.elvishew.xlog.XLog
 import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.data.backup.BackupCreatorJob
 import eu.kanade.tachiyomi.data.backup.legacy.models.DHistory
-import eu.kanade.tachiyomi.data.database.DbOpenCallback
 import eu.kanade.tachiyomi.data.database.DatabaseHelper
+import eu.kanade.tachiyomi.data.database.DbOpenCallback
 import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.data.database.models.MangaImpl
 import eu.kanade.tachiyomi.data.database.models.Track
-import eu.kanade.tachiyomi.data.database.resolvers.MangaUrlPutResolver
 import eu.kanade.tachiyomi.data.database.tables.MangaTable
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
@@ -51,8 +50,8 @@ object EXHMigrations {
                                     UPDATE ${MangaTable.TABLE}
                                         SET ${MangaTable.COL_SOURCE} = $HENTAI_CAFE_SOURCE_ID
                                         WHERE ${MangaTable.COL_SOURCE} = 6908
-                                    """.trimIndent()
-)
+""".trimIndent()
+                        )
 
                         // Migrate nhentai URLs
                         val nhentaiManga =
@@ -79,8 +78,8 @@ object EXHMigrations {
                                     UPDATE ${MangaTable.TABLE}
                                         SET ${MangaTable.COL_SOURCE} = 6912
                                         WHERE ${MangaTable.COL_SOURCE} = 1401584337232758222
-                                    """.trimIndent()
-)
+""".trimIndent()
+                        )
                     }
 
                     // Cancel old scheduler jobs with old ids
@@ -94,8 +93,8 @@ object EXHMigrations {
                                     UPDATE ${MangaTable.TABLE}
                                         SET ${MangaTable.COL_SOURCE} = $TSUMINO_SOURCE_ID
                                         WHERE ${MangaTable.COL_SOURCE} = 6909
-                                    """.trimIndent()
-)
+""".trimIndent()
+                        )
                     }
                 }
                 if (oldVersion < 8409) {
@@ -141,16 +140,16 @@ object EXHMigrations {
                                     UPDATE ${MangaTable.TABLE}
                                         SET ${MangaTable.COL_SOURCE} = $EIGHTMUSES_SOURCE_ID
                                         WHERE ${MangaTable.COL_SOURCE} = 6911
-                                    """.trimIndent()
-)
+""".trimIndent()
+                        )
                         // Migrate Hitomi source IDs
                         db.executeSQL(
 """
                                     UPDATE ${MangaTable.TABLE}
                                         SET ${MangaTable.COL_SOURCE} = $HITOMI_SOURCE_ID
                                         WHERE ${MangaTable.COL_SOURCE} = 6910
-                                    """.trimIndent()
-)
+""".trimIndent()
+                        )
                     }
                 }
 

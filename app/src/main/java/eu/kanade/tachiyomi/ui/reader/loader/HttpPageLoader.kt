@@ -362,18 +362,18 @@ class HttpPageLoader(
                 page.status = Page.READY
             }
         } catch (it: Throwable) {
-                // [EXH]
-                XLog.w("> Failed to fetch image!", it)
-                XLog.w(
-                    "> (source.id: %s, source.name: %s, page.index: %s, page.url: %s, page.imageUrl: %s, chapter.id: %s, chapter.url: %s)",
-                    source.id,
-                    source.name,
-                    page.index,
-                    page.url,
-                    page.imageUrl,
-                    page.chapter.chapter.id,
-                    page.chapter.chapter.url
-                )
+            // [EXH]
+            XLog.w("> Failed to fetch image!", it)
+            XLog.w(
+                "> (source.id: %s, source.name: %s, page.index: %s, page.url: %s, page.imageUrl: %s, chapter.id: %s, chapter.url: %s)",
+                source.id,
+                source.name,
+                page.index,
+                page.url,
+                page.imageUrl,
+                page.chapter.chapter.id,
+                page.chapter.chapter.url
+            )
 
             page.status = Page.ERROR
         }

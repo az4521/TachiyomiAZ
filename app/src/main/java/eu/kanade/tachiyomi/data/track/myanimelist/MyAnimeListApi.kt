@@ -8,11 +8,11 @@ import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.POST
 import eu.kanade.tachiyomi.network.await
-import eu.kanade.tachiyomi.util.system.withIOContext
 import eu.kanade.tachiyomi.network.awaitSuccess
 import eu.kanade.tachiyomi.util.lang.toCalendar
 import eu.kanade.tachiyomi.util.selectInt
 import eu.kanade.tachiyomi.util.selectText
+import eu.kanade.tachiyomi.util.system.withIOContext
 import okhttp3.FormBody
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
@@ -48,18 +48,18 @@ class MyAnimeListApi(private val client: OkHttpClient, interceptor: MyAnimeListI
                     .select("tr").drop(1)
                     .filter { row -> row.select(TD)[2].text() != "Novel" }
                     .map { row ->
-                    TrackSearch.create(TrackManager.MYANIMELIST).apply {
-                        title = row.searchTitle()
-                        media_id = row.searchMediaId().toLong()
-                        total_chapters = row.searchTotalChapters()
-                        summary = row.searchSummary()
-                        cover_url = row.searchCoverUrl()
-                        tracking_url = mangaUrl(media_id)
-                        publishing_status = row.searchPublishingStatus()
-                        publishing_type = row.searchPublishingType()
-                        start_date = row.searchStartDate()
+                        TrackSearch.create(TrackManager.MYANIMELIST).apply {
+                            title = row.searchTitle()
+                            media_id = row.searchMediaId().toLong()
+                            total_chapters = row.searchTotalChapters()
+                            summary = row.searchSummary()
+                            cover_url = row.searchCoverUrl()
+                            tracking_url = mangaUrl(media_id)
+                            publishing_status = row.searchPublishingStatus()
+                            publishing_type = row.searchPublishingType()
+                            start_date = row.searchStartDate()
+                        }
                     }
-                }
             }
         }
 

@@ -15,8 +15,8 @@ import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.source.Source
-import exh.EXHMigrations
 import eu.kanade.tachiyomi.util.system.launchIO
+import exh.EXHMigrations
 import kotlinx.serialization.ExperimentalSerializationApi
 import okio.buffer
 import okio.gzip

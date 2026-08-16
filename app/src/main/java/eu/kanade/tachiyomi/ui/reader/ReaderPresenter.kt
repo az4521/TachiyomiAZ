@@ -24,32 +24,27 @@ import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import eu.kanade.tachiyomi.ui.reader.model.ViewerChapters
 import eu.kanade.tachiyomi.util.isLocal
 import eu.kanade.tachiyomi.util.lang.byteSize
-import eu.kanade.tachiyomi.util.system.launchIO
 import eu.kanade.tachiyomi.util.lang.takeBytes
 import eu.kanade.tachiyomi.util.storage.DiskUtil
 import eu.kanade.tachiyomi.util.system.ImageUtil
-import eu.kanade.tachiyomi.util.lang.asFlow
-import eu.kanade.tachiyomi.util.lang.runAsObservable
+import eu.kanade.tachiyomi.util.system.isOnline
+import eu.kanade.tachiyomi.util.system.launchIO
 import eu.kanade.tachiyomi.util.system.withIOContext
 import eu.kanade.tachiyomi.util.system.withUIContext
+import eu.kanade.tachiyomi.util.updateCoverLastModified
+import exh.util.defaultReaderType
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import eu.kanade.tachiyomi.util.system.isOnline
-import eu.kanade.tachiyomi.util.updateCoverLastModified
-import exh.util.defaultReaderType
-import rx.Completable
-import rx.Observable
-import rx.schedulers.Schedulers
 import timber.log.Timber
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.io.File
 import java.util.Date
-import java.util.concurrent.TimeUnit
 
 /**
  * Presenter used by the activity to perform background operations.
@@ -247,7 +242,7 @@ class ReaderPresenter(
         val source = sourceManager.getOrStub(manga.source)
         loader = ChapterLoader(context, downloadManager, manga, source)
 
-        deliverToView { it.setManga(manga) }
+        flowOf(manga).collectLatestCache(onNext = { view, value -> view.setManga(value) })
         viewerChaptersFlow.filterNotNull().collectLatestCache(ReaderActivity::setChapters)
         isLoadingAdjacentChapterFlow.collectLatestCache(ReaderActivity::setProgressDialog)
 

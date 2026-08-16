@@ -8,8 +8,6 @@ import exh.metadata.sql.models.SearchTitle
 import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.serializer
-import rx.Completable
-import rx.Single
 import kotlin.reflect.KClass
 
 @Serializable

@@ -7,12 +7,11 @@ import eu.kanade.tachiyomi.data.database.models.History
 import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.data.database.models.MangaChapterHistory
 import eu.kanade.tachiyomi.ui.base.presenter.BasePresenter
-import eu.kanade.tachiyomi.util.lang.asFlow
+import eu.kanade.tachiyomi.ui.recent.DateSectionItem
+import eu.kanade.tachiyomi.util.lang.toDateKey
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.take
-import eu.kanade.tachiyomi.ui.recent.DateSectionItem
-import eu.kanade.tachiyomi.util.lang.toDateKey
 import uy.kohesive.injekt.injectLazy
 import java.util.Calendar
 import java.util.Comparator

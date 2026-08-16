@@ -7,6 +7,7 @@ import eu.kanade.tachiyomi.ui.base.presenter.BasePresenter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
@@ -29,6 +30,8 @@ class RepoPresenter(
      */
     private var repos: List<String> = emptyList()
 
+    private var reposJob: Job? = null
+
     /**
      * Called when the presenter is created.
      *
@@ -41,7 +44,8 @@ class RepoPresenter(
             this.repos = repos.toList().sortedBy { it.lowercase() }
 
             val items = this.repos.map(::RepoItem)
-            deliverToView { it.setRepos(items) }
+            reposJob?.cancel()
+            reposJob = flowOf(items).collectLatestCache(onNext = { view, list -> view.setRepos(list) })
         }.launchIn(scope)
     }
 

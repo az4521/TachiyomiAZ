@@ -9,9 +9,9 @@ import eu.kanade.tachiyomi.source.LocalSource
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
-import eu.kanade.tachiyomi.util.system.withIOContext
 import eu.kanade.tachiyomi.util.storage.openReadOnlyChannel
 import eu.kanade.tachiyomi.util.storage.toInputStream
+import eu.kanade.tachiyomi.util.system.withIOContext
 import exh.debug.DebugFunctions.prefs
 import timber.log.Timber
 
