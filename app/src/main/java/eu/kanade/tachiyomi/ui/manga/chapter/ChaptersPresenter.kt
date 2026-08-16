@@ -10,6 +10,7 @@ import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.ui.base.presenter.BasePresenter
+import eu.kanade.tachiyomi.domain.chapter.filterAndSortChapters
 import eu.kanade.tachiyomi.ui.manga.MangaUpdateCoordinator
 import eu.kanade.tachiyomi.util.chapter.NoChaptersException
 import eu.kanade.tachiyomi.util.chapter.updateTrackChapterMarkedRead
@@ -263,40 +264,13 @@ class ChaptersPresenter(
      * @param chapters the list of chapters from the database
      * @return an observable of the list of chapters filtered and sorted.
      */
-    private fun applyChapterFilters(chapters: List<ChapterItem>): List<ChapterItem> {
-        var filtered = chapters.asSequence()
-        if (onlyUnread()) {
-            filtered = filtered.filter { !it.read }
-        } else if (onlyRead()) {
-            filtered = filtered.filter { it.read }
-        }
-        if (onlyDownloaded()) {
-            filtered = filtered.filter { it.isDownloaded || it.manga.isLocal() }
-        }
-        if (onlyBookmarked()) {
-            filtered = filtered.filter { it.bookmark }
-        }
-        val sortFunction: (Chapter, Chapter) -> Int =
-            when (manga.sorting) {
-                Manga.SORTING_SOURCE ->
-                    when (sortDescending()) {
-                        true -> { c1, c2 -> c1.source_order.compareTo(c2.source_order) }
-                        false -> { c1, c2 -> c2.source_order.compareTo(c1.source_order) }
-                    }
-                Manga.SORTING_NUMBER ->
-                    when (sortDescending()) {
-                        true -> { c1, c2 -> c2.chapter_number.compareTo(c1.chapter_number) }
-                        false -> { c1, c2 -> c1.chapter_number.compareTo(c2.chapter_number) }
-                    }
-                Manga.SORTING_UPLOAD_DATE ->
-                    when (sortDescending()) {
-                        true -> { c1, c2 -> c2.date_upload.compareTo(c1.date_upload) }
-                        false -> { c1, c2 -> c1.date_upload.compareTo(c2.date_upload) }
-                    }
-                else -> throw NotImplementedError("Unimplemented sorting method")
-            }
-        return filtered.sortedWith { c1, c2 -> sortFunction(c1, c2) }.toList()
-    }
+    private fun applyChapterFilters(chapters: List<ChapterItem>): List<ChapterItem> =
+        filterAndSortChapters(
+            chapters = chapters,
+            manga = manga,
+            forceDownloaded = forceDownloaded(),
+            isDownloaded = { it.isDownloaded }
+        )
 
     /**
      * Called when a download for the active manga changes status.
