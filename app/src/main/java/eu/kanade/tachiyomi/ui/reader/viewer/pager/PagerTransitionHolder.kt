@@ -17,7 +17,6 @@ import eu.kanade.tachiyomi.util.system.dpToPx
 import eu.kanade.tachiyomi.widget.ViewPagerAdapter
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainScope
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 
@@ -75,7 +74,9 @@ class PagerTransitionHolder(
         super.onDetachedFromWindow()
         statusJob?.cancel()
         statusJob = null
-        scope.cancel()
+        // Not scope.cancel(): the pager re-attaches this view, and a cancelled scope stays
+        // cancelled, so observeStatus() would silently never observe again. Cancelling the job
+        // is the direct equivalent of the old unsubscribe().
     }
 
     /**

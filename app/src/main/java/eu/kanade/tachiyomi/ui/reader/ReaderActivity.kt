@@ -462,7 +462,7 @@ class ReaderActivity : BaseRxActivity<ReaderActivityBinding, ReaderPresenter>() 
             .onEach {
                 var retried = 0
 
-                presenter.viewerChaptersFlow.value
+                presenter.viewerChapters
                     ?.currChapter
                     ?.pages
                     ?.forEachIndexed { _, page ->
@@ -528,7 +528,7 @@ class ReaderActivity : BaseRxActivity<ReaderActivityBinding, ReaderPresenter>() 
                     } else if (curPage.status == Page.READY) {
                         toast("This page has already been downloaded!")
                     } else {
-                        val loader = (presenter.viewerChaptersFlow.value?.currChapter?.pageLoader as? HttpPageLoader)
+                        val loader = (presenter.viewerChapters?.currChapter?.pageLoader as? HttpPageLoader)
                         if (loader != null) {
                             loader.boostPage(curPage)
                             toast("Boosted current page!")
@@ -568,7 +568,7 @@ class ReaderActivity : BaseRxActivity<ReaderActivityBinding, ReaderPresenter>() 
                         ?: (viewer as? WebtoonViewer)?.currentPage
                     ) as? ReaderPage
                 )?.index
-        return currentPage?.let { presenter.viewerChaptersFlow.value?.currChapter?.pages?.getOrNull(it) }
+        return currentPage?.let { presenter.viewerChapters?.currChapter?.pages?.getOrNull(it) }
     }
     // EXH <--
 

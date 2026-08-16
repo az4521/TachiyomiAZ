@@ -35,8 +35,9 @@ import eu.kanade.tachiyomi.util.updateCoverLastModified
 import exh.util.defaultReaderType
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
@@ -82,7 +83,25 @@ class ReaderPresenter(
      * Relay for currently active viewer chapters.
      */
     // [EXH] private
-    val viewerChaptersFlow = MutableStateFlow<ViewerChapters?>(null)
+    /**
+     * Replaces the RxJava BehaviorRelay this used to be, and deliberately not a StateFlow.
+     *
+     * [preload] has to re-publish the *same* ViewerChapters instance to tell the viewer that a
+     * neighbouring chapter finished loading. StateFlow conflates: its collector compares each
+     * value against the one it last delivered and drops it if equal, so that notification never
+     * arrived and the next chapter was never handed to the viewer. replay = 1 gives the relay's
+     * semantics -- a late collector still gets the current value, and re-emitting an equal value
+     * genuinely emits.
+     */
+    val viewerChaptersFlow =
+        MutableSharedFlow<ViewerChapters>(
+            replay = 1,
+            onBufferOverflow = BufferOverflow.DROP_OLDEST
+        )
+
+    /** The most recently published chapters; the equivalent of the old relay's value. */
+    val viewerChapters: ViewerChapters?
+        get() = viewerChaptersFlow.replayCache.lastOrNull()
 
     /**
      * Relay used when loading prev/next chapter needed to lock the UI (with a dialog).
@@ -160,7 +179,7 @@ class ReaderPresenter(
      */
     override fun onDestroy() {
         super.onDestroy()
-        val currentChapters = viewerChaptersFlow.value
+        val currentChapters = viewerChapters
         if (currentChapters != null) {
             currentChapters.unref()
             saveChapterProgress(currentChapters.currChapter)
@@ -243,7 +262,7 @@ class ReaderPresenter(
         loader = ChapterLoader(context, downloadManager, manga, source)
 
         flowOf(manga).collectLatestCache(onNext = { view, value -> view.setManga(value) })
-        viewerChaptersFlow.filterNotNull().collectLatestCache(ReaderActivity::setChapters)
+        viewerChaptersFlow.collectLatestCache(ReaderActivity::setChapters)
         isLoadingAdjacentChapterFlow.collectLatestCache(ReaderActivity::setProgressDialog)
 
         activeChapterJob?.cancel()
@@ -281,13 +300,13 @@ class ReaderPresenter(
             )
 
         withUIContext {
-            val oldChapters = viewerChaptersFlow.value
+            val oldChapters = viewerChapters
 
             // Add new references first to avoid unnecessary recycling
             newChapters.ref()
             oldChapters?.unref()
 
-            viewerChaptersFlow.value = newChapters
+            viewerChaptersFlow.tryEmit(newChapters)
         }
         return newChapters
     }
@@ -357,7 +376,7 @@ class ReaderPresenter(
                 loader.loadChapter(chapter)
                 // Re-emit the current chapters whenever a chapter is preloaded, so the viewer
                 // picks up the newly loaded neighbour.
-                viewerChaptersFlow.value?.let { viewerChaptersFlow.value = null; viewerChaptersFlow.value = it }
+                viewerChapters?.let { viewerChaptersFlow.tryEmit(it) }
             } catch (e: Throwable) {
                 // Previously onErrorComplete.
                 Timber.e(e)
@@ -371,7 +390,7 @@ class ReaderPresenter(
      * [page]'s chapter is different from the currently active.
      */
     fun onPageSelected(page: ReaderPage) {
-        val currentChapters = viewerChaptersFlow.value ?: return
+        val currentChapters = viewerChapters ?: return
 
         val selectedChapter = page.chapter
 
@@ -440,7 +459,7 @@ class ReaderPresenter(
      * Called from the activity to load and set the next chapter as active.
      */
     fun loadNextChapter() {
-        val nextChapter = viewerChaptersFlow.value?.nextChapter ?: return
+        val nextChapter = viewerChapters?.nextChapter ?: return
         loadAdjacent(nextChapter)
     }
 
@@ -448,7 +467,7 @@ class ReaderPresenter(
      * Called from the activity to load and set the previous chapter as active.
      */
     fun loadPreviousChapter() {
-        val prevChapter = viewerChaptersFlow.value?.prevChapter ?: return
+        val prevChapter = viewerChapters?.prevChapter ?: return
         loadAdjacent(prevChapter)
     }
 
@@ -456,7 +475,7 @@ class ReaderPresenter(
      * Returns the currently active chapter.
      */
     fun getCurrentChapter(): ReaderChapter? {
-        return viewerChaptersFlow.value?.currChapter
+        return viewerChapters?.currChapter
     }
 
     /**
@@ -497,7 +516,7 @@ class ReaderPresenter(
         presenterScope.launch {
             delay(250)
             deliverToView { view ->
-                val currChapters = viewerChaptersFlow.value
+                val currChapters = viewerChapters
                 if (currChapters != null) {
                     // Save current page
                     val currChapter = currChapters.currChapter

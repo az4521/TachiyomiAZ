@@ -46,7 +46,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.awaitCancellation
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
@@ -130,7 +129,10 @@ class PagerPageHolder(
         unsubscribeProgress()
         unsubscribeStatus()
         unsubscribeReadImageHeader()
-        scope.cancel()
+        // Deliberately not scope.cancel(): a cancelled scope is dead forever, and this view is
+        // re-attached whenever the pager brings it back, after which every launchIn(scope) would
+        // be a silent no-op. The unsubscribe calls above already cancel the individual jobs,
+        // which is what unsubscribing the RxJava subscriptions used to do.
         subsamplingImageView?.setOnImageEventListener(null)
     }
 
