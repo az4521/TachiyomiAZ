@@ -1,8 +1,8 @@
 package eu.kanade.tachiyomi.data.database.models
 
-import java.io.Serializable
+import eu.kanade.tachiyomi.source.model.JavaSerializable
 
-interface Track : Serializable {
+interface Track : JavaSerializable {
     var id: Long?
 
     var manga_id: Long

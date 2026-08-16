@@ -1,11 +1,11 @@
 package eu.kanade.tachiyomi.data.database.models
 
-import java.io.Serializable
+import eu.kanade.tachiyomi.source.model.JavaSerializable
 
 /**
  * Object containing the history statistics of a chapter
  */
-interface History : Serializable {
+interface History : JavaSerializable {
     /**
      * Id of history object.
      */

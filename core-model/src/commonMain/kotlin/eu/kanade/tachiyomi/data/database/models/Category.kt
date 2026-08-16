@@ -1,8 +1,8 @@
 package eu.kanade.tachiyomi.data.database.models
 
-import java.io.Serializable
+import eu.kanade.tachiyomi.source.model.JavaSerializable
 
-interface Category : Serializable {
+interface Category : JavaSerializable {
     var id: Int?
 
     var name: String

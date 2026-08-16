@@ -1,9 +1,9 @@
 package eu.kanade.tachiyomi.data.database.models
 
 import eu.kanade.tachiyomi.source.model.SChapter
-import java.io.Serializable
+import eu.kanade.tachiyomi.source.model.JavaSerializable
 
-interface Chapter : SChapter, Serializable {
+interface Chapter : SChapter, JavaSerializable {
     var id: Long?
 
     var manga_id: Long?
