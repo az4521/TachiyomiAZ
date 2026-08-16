@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.migration
 
+import eu.kanade.tachiyomi.domain.migration.MigrationFlags
 import android.app.Dialog
 import android.os.Bundle
 import android.view.Menu

@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.migration
 
+import eu.kanade.tachiyomi.domain.migration.MigrationFlags
 import android.os.Bundle
 import com.jakewharton.rxrelay.BehaviorRelay
 import eu.kanade.tachiyomi.data.database.DatabaseHelper

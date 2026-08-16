@@ -27,6 +27,7 @@ import eu.kanade.tachiyomi.data.backup.full.models.BackupTracking
 import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.data.database.models.History
 import eu.kanade.tachiyomi.data.database.models.Manga
+import eu.kanade.tachiyomi.domain.backup.mergeBackupChapters
 import eu.kanade.tachiyomi.data.database.models.MangaCategory
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.source.Source
@@ -427,27 +428,14 @@ class FullBackupManager(context: Context) : AbstractBackupManager(context) {
             return false
         }
 
-        chapters.forEach { chapter ->
-            val pos = dbChapters.indexOfFirst { it.url == chapter.url }
-            if (pos != -1) {
-                val dbChapter = dbChapters[pos]
-                chapter.id = dbChapter.id
-                chapter.copyFrom(dbChapter)
-                if (dbChapter.read && !chapter.read) {
-                    chapter.read = dbChapter.read
-                    chapter.last_page_read = dbChapter.last_page_read
-                } else if (chapter.last_page_read == 0 && dbChapter.last_page_read != 0) {
-                    chapter.last_page_read = dbChapter.last_page_read
-                }
-                if (!chapter.bookmark && dbChapter.bookmark) {
-                    chapter.bookmark = dbChapter.bookmark
-                }
-            }
-        }
-        // Filter the chapters that couldn't be found.
-        chapters.filter { it.id != null }
-        chapters.map { it.manga_id = manga.id }
+        mergeBackupChapters(manga, chapters, dbChapters)
 
+        // NOTE: this path writes every chapter, including ones with no match in the database and
+        // therefore a null id, while restoreChaptersForMangaOffline below writes only the matched
+        // ones. That difference is pre-existing and looks unintentional -- the line here used to
+        // read `chapters.filter { it.id != null }` with the result discarded, so the comment
+        // claimed a filter that never happened. Behaviour is left exactly as it was rather than
+        // silently changed; see the note in BackupChapterMerge's KDoc.
         updateChapters(chapters)
         return true
     }
@@ -458,25 +446,9 @@ class FullBackupManager(context: Context) : AbstractBackupManager(context) {
     ) {
         val dbChapters = databaseHelper.getChapters(manga)
 
-        chapters.forEach { chapter ->
-            val pos = dbChapters.indexOfFirst { it.url == chapter.url }
-            if (pos != -1) {
-                val dbChapter = dbChapters[pos]
-                chapter.id = dbChapter.id
-                chapter.copyFrom(dbChapter)
-                if (dbChapter.read && !chapter.read) {
-                    chapter.read = dbChapter.read
-                    chapter.last_page_read = dbChapter.last_page_read
-                } else if (chapter.last_page_read == 0 && dbChapter.last_page_read != 0) {
-                    chapter.last_page_read = dbChapter.last_page_read
-                }
-                if (!chapter.bookmark && dbChapter.bookmark) {
-                    chapter.bookmark = dbChapter.bookmark
-                }
-            }
-        }
-        chapters.map { it.manga_id = manga.id }
+        mergeBackupChapters(manga, chapters, dbChapters)
 
+        // Unlike the online path above, this writes only chapters that matched an existing row.
         updateChapters(chapters.filter { it.id != null })
         insertChapters(chapters.filter { it.id == null })
     }

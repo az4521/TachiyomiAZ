@@ -6,7 +6,7 @@ import eu.kanade.tachiyomi.data.database.DatabaseHelper
 import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.data.database.models.MangaCategory
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
-import eu.kanade.tachiyomi.ui.migration.MigrationFlags
+import eu.kanade.tachiyomi.domain.migration.MigrationFlags
 import eu.kanade.tachiyomi.util.system.launchUI
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
