@@ -8,3 +8,9 @@ CREATE TABLE mangas_categories(
     FOREIGN KEY(manga_id) REFERENCES mangas (_id)
     ON DELETE CASCADE
 );
+
+insertMangaCategory:
+INSERT INTO mangas_categories(manga_id, category_id) VALUES (?, ?);
+
+deleteMangasCategoriesForManga:
+DELETE FROM mangas_categories WHERE manga_id = ?;

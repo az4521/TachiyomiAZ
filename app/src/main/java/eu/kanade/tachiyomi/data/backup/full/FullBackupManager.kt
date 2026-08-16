@@ -323,8 +323,8 @@ class FullBackupManager(context: Context) : AbstractBackupManager(context) {
 
         // Update database
         if (mangaCategoriesToUpdate.isNotEmpty()) {
-            databaseHelper.deleteOldMangasCategories(listOf(manga)).executeAsBlocking()
-            databaseHelper.insertMangasCategories(mangaCategoriesToUpdate).executeAsBlocking()
+            databaseHelper.deleteOldMangasCategories(listOf(manga))
+            databaseHelper.insertMangasCategories(mangaCategoriesToUpdate)
         }
     }
 

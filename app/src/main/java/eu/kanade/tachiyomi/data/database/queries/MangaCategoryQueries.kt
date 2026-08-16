@@ -1,40 +1,43 @@
 package eu.kanade.tachiyomi.data.database.queries
 
-import com.pushtorefresh.storio.Queries
-import com.pushtorefresh.storio.sqlite.queries.DeleteQuery
 import eu.kanade.tachiyomi.data.database.DbProvider
-import eu.kanade.tachiyomi.data.database.inTransaction
 import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.data.database.models.MangaCategory
-import eu.kanade.tachiyomi.data.database.tables.MangaCategoryTable
 
 interface MangaCategoryQueries : DbProvider {
-    fun insertMangaCategory(mangaCategory: MangaCategory) = db.put().`object`(mangaCategory).prepare()
+    fun insertMangaCategory(mangaCategory: MangaCategory) {
+        sqlDatabase.mangas_categoriesQueries.insertMangaCategory(
+            mangaCategory.manga_id,
+            mangaCategory.category_id.toLong()
+        )
+    }
 
-    fun insertMangasCategories(mangasCategories: List<MangaCategory>) = db.put().objects(mangasCategories).prepare()
+    fun insertMangasCategories(mangasCategories: List<MangaCategory>) {
+        sqlDatabase.mangas_categoriesQueries.transaction {
+            mangasCategories.forEach { insertMangaCategory(it) }
+        }
+    }
 
-    fun deleteOldMangasCategories(mangas: List<Manga>) =
-        db.delete()
-            .byQuery(
-                DeleteQuery.builder()
-                    .table(MangaCategoryTable.TABLE)
-                    .where("${MangaCategoryTable.COL_MANGA_ID} IN (${Queries.placeholders(mangas.size)})")
-                    .whereArgs(*mangas.map { it.id }.toTypedArray())
-                    .build()
-            )
-            .prepare()
+    fun deleteOldMangasCategories(mangas: List<Manga>) {
+        sqlDatabase.mangas_categoriesQueries.transaction {
+            mangas.forEach { manga ->
+                manga.id?.let {
+                    sqlDatabase.mangas_categoriesQueries.deleteMangasCategoriesForManga(it)
+                }
+            }
+        }
+    }
 
     fun setMangaCategories(
         mangasCategories: List<MangaCategory>,
         mangas: List<Manga>
     ) {
-        db.inTransaction {
-            mangas.chunked(100) { chunk ->
-                deleteOldMangasCategories(chunk).executeAsBlocking()
-            }
-            mangasCategories.chunked(100) { chunk ->
-                insertMangasCategories(chunk).executeAsBlocking()
-            }
+        // The chunking existed to stay under SQLite's bind-variable limit when the old
+        // implementation built one IN(...) clause per chunk. Deleting per manga has no such
+        // limit, so the whole thing runs in a single transaction.
+        sqlDatabase.mangas_categoriesQueries.transaction {
+            deleteOldMangasCategories(mangas)
+            insertMangasCategories(mangasCategories)
         }
     }
 }

@@ -418,8 +418,8 @@ class LegacyBackupManager(context: Context, version: Int = CURRENT_VERSION) : Ab
 
         // Update database
         if (mangaCategoriesToUpdate.isNotEmpty()) {
-            databaseHelper.deleteOldMangasCategories(listOf(manga)).executeAsBlocking()
-            databaseHelper.insertMangasCategories(mangaCategoriesToUpdate).executeAsBlocking()
+            databaseHelper.deleteOldMangasCategories(listOf(manga))
+            databaseHelper.insertMangasCategories(mangaCategoriesToUpdate)
         }
     }
 

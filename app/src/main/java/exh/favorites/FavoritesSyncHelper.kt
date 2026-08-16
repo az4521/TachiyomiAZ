@@ -371,7 +371,7 @@ class FavoritesSyncHelper(val context: Context) {
 
         // Can't do too many DB OPs in one go
         removedManga.chunked(10).forEach {
-            db.deleteOldMangasCategories(it).executeAsBlocking()
+            db.deleteOldMangasCategories(it)
         }
 
         val insertedMangaCategories = mutableListOf<Pair<MangaCategory, Manga>>()
