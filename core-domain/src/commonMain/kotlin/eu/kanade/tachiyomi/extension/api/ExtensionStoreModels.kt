@@ -1,8 +1,5 @@
 package eu.kanade.tachiyomi.extension.api
 
-import android.annotation.SuppressLint
-import eu.kanade.tachiyomi.extension.model.Extension
-import eu.kanade.tachiyomi.extension.util.ExtensionLoader
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonNames
@@ -11,9 +8,15 @@ import kotlinx.serialization.protobuf.ProtoNumber
 /**
  * Newer "extension store" index. Served as gzipped protobuf (`index.pb`) or as JSON, either
  * inline in the index or split into a separate extension list (see [extensionListUrl]).
- * Ported from Mihon; only the fields this fork consumes are mapped into [Extension.Available].
+ * Ported from Mihon.
+ *
+ * Shared rather than Android-only: the field numbers are the wire format every repository already
+ * speaks, so both apps have to read them identically. A second copy on the iOS side that drifted
+ * would have the two apps disagreeing about which extensions a repository offers.
+ *
+ * The mapping to `Extension.Available` stays in `:app` -- it depends on that module's extension
+ * loader and its supported lib-version range, which are Android's business.
  */
-@SuppressLint("UnsafeOptInUsageError")
 @Serializable
 data class NetworkExtensionStore(
     @ProtoNumber(1) val name: String,
@@ -84,7 +87,6 @@ data class NetworkExtensionStore(
  * Legacy `repo.json`: repo metadata plus an optional [indexV2] pointer used to auto-migrate a
  * legacy repo onto its newer store index.
  */
-@SuppressLint("UnsafeOptInUsageError")
 @Serializable
 data class NetworkLegacyExtensionRepo(
     @SerialName("index_v2") val indexV2: String? = null,
@@ -97,32 +99,4 @@ data class NetworkLegacyExtensionRepo(
         val website: String,
         val signingKeyFingerprint: String
     )
-}
-
-/**
- * Maps a new-store extension list to this fork's [Extension.Available], keeping only extensions
- * whose lib version this build supports. [repoUrl] is carried through only for the repo badge;
- * apk/icon are already absolute URLs in the new format (see getApkUrl's absolute-URL path).
- */
-fun NetworkExtensionStore.ExtensionList.toAvailableExtensions(repoUrl: String): List<Extension.Available> {
-    return extensions.mapNotNull { extension ->
-        val libVersion = extension.extensionLib.toDoubleOrNull() ?: return@mapNotNull null
-        if (libVersion < ExtensionLoader.LIB_VERSION_MIN || libVersion > ExtensionLoader.LIB_VERSION_MAX) {
-            return@mapNotNull null
-        }
-
-        val langs = extension.sources.map { it.language }.toSet()
-        Extension.Available(
-            name = extension.name.substringAfter("Tachiyomi: "),
-            pkgName = extension.packageName,
-            versionName = extension.versionName,
-            versionCode = extension.versionCode.toInt(),
-            libVersion = libVersion,
-            lang = if (langs.size == 1) langs.first() else "all",
-            isNsfw = extension.contentWarning >= NetworkExtensionStore.ContentWarning.MIXED,
-            apkName = extension.resources.apkUrl,
-            iconUrl = extension.resources.iconUrl,
-            repoUrl = repoUrl
-        )
-    }
 }

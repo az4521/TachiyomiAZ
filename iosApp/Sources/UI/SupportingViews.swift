@@ -26,9 +26,18 @@ struct NotYetPortedView: View {
 
 struct MoreView: View {
     @EnvironmentObject private var library: LibraryStore
+    @EnvironmentObject private var settings: AppSettings
 
     var body: some View {
         List {
+            Section {
+                Toggle("Bottom navigation bar", isOn: $settings.usesBottomTabs)
+            } header: {
+                Text("Appearance")
+            } footer: {
+                Text("Off by default: navigation is the drawer, as on Android. Turn this on for the iOS convention of a tab bar, which the drawer still works alongside.")
+            }
+
             Section("Shared core") {
                 LabeledContent("Framework", value: SharedCore.shared.description_)
                 LabeledContent("Library entries", value: "\(library.manga.count)")

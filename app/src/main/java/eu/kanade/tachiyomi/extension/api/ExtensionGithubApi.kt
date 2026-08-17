@@ -181,9 +181,12 @@ internal class ExtensionGithubApi {
                     val legacy = runCatching {
                         json.decodeFromBufferedSource<NetworkLegacyExtensionRepo>(source.peek())
                     }.getOrNull()
+                    // Bound to a local: indexV2 now lives in :core-domain, and Kotlin will not
+                    // smart-cast a public property across a module boundary.
+                    val indexV2 = legacy?.indexV2
                     when {
-                        legacy?.indexV2 != null ->
-                            fetchStore(legacy.indexV2, forceV2 = true, onMigrated).also { onMigrated(legacy.indexV2) }
+                        indexV2 != null ->
+                            fetchStore(indexV2, forceV2 = true, onMigrated).also { onMigrated(indexV2) }
                         legacy != null -> legacyListFromRepoJson(indexUrl)
                         else -> extensionsFromStore(json.decodeFromBufferedSource(source), indexUrl)
                     }
