@@ -3,6 +3,9 @@
 /local.properties
 /.idea/workspace.xml
 .DS_Store
+# AppleDouble sidecars. macOS writes these onto SMB shares just from browsing one, so
+# they appear in the working tree without anyone editing anything.
+._*
 .idea/
 *iml
 *.iml
