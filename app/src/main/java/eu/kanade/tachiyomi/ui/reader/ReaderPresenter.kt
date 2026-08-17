@@ -33,6 +33,7 @@ import eu.kanade.tachiyomi.util.system.withIOContext
 import eu.kanade.tachiyomi.util.system.withUIContext
 import eu.kanade.tachiyomi.util.updateCoverLastModified
 import exh.util.defaultReaderType
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.delay
@@ -238,8 +239,10 @@ class ReaderPresenter(
             try {
                 val manga = withIOContext { db.getManga(mangaId) }
                 if (manga != null) init(manga, initialChapterId)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Throwable) {
-                view?.setInitialChapterError(e)
+                deliverToView { it.setInitialChapterError(e) }
             }
         }
     }
@@ -272,8 +275,10 @@ class ReaderPresenter(
                     // chapterList is retrieved lazily and would block main.
                     val chapter = withIOContext { chapterList.first { chapterId == it.chapter.id } }
                     loadChapter(loader!!, chapter)
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Throwable) {
-                    view?.setInitialChapterError(e)
+                    deliverToView { it.setInitialChapterError(e) }
                 }
             }
     }
@@ -348,7 +353,9 @@ class ReaderPresenter(
                 isLoadingAdjacentChapterFlow.value = true
                 try {
                     loadChapter(loader, chapter)
-                    view?.moveToPageIndex(0)
+                    deliverToView { it.moveToPageIndex(0) }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Throwable) {
                     // Ignore the error, viewers handle that state
                 } finally {
@@ -592,10 +599,12 @@ class ReaderPresenter(
                             notifier.onComplete(it)
                         }
                     }
-                view?.onSaveImageResult(SaveImageResult.Success(file))
+                deliverToView { it.onSaveImageResult(SaveImageResult.Success(file)) }
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Throwable) {
                 notifier.onError(error.message)
-                view?.onSaveImageResult(SaveImageResult.Error(error))
+                deliverToView { it.onSaveImageResult(SaveImageResult.Error(error)) }
             }
         }
     }
@@ -621,7 +630,9 @@ class ReaderPresenter(
                         destDir.deleteRecursively() // Keep only the last shared file
                         saveImage(page, destDir, manga)
                     }
-                view?.onShareImageResult(file)
+                deliverToView { it.onShareImageResult(file) }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Throwable) {
                 // Empty
             }
@@ -655,9 +666,11 @@ class ReaderPresenter(
                             }
                         }
                     }
-                view?.onSetAsCoverResult(result)
+                deliverToView { it.onSetAsCoverResult(result) }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Throwable) {
-                view?.onSetAsCoverResult(SetAsCoverResult.Error)
+                deliverToView { it.onSetAsCoverResult(SetAsCoverResult.Error) }
             }
         }
     }

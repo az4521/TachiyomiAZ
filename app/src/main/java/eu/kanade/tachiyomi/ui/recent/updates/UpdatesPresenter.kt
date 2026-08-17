@@ -13,6 +13,7 @@ import eu.kanade.tachiyomi.util.chapter.updateTrackChapterMarkedRead
 import eu.kanade.tachiyomi.util.lang.toDateKey
 import eu.kanade.tachiyomi.util.system.launchIO
 import eu.kanade.tachiyomi.util.system.withIOContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
@@ -171,9 +172,11 @@ class UpdatesPresenter(
         presenterScope.launch {
             try {
                 withIOContext { deleteChaptersInternal(chapters) }
-                view?.onChaptersDeleted()
+                deliverToView { it.onChaptersDeleted() }
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Throwable) {
-                view?.onChaptersDeletedError(error)
+                deliverToView { it.onChaptersDeletedError(error) }
             }
         }
     }

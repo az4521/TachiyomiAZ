@@ -13,6 +13,7 @@ import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.databinding.DownloadControllerBinding
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.ui.base.controller.NucleusController
+import eu.kanade.tachiyomi.util.view.deferStateRestorationUntilItemsAreLoaded
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flow
@@ -67,7 +68,7 @@ class DownloadController :
         setInformationView()
 
         // Initialize adapter.
-        adapter = DownloadAdapter(this@DownloadController)
+        adapter = DownloadAdapter(this@DownloadController).apply { deferStateRestorationUntilItemsAreLoaded() }
         binding.recycler.adapter = adapter
         adapter?.isHandleDragEnabled = true
 

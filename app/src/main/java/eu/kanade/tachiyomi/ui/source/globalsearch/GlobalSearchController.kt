@@ -18,6 +18,7 @@ import eu.kanade.tachiyomi.ui.base.controller.NucleusController
 import eu.kanade.tachiyomi.ui.base.controller.withFadeTransaction
 import eu.kanade.tachiyomi.ui.manga.MangaController
 import eu.kanade.tachiyomi.ui.source.browse.BrowseSourceController
+import eu.kanade.tachiyomi.util.view.deferStateRestorationUntilItemsAreLoaded
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
@@ -148,7 +149,7 @@ open class GlobalSearchController(
     override fun onViewCreated(view: View) {
         super.onViewCreated(view)
 
-        adapter = GlobalSearchAdapter(this)
+        adapter = GlobalSearchAdapter(this).apply { deferStateRestorationUntilItemsAreLoaded() }
 
         // Create recycler and set adapter.
         binding.recycler.layoutManager = LinearLayoutManager(view.context)

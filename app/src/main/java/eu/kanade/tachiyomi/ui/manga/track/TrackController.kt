@@ -13,6 +13,7 @@ import eu.kanade.tachiyomi.ui.base.controller.NucleusController
 import eu.kanade.tachiyomi.ui.manga.MangaController
 import eu.kanade.tachiyomi.util.system.copyToClipboard
 import eu.kanade.tachiyomi.util.system.toast
+import eu.kanade.tachiyomi.util.view.deferStateRestorationUntilItemsAreLoaded
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import reactivecircus.flowbinding.swiperefreshlayout.refreshes
@@ -48,7 +49,7 @@ class TrackController :
     override fun onViewCreated(view: View) {
         super.onViewCreated(view)
 
-        adapter = TrackAdapter(this)
+        adapter = TrackAdapter(this).apply { deferStateRestorationUntilItemsAreLoaded() }
         binding.trackRecycler.layoutManager = LinearLayoutManager(view.context)
         binding.trackRecycler.adapter = adapter
         binding.swipeRefresh.isEnabled = false

@@ -87,8 +87,13 @@ class MangaUpdateCoordinator(
             try {
                 deferred.await()
             } catch (e: Throwable) {
-                mutex.withLock {
-                    if (inFlight === deferred) inFlight = null
+                // A caller may stop waiting when its view is destroyed, while the coordinator's
+                // own deferred continues. Keep that shared fetch registered so a recreated tab
+                // joins it instead of starting a duplicate request.
+                if (deferred.isCancelled) {
+                    mutex.withLock {
+                        if (inFlight === deferred) inFlight = null
+                    }
                 }
                 throw e
             }

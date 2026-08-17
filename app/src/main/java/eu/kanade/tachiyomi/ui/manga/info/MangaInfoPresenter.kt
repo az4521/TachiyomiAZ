@@ -15,6 +15,7 @@ import eu.kanade.tachiyomi.ui.source.SourceController
 import eu.kanade.tachiyomi.util.removeCovers
 import eu.kanade.tachiyomi.util.system.withIOContext
 import exh.MERGED_SOURCE_ID
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
@@ -96,9 +97,11 @@ class MangaInfoPresenter(
                         // them to be persisted; a chapters-tab refresh only touches the memo.
                         updateCoordinator.awaitUpdate(force = manualFetch, updateMetadata = true)
                     }
-                    view?.onFetchMangaDone()
+                    deliverToView { it.onFetchMangaDone() }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Throwable) {
-                    view?.onFetchMangaError(e)
+                    deliverToView { it.onFetchMangaError(e) }
                 }
             }
     }

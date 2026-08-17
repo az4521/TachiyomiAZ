@@ -32,6 +32,7 @@ import eu.kanade.tachiyomi.ui.setting.SettingsSourcesController
 import eu.kanade.tachiyomi.ui.source.browse.BrowseSourceController
 import eu.kanade.tachiyomi.ui.source.globalsearch.GlobalSearchController
 import eu.kanade.tachiyomi.ui.source.latest.LatestUpdatesController
+import eu.kanade.tachiyomi.util.view.deferStateRestorationUntilItemsAreLoaded
 import exh.ui.smartsearch.SmartSearchController
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.launchIn
@@ -105,7 +106,7 @@ class SourceController(bundle: Bundle? = null) :
     override fun onViewCreated(view: View) {
         super.onViewCreated(view)
 
-        adapter = SourceAdapter(this)
+        adapter = SourceAdapter(this).apply { deferStateRestorationUntilItemsAreLoaded() }
 
         // Create recycler and set adapter.
         binding.recycler.layoutManager = LinearLayoutManager(view.context)

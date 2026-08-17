@@ -14,6 +14,7 @@ import eu.kanade.tachiyomi.ui.base.controller.NucleusController
 import eu.kanade.tachiyomi.ui.migration.manga.design.PreMigrationController
 import eu.kanade.tachiyomi.util.system.launchUI
 import eu.kanade.tachiyomi.util.system.withIOContext
+import eu.kanade.tachiyomi.util.view.deferStateRestorationUntilItemsAreLoaded
 import exh.util.RecyclerWindowInsetsListener
 import exh.util.applyWindowInsetsForController
 import kotlinx.coroutines.Dispatchers
@@ -57,7 +58,7 @@ class MigrationController :
         super.onViewCreated(view)
         view.applyWindowInsetsForController()
 
-        adapter = FlexibleAdapter(null, this)
+        adapter = FlexibleAdapter<IFlexible<*>>(null, this).apply { deferStateRestorationUntilItemsAreLoaded() }
         binding.migrationRecycler.layoutManager =
             androidx.recyclerview.widget.LinearLayoutManager(view.context)
         binding.migrationRecycler.adapter = adapter
@@ -86,7 +87,7 @@ class MigrationController :
         if (state.selectedSource == null) {
             title = resources?.getString(R.string.source_migration)
             if (adapter !is SourceAdapter) {
-                adapter = SourceAdapter(this)
+                adapter = SourceAdapter(this).apply { deferStateRestorationUntilItemsAreLoaded() }
                 binding.migrationRecycler.adapter = adapter
             }
             adapter?.updateDataSet(state.sourcesWithManga)
@@ -94,7 +95,7 @@ class MigrationController :
             // val switching = title == resources?.getString(R.string.source_migration)
             title = state.selectedSource.toString()
             if (adapter !is MangaAdapter) {
-                adapter = MangaAdapter(this)
+                adapter = MangaAdapter(this).apply { deferStateRestorationUntilItemsAreLoaded() }
                 binding.migrationRecycler.adapter = adapter
             }
             adapter?.updateDataSet(state.mangaForSource, true)

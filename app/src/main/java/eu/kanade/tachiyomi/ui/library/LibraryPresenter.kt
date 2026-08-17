@@ -33,6 +33,7 @@ import exh.EH_SOURCE_ID
 import exh.EXH_SOURCE_ID
 import exh.favorites.FavoritesSyncHelper
 import exh.util.isLewd
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
@@ -604,9 +605,11 @@ class LibraryPresenter(
                         }
                     }
                 }
-                view?.onSetCoverSuccess()
+                deliverToView { it.onSetCoverSuccess() }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Throwable) {
-                view?.onSetCoverError(e)
+                deliverToView { it.onSetCoverError(e) }
             }
         }
     }
@@ -618,9 +621,11 @@ class LibraryPresenter(
                     coverCache.deleteCustomCover(manga)
                     manga.updateCoverLastModified(db)
                 }
-                view?.onSetCoverSuccess()
+                deliverToView { it.onSetCoverSuccess() }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Throwable) {
-                view?.onSetCoverError(e)
+                deliverToView { it.onSetCoverError(e) }
             }
         }
     }

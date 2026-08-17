@@ -8,6 +8,7 @@ import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.ui.base.presenter.BasePresenter
 import eu.kanade.tachiyomi.util.system.withIOContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -33,8 +34,10 @@ class VideoPresenter(
             try {
                 val chapter = withIOContext { db.getChapter(episodeId) }
                 if (chapter != null) init(chapter)
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Throwable) {
-                view?.initError(error)
+                deliverToView { it.initError(error) }
             }
         }
     }

@@ -14,6 +14,7 @@ import eu.kanade.tachiyomi.ui.base.presenter.BasePresenter
 import eu.kanade.tachiyomi.util.system.launchIO
 import eu.kanade.tachiyomi.util.system.toast
 import eu.kanade.tachiyomi.util.system.withIOContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
@@ -105,9 +106,11 @@ class TrackPresenter(
                             }
                         }
                     }
-                    view?.onRefreshDone()
+                    deliverToView { it.onRefreshDone() }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
-                    view?.onRefreshError(e)
+                    deliverToView { it.onRefreshError(e) }
                 }
             }
     }
@@ -121,9 +124,11 @@ class TrackPresenter(
             presenterScope.launch {
                 try {
                     val results = withIOContext { service.search(query) }
-                    view?.onSearchResults(results)
+                    deliverToView { it.onSearchResults(results) }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
-                    view?.onSearchResultsError(e)
+                    deliverToView { it.onSearchResultsError(e) }
                 }
             }
     }
@@ -163,9 +168,11 @@ class TrackPresenter(
                     service.update(track)
                     db.insertTrack(track)
                 }
-                view?.onRefreshDone()
+                deliverToView { it.onRefreshDone() }
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
-                view?.onRefreshError(error)
+                deliverToView { it.onRefreshError(error) }
 
                 // Restart on error to set old values
                 fetchTrackings()

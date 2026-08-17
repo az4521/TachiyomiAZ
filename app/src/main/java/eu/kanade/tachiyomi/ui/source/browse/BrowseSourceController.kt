@@ -47,6 +47,7 @@ import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import eu.kanade.tachiyomi.util.system.connectivityManager
 import eu.kanade.tachiyomi.util.system.openInBrowser
 import eu.kanade.tachiyomi.util.system.toast
+import eu.kanade.tachiyomi.util.view.deferStateRestorationUntilItemsAreLoaded
 import eu.kanade.tachiyomi.util.view.gone
 import eu.kanade.tachiyomi.util.view.inflate
 import eu.kanade.tachiyomi.util.view.snack
@@ -121,17 +122,6 @@ open class BrowseSourceController(bundle: Bundle) :
     private var recycler: RecyclerView? = null
 
     /**
-     * Where the list was scrolled to when this controller's view was last destroyed.
-     *
-     * Conductor destroys a controller's view when another is pushed on top, so opening a manga
-     * and coming back rebuilds the list from scratch: a new adapter, refilled from the pager's
-     * replayed pages. Conductor's own view-state restore happens before that refill, so by the
-     * time the items exist the restored scroll position has already been applied to an empty
-     * list and lost. Reapplied in [onAddPage] once the items are actually back.
-     */
-    private var pendingScrollPosition: Int? = null
-
-    /**
      * Subscription for the number of manga per row.
      */
     private var numColumnsJob: Job? = null
@@ -173,7 +163,7 @@ open class BrowseSourceController(bundle: Bundle) :
         super.onViewCreated(view)
 
         // Initialize adapter, scroll listener and recycler views
-        adapter = FlexibleAdapter(null, this)
+        adapter = FlexibleAdapter<IFlexible<*>>(null, this).apply { deferStateRestorationUntilItemsAreLoaded() }
         setupRecycler(view)
 
         navView?.setFilters(presenter.filterItems)
@@ -182,9 +172,6 @@ open class BrowseSourceController(bundle: Bundle) :
     }
 
     override fun onDestroyView(view: View) {
-        pendingScrollPosition =
-            (recycler?.layoutManager as? LinearLayoutManager)?.findFirstVisibleItemPosition()
-                ?.takeIf { it != RecyclerView.NO_POSITION }
         numColumnsJob?.cancel()
         adapter = null
         snack = null
@@ -492,15 +479,6 @@ open class BrowseSourceController(bundle: Bundle) :
             resetProgressItem()
         }
         adapter.onLoadMoreComplete(mangas)
-
-        // Restore the position the user left the list at, once enough items have been replayed to
-        // reach it. Cleared afterwards so a genuine new search still starts at the top.
-        pendingScrollPosition?.let { position ->
-            if (adapter.itemCount > position) {
-                recycler?.layoutManager?.scrollToPosition(position)
-                pendingScrollPosition = null
-            }
-        }
     }
 
     /**
@@ -670,13 +648,7 @@ open class BrowseSourceController(bundle: Bundle) :
     /**
      * Shows the progress bar.
      */
-    /**
-     * Any explicit new request starts a fresh result set, so the position the user left the old
-     * one at no longer means anything. Dropping it here stops a stale restore firing against
-     * unrelated results.
-     */
     private fun showProgressBar() {
-        pendingScrollPosition = null
         binding.emptyView.hide()
         binding.progress.visible()
         snack?.dismiss()

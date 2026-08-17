@@ -35,6 +35,7 @@ import eu.kanade.tachiyomi.ui.video.VideoActivity
 import eu.kanade.tachiyomi.util.chapter.NoChaptersException
 import eu.kanade.tachiyomi.util.system.getResourceColor
 import eu.kanade.tachiyomi.util.system.toast
+import eu.kanade.tachiyomi.util.view.deferStateRestorationUntilItemsAreLoaded
 import eu.kanade.tachiyomi.util.view.getCoordinates
 import eu.kanade.tachiyomi.util.view.snack
 import exh.EH_SOURCE_ID
@@ -105,7 +106,7 @@ class ChaptersController :
         if (ctrl.manga == null || ctrl.source == null) return
 
         // Init RecyclerView and adapter
-        adapter = ChaptersAdapter(this, view.context)
+        adapter = ChaptersAdapter(this, view.context).apply { deferStateRestorationUntilItemsAreLoaded() }
 
         binding.recycler.adapter = adapter
         binding.recycler.layoutManager = LinearLayoutManager(view.context)

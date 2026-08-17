@@ -18,6 +18,7 @@ import eu.kanade.tachiyomi.data.database.models.Category
 import eu.kanade.tachiyomi.databinding.CategoriesControllerBinding
 import eu.kanade.tachiyomi.ui.base.controller.NucleusController
 import eu.kanade.tachiyomi.util.system.toast
+import eu.kanade.tachiyomi.util.view.deferStateRestorationUntilItemsAreLoaded
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import reactivecircus.flowbinding.android.view.clicks
@@ -83,7 +84,7 @@ class CategoryController :
     override fun onViewCreated(view: View) {
         super.onViewCreated(view)
 
-        adapter = CategoryAdapter(this@CategoryController)
+        adapter = CategoryAdapter(this@CategoryController).apply { deferStateRestorationUntilItemsAreLoaded() }
         binding.recycler.layoutManager = LinearLayoutManager(view.context)
         binding.recycler.setHasFixedSize(true)
         binding.recycler.adapter = adapter

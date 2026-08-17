@@ -21,6 +21,7 @@ import exh.EH_SOURCE_ID
 import exh.EXH_SOURCE_ID
 import exh.debug.DebugToggles
 import exh.eh.EHentaiUpdateHelper
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -244,9 +245,11 @@ class ChaptersPresenter(
                     if (manualFetch) {
                         downloadNewChapters(chapters.first)
                     }
-                    view?.onFetchChaptersDone()
+                    deliverToView { it.onFetchChaptersDone() }
+                } catch (error: CancellationException) {
+                    throw error
                 } catch (error: Throwable) {
-                    view?.onFetchChaptersError(error)
+                    deliverToView { it.onFetchChaptersError(error) }
                 }
             }
     }
@@ -382,9 +385,11 @@ class ChaptersPresenter(
                     deleteChaptersInternal(chapters)
                     if (onlyDownloaded()) refreshChapters()
                 }
-                view?.onChaptersDeleted(chapters)
+                deliverToView { it.onChaptersDeleted(chapters) }
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Throwable) {
-                view?.onChaptersDeletedError(error)
+                deliverToView { it.onChaptersDeletedError(error) }
             }
         }
     }
