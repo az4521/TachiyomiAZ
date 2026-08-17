@@ -83,14 +83,34 @@ buildscript {
  * resolves commonMain and iosMain against the real shared API and needs no Apple toolchain, so it
  * runs anywhere, including a Windows or Linux CI runner.
  *
- * It still is not a substitute for linking the iOS binaries, which needs macOS. It catches
- * everything that is a source-level portability mistake, which is nearly all of them.
+ * Two things about the coverage that are easy to get wrong:
+ *
+ *  - compileIosMainKotlinMetadata does nothing for a module with no iosMain source set, and
+ *    :core-domain has none -- it is pure commonMain. What actually guards that module is
+ *    compileCommonMainKotlinMetadata, which resolves commonMain against the intersection of every
+ *    declared target, iOS included. It is listed explicitly below so the coverage does not depend
+ *    on it happening to be pulled in as somebody else's dependency.
+ *
+ *  - commonTest was not checked against Native at all until the Apple block was added. The tests
+ *    ran only on the JVM, so three test names containing commas -- legal on the JVM, rejected by
+ *    Kotlin/Native, which turns backticked names into Objective-C selectors -- compiled clean
+ *    everywhere and failed on the first native build.
+ *
+ * The Apple half needs macOS, so it is conditional rather than a hard dependency; on a Windows or
+ * Linux runner the task still does everything it did before. It reports which half it ran, because
+ * a guard whose coverage silently varies by host is worse than one that only does less.
  */
+val isMacOs = System.getProperty("os.name").startsWith("Mac")
+
 tasks.register("checkSharedPortability") {
     group = "verification"
-    description = "Type-checks the shared modules for iOS and JVM, and runs their tests."
+    description = "Type-checks the shared modules for iOS and JVM, and runs their tests. " +
+        "On macOS it also compiles the shared tests for Kotlin/Native."
     dependsOn(
         // The real portability check: resolves commonMain and iosMain against the shared API.
+        ":core-model:compileCommonMainKotlinMetadata",
+        ":core-database:compileCommonMainKotlinMetadata",
+        ":core-domain:compileCommonMainKotlinMetadata",
         ":core-model:compileIosMainKotlinMetadata",
         ":core-database:compileIosMainKotlinMetadata",
         ":core-domain:compileIosMainKotlinMetadata",
@@ -102,6 +122,45 @@ tasks.register("checkSharedPortability") {
         ":core-model:jvmTest",
         ":core-domain:jvmTest"
     )
+
+    if (isMacOs) {
+        // commonTest compiled for real Kotlin/Native. Cheap next to running the tests, and it is
+        // what catches source-level mistakes the JVM accepts.
+        dependsOn(
+            ":core-model:compileTestKotlinIosSimulatorArm64",
+            ":core-domain:compileTestKotlinIosSimulatorArm64"
+        )
+    }
+
+    doLast {
+        if (isMacOs) {
+            logger.lifecycle("checkSharedPortability: metadata + JVM + Kotlin/Native test compile.")
+        } else {
+            logger.lifecycle(
+                "checkSharedPortability: metadata + JVM only. The Kotlin/Native test compile " +
+                    "needs macOS and was skipped -- run this on the Mac or the macos CI job " +
+                    "before trusting a green result for iOS."
+            )
+        }
+    }
+}
+
+/**
+ * The shared tests executed on an iOS simulator, rather than merely compiled for it.
+ *
+ * Separate from checkSharedPortability because it needs a simulator runtime and takes minutes
+ * rather than seconds. This is the check that proves the two platforms actually agree on the
+ * rules, instead of proving only that both can compile them.
+ */
+if (isMacOs) {
+    tasks.register("checkSharedPortabilityNative") {
+        group = "verification"
+        description = "Runs the shared tests on an iOS simulator. macOS only."
+        dependsOn(
+            ":core-model:iosSimulatorArm64Test",
+            ":core-domain:iosSimulatorArm64Test"
+        )
+    }
 }
 
 tasks.register("clean", Delete::class) {
