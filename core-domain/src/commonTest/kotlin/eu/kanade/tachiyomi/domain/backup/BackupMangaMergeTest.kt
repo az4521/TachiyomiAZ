@@ -99,7 +99,7 @@ class BackupCategoryMergeTest {
     }
 
     @Test
-    fun `matching is by name, not by id`() {
+    fun `matching is by name rather than by id`() {
         // Same name, wildly different ids: still the same category.
         val backup = listOf(category("Reading", id = 77))
         val result = mergeBackupCategories(backup, listOf(category("Reading", id = 1)))

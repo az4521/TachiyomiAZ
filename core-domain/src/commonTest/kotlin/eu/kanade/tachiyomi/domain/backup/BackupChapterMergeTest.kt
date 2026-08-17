@@ -47,7 +47,7 @@ class BackupChapterMergeTest {
      * which writes by id -- silently does nothing, and the chapter is lost.
      */
     @Test
-    fun `chapters the database has never seen are inserted, not updated`() {
+    fun `chapters the database has never seen are inserted rather than updated`() {
         val backup = listOf(chapter("/new"))
         val db = listOf(chapter("/c1", id = 99L))
 
@@ -121,7 +121,7 @@ class BackupChapterMergeTest {
     }
 
     @Test
-    fun `matching is by url, not by position`() {
+    fun `matching is by url rather than by position`() {
         // read differs, so neither is skipped as unchanged.
         val backup = listOf(chapter("/c2", read = true), chapter("/c1", read = true))
         val db = listOf(chapter("/c1", id = 1L), chapter("/c2", id = 2L))
