@@ -139,13 +139,25 @@ interface ChapterQueries : DbProvider {
     }
 
     /** ChapterSourceOrderPutResolver wrote source_order only. */
+    /**
+     * Rewrites every chapter's position in the source's listing.
+     *
+     * Matched on url and manga_id, not on id. These chapters are built fresh from the source list
+     * during a sync, so only the ones just inserted carry an id -- keying on id silently skipped
+     * every chapter that already existed, leaving its source_order frozen at whatever it was when
+     * first seen. Sources list newest first, so that ordering drifts a little further out with
+     * every new chapter.
+     */
     fun fixChaptersSourceOrder(chapters: List<Chapter>) {
         sqlDatabase.chaptersQueries.transaction {
             chapters.forEach { chapter ->
-                chapter.id?.let {
-                    sqlDatabase.chaptersQueries.updateChapterSourceOrder(
+                // Unlike the id guard this replaced, skipping on a null manga_id skips nothing
+                // real: manga_id is NOT NULL in the table, so a null could not match a row.
+                chapter.manga_id?.let { mangaId ->
+                    sqlDatabase.chaptersQueries.updateChapterSourceOrderByUrl(
                         chapter.source_order.toLong(),
-                        it
+                        chapter.url,
+                        mangaId
                     )
                 }
             }

@@ -57,6 +57,12 @@ UPDATE chapters SET read = ?, bookmark = ?, last_page_read = ? WHERE _id = ?;
 updateChapterSourceOrder:
 UPDATE chapters SET source_order = ? WHERE _id = ?;
 
+-- Keyed on url + manga_id rather than _id, because the chapters whose order is being fixed are
+-- built fresh from the source list and mostly have no id: only the newly inserted ones were ever
+-- assigned one. Matches the storio ChapterSourceOrderPutResolver this replaced.
+updateChapterSourceOrderByUrl:
+UPDATE chapters SET source_order = ? WHERE url = ? AND manga_id = ?;
+
 deleteChapter:
 DELETE FROM chapters WHERE _id = ?;
 
