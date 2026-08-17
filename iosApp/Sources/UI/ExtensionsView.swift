@@ -3,11 +3,8 @@ import TachiyomiKit
 
 /// Extension repositories.
 ///
-/// The index models are shared (`NetworkExtensionStore` in `:core-domain`), so this screen and the
-/// Android one agree on what a repository contains. What is not shared yet is the *fetch and
-/// decode* pipeline: `ExtensionGithubApi` in `:app` still owns gzip handling, the legacy array
-/// index, and the `repo.json` -> `index_v2` migration, all written against OkHttp streams. That is
-/// the next extraction, and until it lands this screen can store repositories but not read them.
+/// Fetching happens here; decoding does not. The bytes go to `ExtensionStoreDecoder` in
+/// `:core-domain`, the same decoder `:app` uses, so both apps read a repository identically.
 struct ExtensionsView: View {
     @EnvironmentObject private var repositories: RepositoryStore
     @State private var newRepoUrl = ""
@@ -16,32 +13,28 @@ struct ExtensionsView: View {
     var body: some View {
         List {
             Section {
-                if repositories.urls.isEmpty {
+                if repositories.repositories.isEmpty {
                     Text("No repositories added.")
                         .foregroundStyle(.secondary)
                 } else {
-                    ForEach(repositories.urls, id: \.self) { url in
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(url).font(.callout).lineLimit(2)
-                            Text("Not fetched — decoder not ported yet")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
+                    ForEach(repositories.repositories) { repository in
+                        row(repository)
                     }
                     .onDelete { repositories.remove(at: $0) }
                 }
             } header: {
                 Text("Repositories")
             } footer: {
-                Text("A repository index may be served under any file name and any extension, so the URL is stored as given. The format is decided by reading the content, never by the file name.")
+                Text("An index may be served under any file name and any extension, so the format is decided by reading the content, never the name. JAR extensions only — a legacy APK index will not load.")
             }
 
             Section("Status") {
                 LabeledContent("Index models", value: "shared")
-                LabeledContent("Fetch + decode", value: "not ported")
+                LabeledContent("Fetch + decode", value: "working")
                 LabeledContent("JVM runtime", value: "not started")
             }
         }
+        .refreshable { await repositories.refreshAll() }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button { showingAdd = true } label: { Image(systemName: "plus") }
@@ -52,45 +45,51 @@ struct ExtensionsView: View {
             TextField("https://example.com/index.pb", text: $newRepoUrl)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
+                .keyboardType(.URL)
             Button("Cancel", role: .cancel) { newRepoUrl = "" }
             Button("Add") {
-                repositories.add(newRepoUrl)
+                let url = newRepoUrl
                 newRepoUrl = ""
+                Task { await repositories.add(url) }
             }
         } message: {
             Text("Paste the direct URL to the repository's index file.")
         }
     }
-}
 
-/// Repository URLs, persisted locally.
-///
-/// Deliberately dumb for now — it stores strings and nothing more. Validation belongs with the
-/// decoder (a URL is only good if what it serves parses), so guessing here would just be a second
-/// opinion that disagrees with the real one later.
-@MainActor
-final class RepositoryStore: ObservableObject {
-    private let key = "extensions.repositoryUrls"
+    @ViewBuilder
+    private func row(_ repository: Repository) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(repository.name ?? repository.url)
+                    .font(.body.weight(repository.name == nil ? .regular : .semibold))
+                    .lineLimit(1)
+                if let badge = repository.badgeLabel {
+                    Text(badge)
+                        .font(.caption2.weight(.bold))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Capsule().fill(Color.accentColor.opacity(0.18)))
+                        .foregroundStyle(Color.accentColor)
+                }
+                Spacer()
+                if repositories.refreshing.contains(repository.url) {
+                    ProgressView().controlSize(.small)
+                }
+            }
 
-    @Published private(set) var urls: [String] = []
+            if repository.name != nil {
+                Text(repository.url).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+            }
 
-    init() {
-        urls = UserDefaults.standard.stringArray(forKey: key) ?? []
-    }
+            if let count = repository.extensionCount {
+                Text("\(count) extensions").font(.caption).foregroundStyle(.secondary)
+            }
 
-    func add(_ url: String) {
-        let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, !urls.contains(trimmed) else { return }
-        urls.append(trimmed)
-        persist()
-    }
-
-    func remove(at offsets: IndexSet) {
-        urls.remove(atOffsets: offsets)
-        persist()
-    }
-
-    private func persist() {
-        UserDefaults.standard.set(urls, forKey: key)
+            if let error = repository.lastError {
+                Text(error).font(.caption).foregroundStyle(.red)
+            }
+        }
+        .padding(.vertical, 2)
     }
 }

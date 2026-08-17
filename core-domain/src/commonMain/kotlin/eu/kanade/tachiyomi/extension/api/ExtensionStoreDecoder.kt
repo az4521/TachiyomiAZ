@@ -4,6 +4,7 @@ import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.okio.decodeFromBufferedSource
 import kotlinx.serialization.protobuf.ProtoBuf
+import okio.Buffer
 import okio.BufferedSource
 import okio.buffer
 import okio.gzip
@@ -59,4 +60,30 @@ class ExtensionStoreDecoder(
             '{'.code.toByte() -> json.decodeFromBufferedSource(source)
             else -> protoBuf.decodeFromByteArray(source.readByteArray())
         }
+
+    /**
+     * For callers holding the whole body already, which is every caller that is not streaming --
+     * Swift among them, since `URLSession` hands back a complete `Data`.
+     *
+     * An adapter over the streaming path above, not a second implementation: same gzip check, same
+     * format choice, same decoders.
+     */
+    fun decodeStore(bytes: ByteArray): NetworkExtensionStore =
+        Buffer().write(bytes).decompressIfGzipped().use { decodeStore(it) }
+
+    companion object {
+        /**
+         * The decoder configured the way repositories need it.
+         *
+         * `:app` passes its own injected `Json`; this exists so Swift does not have to build a
+         * `Json` across the interop boundary to get the same behaviour.
+         */
+        fun default(): ExtensionStoreDecoder =
+            ExtensionStoreDecoder(
+                Json {
+                    ignoreUnknownKeys = true
+                    isLenient = true
+                }
+            )
+    }
 }
