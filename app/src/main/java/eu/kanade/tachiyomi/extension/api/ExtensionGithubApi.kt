@@ -11,18 +11,13 @@ import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.network.await
 import eu.kanade.tachiyomi.network.awaitSuccess
 import exh.source.BlacklistedSources
-import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.okio.decodeFromBufferedSource
-import kotlinx.serialization.protobuf.ProtoBuf
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
-import okio.BufferedSource
-import okio.buffer
-import okio.gzip
 import uy.kohesive.injekt.injectLazy
 import java.util.Date
 import kotlin.coroutines.cancellation.CancellationException
@@ -31,7 +26,10 @@ internal class ExtensionGithubApi {
     private val preferences: PreferencesHelper by injectLazy()
     private val network: NetworkHelper by injectLazy()
     private val json: Json by injectLazy()
-    private val protoBuf: ProtoBuf = ProtoBuf { }
+
+    // Decoding lives in :core-domain so iOS reads repositories the same way; only fetching
+    // is Android's business.
+    private val decoder = ExtensionStoreDecoder(json)
 
     suspend fun findExtensions(): List<Extension.Available> {
         // repo entry -> the index_v2 URL it migrated to, recorded only on a successful fetch.
@@ -169,7 +167,7 @@ internal class ExtensionGithubApi {
         onMigrated: (String) -> Unit
     ): List<Extension.Available> {
         val response = network.client.newCall(GET(indexUrl)).awaitSuccess()
-        return response.body.source().decompressIfGzipped().use { source ->
+        return with(decoder) { response.body.source().decompressIfGzipped() }.use { source ->
             when (source.peek().readByte()) {
                 // "[...": legacy flat array of extensions.
                 '['.code.toByte() -> {
@@ -188,11 +186,11 @@ internal class ExtensionGithubApi {
                         indexV2 != null ->
                             fetchStore(indexV2, forceV2 = true, onMigrated).also { onMigrated(indexV2) }
                         legacy != null -> legacyListFromRepoJson(indexUrl)
-                        else -> extensionsFromStore(json.decodeFromBufferedSource(source), indexUrl)
+                        else -> extensionsFromStore(decoder.decodeStore(source), indexUrl)
                     }
                 }
                 // protobuf store
-                else -> extensionsFromStore(protoBuf.decodeFromByteArray(source.readByteArray()), indexUrl)
+                else -> extensionsFromStore(decoder.decodeStore(source), indexUrl)
             }
         }
     }
@@ -240,11 +238,8 @@ internal class ExtensionGithubApi {
 
     private suspend fun fetchExtensionList(url: String): NetworkExtensionStore.ExtensionList {
         val response = network.client.newCall(GET(url)).awaitSuccess()
-        return response.body.source().decompressIfGzipped().use { source ->
-            when (source.peek().readByte()) {
-                '{'.code.toByte() -> json.decodeFromBufferedSource(source)
-                else -> protoBuf.decodeFromByteArray(source.readByteArray())
-            }
+        return with(decoder) {
+            response.body.source().decompressIfGzipped().use { decoder.decodeExtensionList(it) }
         }
     }
 
@@ -273,17 +268,6 @@ internal class ExtensionGithubApi {
 
                 Extension.Available(name, pkgName, versionName, versionCode, libVersion, lang, nsfw, apkName, icon /* SY --> */, repoUrl /* SY <-- */)
             }
-    }
-
-    private fun BufferedSource.decompressIfGzipped(): BufferedSource {
-        val isGzip = peek().use { peeked ->
-            try {
-                peeked.readShort().toInt() == 0x1f8b
-            } catch (_: Exception) {
-                false
-            }
-        }
-        return if (isGzip) gzip().buffer() else this
     }
 
     fun getApkUrl(extension: Extension.Available): String {

@@ -68,6 +68,8 @@ error. `SharedCore.kt` is what keeps `:shared-ios` non-empty and is load-bearing
 
 Everything below the library screen. Named honestly rather than stubbed:
 
+- **Fetching a repository from iOS.** The decoder is shared now (see below); what iOS still lacks
+  is the HTTP call that hands it bytes.
 - **Sources.** The big one. Android loads extensions as APKs, which iOS cannot do. The
   `tachiyomiazios` repo solves this with a bundled OpenJDK Mobile *Zero* interpreter running
   Tachiyomi extension JARs, plus an Android-compatibility shim layer — see its
@@ -87,6 +89,23 @@ Everything below the library screen. Named honestly rather than stubbed:
   before much more Swift is written against `DatabaseHandler`.
 
 Out of scope by decision: nhentai/exhentai support and legacy backup formats.
+
+## Extension repositories
+
+The index models and the store decoder both live in `:core-domain` and are used by `:app` and iOS
+alike -- `ExtensionStoreModels.kt` and `ExtensionStoreDecoder.kt`. They were *moved* out of `:app`,
+not rewritten: a second decoder means the two apps can disagree about what a repository contains,
+which is the class of bug the shared modules exist to prevent. Only one line had to change to make
+the decoder portable -- `okio.use` instead of `kotlin.io.use`, since the latter is for
+`java.io.Closeable` and does not exist in common code.
+
+Format is decided by reading the content, never the URL. An index may be served under any file
+name and any extension, so the name promises nothing. Verified against the real keiyoushi
+repository: `index.pb` is gzipped protobuf and decodes to 1368 extensions.
+
+The legacy flat-array index stays in `:app`. It describes APK extensions, which only Android can
+load; this port uses JAR extensions exclusively. Note that keiyoushi's `index.min.json` is that
+legacy format and is now just an "Outdated App" stub -- use its `index.pb`.
 
 ## Guard
 

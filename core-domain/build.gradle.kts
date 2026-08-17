@@ -53,6 +53,12 @@ kotlin {
             implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.2")
             // The backup format is protobuf; this is what makes it identical on both platforms.
             api("org.jetbrains.kotlinx:kotlinx-serialization-protobuf:1.11.0")
+            // Repository indexes are read straight off the wire, so the decoder works on an okio
+            // BufferedSource: gzip unwrapping and streaming JSON both come from here. Both are
+            // multiplatform, which is what let the decoder move out of :app unchanged, and :app
+            // already had both through OkHttp so the Android build gains nothing new.
+            api("com.squareup.okio:okio:3.9.1")
+            api("org.jetbrains.kotlinx:kotlinx-serialization-json-okio:1.11.0")
         }
     }
 }
