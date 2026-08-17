@@ -7,11 +7,16 @@ package eu.kanade.tachiyomi.ios
  * link tasks and still report the build as successful -- so an empty umbrella produces no
  * XCFramework and no error either. This file is what stops that.
  *
- * It doubles as a load check from Swift: if `TachiyomiKit.description` returns, the framework is
- * present, linked and running Kotlin code, which separates "the framework is wired up wrong" from
- * "the shared logic is misbehaving" when the first Swift integration goes sideways.
+ * It doubles as a load check from Swift: if [description] returns, the framework is present,
+ * linked and running Kotlin code, which separates "the framework is wired up wrong" from "the
+ * shared logic is misbehaving" when something goes sideways.
+ *
+ * Deliberately *not* named TachiyomiKit. The generated framework is also called TachiyomiKit, and
+ * a type with the same name shadows the module in Swift -- `TachiyomiKit.Category` then resolves
+ * to a member of this object instead of the module, and every name that needs qualifying becomes
+ * unreferenceable.
  */
-object TachiyomiKit {
+object SharedCore {
     /** Modules packaged into this framework, in dependency order. */
     val modules: List<String> = listOf("core-model", "core-database", "core-domain")
 
