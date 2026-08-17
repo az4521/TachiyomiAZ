@@ -123,8 +123,15 @@ fun syncChaptersWithSource(
             }
         }
 
-    // Return if there's nothing to add, delete or change, avoiding unnecessary db transactions.
-    if (toAdd.isEmpty() && toDelete.isEmpty() && toChange.isEmpty()) {
+    // A source can reorder its listing without adding, removing or editing anything -- and a
+    // stored source_order can simply be stale. Neither shows up in toAdd/toDelete/toChange, so
+    // checking those alone would return early and leave the order wrong forever, with no way for
+    // a refresh to repair it.
+    val orderChanged = sourceOrderChanged(dbChapters, sourceChapters)
+
+    // Return if there's nothing to add, delete, change or reorder, avoiding unnecessary db
+    // transactions.
+    if (toAdd.isEmpty() && toDelete.isEmpty() && toChange.isEmpty() && !orderChanged) {
         return Pair(emptyList(), emptyList())
     }
 
@@ -192,6 +199,24 @@ fun syncChaptersWithSource(
     }
 
     return Pair(toAdd.subtract(readded.toSet()).toList(), toDelete.subtract(readded.toSet()).toList())
+}
+
+/**
+ * Whether any stored chapter sits at a different position in the source's listing than it does now.
+ *
+ * Separate from the add/delete/change checks because a reorder shows up in none of them: the same
+ * chapters, with the same metadata, in a different order. Without this a refresh would return
+ * early and leave a wrong -- or merely stale -- source_order in place permanently.
+ */
+internal fun sourceOrderChanged(
+    dbChapters: List<Chapter>,
+    sourceChapters: List<Chapter>
+): Boolean {
+    val dbByUrl = dbChapters.associateBy { it.url }
+    return sourceChapters.any { sourceChapter ->
+        val dbChapter = dbByUrl[sourceChapter.url] ?: return@any false
+        dbChapter.source_order != sourceChapter.source_order
+    }
 }
 
 // checks if the chapter in db needs updated
