@@ -15,13 +15,37 @@ struct SettingsView: View {
 
     var body: some View {
         List {
+            Section("Appearance") {
+                Picker("Theme", selection: $settings.colorScheme) {
+                    ForEach(AppColorScheme.allCases) { Text($0.title).tag($0) }
+                }
+                Picker("Accent", selection: $settings.accent) {
+                    ForEach(AppAccent.allCases) { option in
+                        HStack {
+                            Circle().fill(option.color).frame(width: 12, height: 12)
+                            Text(option.title)
+                        }
+                        .tag(option)
+                    }
+                }
+            }
+
+            Section {
+                NavigationLink(destination: CategoriesView().navigationTitle("Categories")) {
+                    Label("Categories", systemImage: "folder")
+                }
+                NavigationLink(destination: TrackingSettingsView().navigationTitle("Tracking")) {
+                    Label("Tracking", systemImage: "arrow.triangle.2.circlepath")
+                }
+            }
+
             Section {
                 Toggle("Bottom navigation bar", isOn: $settings.usesBottomTabs)
                 Picker("Library columns", selection: $settings.libraryColumns) {
                     ForEach(2...5, id: \.self) { Text("\($0)").tag($0) }
                 }
             } header: {
-                Text("Appearance")
+                Text("Layout")
             } footer: {
                 Text("Navigation is the drawer by default, as on Android. The tab bar is the iOS convention if you prefer it.")
             }

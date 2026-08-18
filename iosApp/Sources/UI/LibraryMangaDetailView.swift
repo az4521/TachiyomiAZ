@@ -70,13 +70,21 @@ struct LibraryMangaDetailView: View {
                 if let genre = entry.genre, !genre.isEmpty {
                     Text(genre).font(.caption2).foregroundStyle(.secondary).lineLimit(2)
                 }
-                Button(role: .destructive) {
-                    Task { await library.remove(entry) }
-                } label: {
-                    Label("Remove", systemImage: "heart.slash").font(.caption)
+                HStack(spacing: 8) {
+                    Button(role: .destructive) {
+                        Task { await library.remove(entry) }
+                    } label: {
+                        Label("Remove", systemImage: "heart.slash").font(.caption)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+
+                    NavigationLink(destination: MangaTrackingView(manga: entry)) {
+                        Label("Track", systemImage: "arrow.triangle.2.circlepath").font(.caption)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
                 .padding(.top, 2)
             }
         }

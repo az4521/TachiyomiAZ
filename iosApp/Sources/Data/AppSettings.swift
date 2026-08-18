@@ -17,6 +17,8 @@ final class AppSettings: ObservableObject {
         static let skipUnread = "library.skipUnread"
         static let skipNotStarted = "library.skipNotStarted"
         static let libraryColumns = "library.columns"
+        static let colorScheme = "appearance.colorScheme"
+        static let accent = "appearance.accent"
     }
 
     /// How much of a repository's content to show.
@@ -79,6 +81,14 @@ final class AppSettings: ObservableObject {
         didSet { UserDefaults.standard.set(libraryColumns, forKey: Key.libraryColumns) }
     }
 
+    @Published var colorScheme: AppColorScheme {
+        didSet { UserDefaults.standard.set(colorScheme.rawValue, forKey: Key.colorScheme) }
+    }
+
+    @Published var accent: AppAccent {
+        didSet { UserDefaults.standard.set(accent.rawValue, forKey: Key.accent) }
+    }
+
     init() {
         let defaults = UserDefaults.standard
         // Defaults to false: drawer navigation, matching Android.
@@ -93,6 +103,10 @@ final class AppSettings: ObservableObject {
         skipNotStarted = defaults.bool(forKey: Key.skipNotStarted)
         let columns = defaults.integer(forKey: Key.libraryColumns)
         libraryColumns = columns == 0 ? 3 : columns
+        colorScheme = defaults.string(forKey: Key.colorScheme)
+            .flatMap(AppColorScheme.init(rawValue:)) ?? .system
+        accent = defaults.string(forKey: Key.accent)
+            .flatMap(AppAccent.init(rawValue:)) ?? .blue
     }
 
     /// The read-state filters, applied after the shared selection rule.

@@ -64,6 +64,10 @@ targets:
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         UIUserInterfaceStyle: Automatic
+        # OAuth callback for MyAnimeList and AniList sign-in.
+        CFBundleURLTypes:
+          - CFBundleURLName: eu.kanade.tachiyomi.az.ios.oauth
+            CFBundleURLSchemes: [tachiyomiaz]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: eu.kanade.tachiyomi.az.ios

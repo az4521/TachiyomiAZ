@@ -128,6 +128,33 @@ final class LibraryStore: ObservableObject {
         await remove(url: entry.url, sourceId: entry.source)
     }
 
+    // MARK: - Categories
+
+    func addCategory(named name: String) async {
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        guard let handler, !trimmed.isEmpty else { return }
+        // Category.create is the shared factory; it assigns the next order itself.
+        let category = CategoryCompanion.shared.create(name: trimmed)
+        category.order = Int32(handler.getCategories().count)
+        handler.insertCategory(category: category)
+        await reload()
+    }
+
+    func renameCategory(_ category: MangaCategory, to name: String) async {
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        guard let handler, !trimmed.isEmpty else { return }
+        category.name = trimmed
+        // insertCategory upserts on the primary key, so this is the rename path too.
+        handler.insertCategory(category: category)
+        await reload()
+    }
+
+    func deleteCategory(_ category: MangaCategory) async {
+        guard let handler else { return }
+        handler.deleteCategory(category: category)
+        await reload()
+    }
+
     // MARK: - Refresh
 
     /// Refreshes one category, or the whole library when `categoryId` is nil.

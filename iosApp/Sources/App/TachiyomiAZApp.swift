@@ -10,6 +10,7 @@ struct TachiyomiAZApp: App {
     @StateObject private var runtime: SourceRuntime
     @StateObject private var history: HistoryStore
     @StateObject private var downloads = DownloadQueue()
+    @StateObject private var tracking: TrackingStore
 
     init() {
         let jvm = JVMHost()
@@ -20,6 +21,7 @@ struct TachiyomiAZApp: App {
         _library = StateObject(wrappedValue: library)
         _runtime = StateObject(wrappedValue: SourceRuntime(jvm: jvm, catalog: catalog))
         _history = StateObject(wrappedValue: HistoryStore(library: library))
+        _tracking = StateObject(wrappedValue: TrackingStore(library: library))
     }
 
     var body: some Scene {
@@ -33,8 +35,11 @@ struct TachiyomiAZApp: App {
                 .environmentObject(runtime)
                 .environmentObject(history)
                 .environmentObject(downloads)
+                .environmentObject(tracking)
                 .task { await library.load() }
                 .task { await jvm.start() }
+                .preferredColorScheme(settings.colorScheme.resolved)
+                .tint(settings.accent.color)
         }
     }
 }
