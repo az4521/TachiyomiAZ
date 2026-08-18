@@ -59,27 +59,8 @@ enum Settings {
                     icon: .system(name: "clock.arrow.2.circlepath", color: "orange", inset: 4)
                 ))
             ),
-            .init(
-                title: NSLocalizedString("ICLOUD_SYNC"),
-                value: .page(.init(
-                    items: [
-                        .init(value: .group(.init(items: [
-                            .init(
-                                key: "General.icloudSync",
-                                title: String(format: NSLocalizedString("%@_EXPERIMENTAL"), NSLocalizedString("ICLOUD_SYNC")),
-                                requires: "Flag.isiCloudAvailable",
-                                value: .toggle(.init())
-                            )
-                        ])))
-                    ],
-                    icon: .system(name: "icloud.fill", color: "blue"),
-                    info: NSLocalizedString(
-                        UserDefaults.standard.bool(forKey: "Flag.isSideloaded")
-                            ? "ICLOUD_SYNC_TEXT_SIDELOADED"
-                            : "ICLOUD_SYNC_TEXT_EXPERIMENTAL"
-                    )
-                ))
-            ),
+            // iCloud sync removed: the Android app has no equivalent, so a library synced this way
+            // would exist only on iOS -- the opposite of what the shared database is for.
             .init(
                 title: NSLocalizedString("ADVANCED"),
                 value: .page(.init(

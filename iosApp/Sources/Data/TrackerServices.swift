@@ -60,13 +60,17 @@ final class OAuthSession: NSObject, ASWebAuthenticationPresentationContextProvid
 /// The client id is the one TachiyomiAZ itself registers. PKCE with a plain challenge is not a
 /// shortcut: MAL only accepts `code_challenge_method=plain`, which is why the verifier is sent
 /// unhashed here while AniList needs no PKCE at all.
-final class MyAnimeListTracker: Tracker {
+final class MyAnimeListTracker: OAuthTracker {
     let service: TrackerService = .myAnimeList
 
     private let clientId = "0e8fbd48d8f2b5e77e2a5ca23e1ba1b1"
     private let redirectScheme = "tachiyomiaz"
 
     var isLoggedIn: Bool { TokenStore.token(.myAnimeList) != nil }
+
+    /// Tokens are stored without a refresh flow, so a rejected token means signing in again. Until
+    /// a request actually fails there is nothing to report.
+    var needsRelogin: Bool { false }
 
     @MainActor
     func logIn() async throws {
@@ -194,13 +198,17 @@ final class MyAnimeListTracker: Tracker {
 }
 
 /// AniList, via its GraphQL API.
-final class AniListTracker: Tracker {
+final class AniListTracker: OAuthTracker {
     let service: TrackerService = .aniList
 
     private let clientId = "12030"
     private let endpoint = URL(string: "https://graphql.anilist.co")!
 
     var isLoggedIn: Bool { TokenStore.token(.aniList) != nil }
+
+    /// AniList's implicit-flow tokens are long-lived and there is no refresh to fail, so nothing
+    /// asks for a re-login until a request is rejected.
+    var needsRelogin: Bool { false }
 
     @MainActor
     func logIn() async throws {

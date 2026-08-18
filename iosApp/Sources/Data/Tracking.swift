@@ -70,12 +70,36 @@ protocol Tracker: AnyObject {
     func logOut()
 }
 
+extension Tracker {
+    /// Upstream spells this `logout()` and makes it throwing.
+    func logout() async throws { logOut() }
+}
+
 /// Marks a tracker bound to a particular source rather than a standalone service.
 ///
 /// Upstream's Komga, Kavita and Suwayomi trackers are enhanced: they track against the same server
 /// the manga came from. Neither tracker here is, so nothing conforms -- the protocol exists so the
 /// vendored views' `is EnhancedTracker` checks compile and correctly answer false.
 protocol EnhancedTracker: Tracker {}
+
+/// Marks a tracker signed in through OAuth.
+///
+/// Upstream's version exposes an `oauthClient` whose stored tokens the settings screen inspects to
+/// offer a re-login. Both trackers here are OAuth, but their tokens live in `TokenStore` rather than
+/// a client object, so the screen's re-login prompt is driven by `needsRelogin` instead.
+protocol OAuthTracker: Tracker {
+    /// Whether the stored token was rejected and the user has to sign in again.
+    var needsRelogin: Bool { get }
+
+    /// Runs the whole sign-in flow.
+    ///
+    /// Upstream splits this into a URL to open and a callback to handle, because its trackers hand
+    /// the URL to the settings screen. The trackers here already own the flow end to end -- each
+    /// presents its own `ASWebAuthenticationSession` and exchanges the code -- so this is the whole
+    /// operation rather than half of it.
+    @MainActor
+    func logIn() async throws
+}
 
 /// The shape the vendored tracking UI addresses a tracker by.
 ///

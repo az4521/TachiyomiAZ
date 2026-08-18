@@ -163,9 +163,38 @@ final class SourceManager {
         return sources.last
     }
 
-    /// Aidoku keeps user-added lists of downloadable sources; this port gets sources from extension
-    /// repositories, which `RepositoryStore` owns. Nothing to load or list here.
-    nonisolated var sourceLists: [URL] { [] }
+    /// Languages offered by the add-source filter. Extensions declare their own, so the list is
+    /// built from what the repositories actually carry.
+    nonisolated var sourceListLanguages: [String] {
+        Array(Set(sources.flatMap { $0.languages })).sorted()
+    }
 
-    func loadSourceLists() async {}
+    /// Installs a JVM extension from a repository catalog entry.
+    ///
+    /// Goes straight to `JVMSourceRuntime`, which downloads, verifies the checksum and writes the
+    /// layout it loads from -- the same path the add-source screen uses upstream.
+    @discardableResult
+    func installTachiyomiXExtension(
+        _ entry: TachiyomiXJarRepository.Catalog.Extension
+    ) async throws -> JVMExtensionManifest {
+        let manifest = try await JVMSourceRuntime.shared.install(catalogEntry: entry)
+        await runtime?.reload()
+        return manifest
+    }
+
+    func uninstallTachiyomiXExtension(id extensionId: String) async throws {
+        guard let catalog, let item = catalog.installed.first(where: { $0.packageName == extensionId }) else { return }
+        catalog.uninstall(item)
+        await runtime?.reload()
+    }
+
+    /// Aidoku's user-added lists of downloadable sources.
+    ///
+    /// Empty here: this port installs extensions from repositories, which `RepositoryStore` and the
+    /// add-source screen own. The Browse screen still renders its installed-sources section; the
+    /// external-list section simply has nothing to show.
+    nonisolated var sourceLists: [SourceList] { [] }
+
+    /// Aidoku refreshes its source lists here. This port has none -- see `sourceLists`.
+    func loadSourceLists(reload: Bool = false) async {}
 }

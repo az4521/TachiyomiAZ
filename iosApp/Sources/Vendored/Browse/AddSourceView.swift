@@ -33,59 +33,12 @@ struct AddSourceView: View {
         }
     }
 
+    /// Aidoku's built-in sources -- local files, Komga, Kavita, Suwayomi -- have no counterpart
+    /// here: every source is a JVM extension installed from a repository. See
+    /// Vendored/_excluded/Browse for their setup screens.
+    @ViewBuilder
     var builtInSources: some View {
-        Section(NSLocalizedString("BUILT_IN_SOURCES")) {
-            if !SourceManager.shared.sources.contains(where: { $0.key == LocalSourceRunner.sourceKey }) {
-                ExternalSourceTableCell(
-                    source: .init(
-                        sourceId: LocalSourceRunner.sourceKey,
-                        name: NSLocalizedString("LOCAL_FILES"),
-                        languages: ["multi"],
-                        version: 1,
-                        contentRating: .safe
-                    ),
-                    subtitle: NSLocalizedString("LOCAL_FILES_TAGLINE"),
-                    onGet: {
-                        showLocalSetup = true
-                        return true
-                    }
-                )
-                .background(NavigationLink("", destination: LocalSetupView(), isActive: $showLocalSetup).hidden())
-            }
-
-            ExternalSourceTableCell(
-                source: .init(
-                    sourceId: "komga",
-                    name: NSLocalizedString("KOMGA"),
-                    languages: ["multi"],
-                    version: 1,
-                    contentRating: .safe
-                ),
-                subtitle: NSLocalizedString("KOMGA_TAGLINE"),
-                onGet: {
-                    showKomgaSetup = true
-                    return true
-                }
-            )
-            .background(NavigationLink("", destination: KomgaSetupView(), isActive: $showKomgaSetup).hidden())
-
-            ExternalSourceTableCell(
-                source: .init(
-                    sourceId: "kavita",
-                    name: NSLocalizedString("KAVITA"),
-                    languages: ["multi"],
-                    version: 1,
-                    contentRating: .safe
-                ),
-                subtitle: NSLocalizedString("KAVITA_TAGLINE"),
-                onGet: {
-                    showKavitaSetup = true
-                    return true
-                }
-            )
-            .background(NavigationLink("", destination: KavitaSetupView(), isActive: $showKavitaSetup).hidden())
-
-        }
+        EmptyView()
     }
 
 }

@@ -178,18 +178,10 @@ class SourceTableViewCell: UITableViewCell {
                 await loadIcon(url: iconUrl)
             }
         } else {
-            switch info.sourceId {
-                case LocalSourceRunner.sourceKey:
-                    iconView.image = UIImage.local
-                case let x where x.hasPrefix(KomgaSourceRunner.sourceKeyPrefix):
-                    iconView.image = UIImage.komga
-                case let x where x.hasPrefix(KavitaSourceRunner.sourceKeyPrefix):
-                    iconView.image = UIImage.kavita
-                case let x where x.hasPrefix(SuwayomiSourceRunner.sourceKeyPrefix):
-                    iconView.image = UIImage.suwayomi
-                default:
-                    break
-            }
+            // Upstream picks a bundled icon for its built-in sources -- local files, Komga, Kavita,
+            // Suwayomi. Every source here is a JVM extension carrying its own icon, so anything
+            // without one gets the placeholder.
+            iconView.image = .mangaPlaceholder
         }
     }
 

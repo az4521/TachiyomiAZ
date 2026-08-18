@@ -179,7 +179,7 @@ class BrowseViewController: BaseTableViewController {
 
 extension BrowseViewController {
     func uninstall(sources: [ExtensionRunner.Source]) {
-        let containsLocalSource = sources.contains(where: { $0.id == LocalSourceRunner.sourceKey })
+        let containsLocalSource = sources.contains { $0.id == "local" } // local source parked
 
         func commit() {
             var removedJVMExtensions: Set<String> = []
@@ -207,7 +207,7 @@ extension BrowseViewController {
                     UIAlertAction(title: NSLocalizedString("CANCEL"), style: .cancel),
                     UIAlertAction(title: NSLocalizedString("OK"), style: .default) { _ in
                         Task {
-                            await LocalFileManager.shared.removeAllLocalFiles()
+                            // Local file sources are parked; nothing to remove.
                         }
                         commit()
                     }
@@ -334,11 +334,8 @@ extension BrowseViewController {
             let info = dataSource.itemIdentifier(for: indexPath),
             let source = SourceManager.shared.source(for: info.sourceId)
         {
-            let vc: UIViewController = if let legacySource = source.legacySource {
-                SourceViewController(source: legacySource)
-            } else {
-                NewSourceViewController(source: source)
-            }
+            // Upstream branches to its pre-runner screen for legacy sources; this port has none.
+            let vc: UIViewController = NewSourceViewController(source: source)
             navigationController?.pushViewController(vc, animated: true)
         }
         tableView.deselectRow(at: indexPath, animated: true)

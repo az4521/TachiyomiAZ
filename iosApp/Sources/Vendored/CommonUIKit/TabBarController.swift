@@ -152,17 +152,7 @@ class TabBarController: UITabBarController {
         super.viewDidLoad()
 
         let libraryViewController = NavigationController(rootViewController: LibraryViewController())
-        // Browse shows the installed sources. Upstream's BrowseViewController presents Aidoku's
-        // source lists, which this port replaced with extension repositories -- see
-        // Vendored/_excluded/Browse.
-        let browseHostingController = UIHostingController(
-            rootView: SourcesView()
-                .environmentObject(AppEnvironment.shared.runtime)
-                .environmentObject(AppEnvironment.shared.catalog)
-                .environmentObject(AppEnvironment.shared.jvm)
-                .appTheme()
-        )
-        let browseViewController = NavigationController(rootViewController: browseHostingController)
+        let browseViewController = NavigationController(rootViewController: BrowseViewController())
 
         let updatesViewController = makeMangaUpdatesViewController()
 
@@ -177,11 +167,8 @@ class TabBarController: UITabBarController {
 
         let extensionsPath = NavigationCoordinator(rootViewController: nil)
         let extensionsHostingController = UIHostingController(
-            rootView: ExtensionsView()
+            rootView: ExtensionManagementView()
                 .environmentObject(extensionsPath)
-                .environmentObject(AppEnvironment.shared.repositories)
-                .environmentObject(AppEnvironment.shared.catalog)
-                .environmentObject(AppEnvironment.shared.jvm)
                 .appTheme()
         )
         extensionsPath.rootViewController = extensionsHostingController
