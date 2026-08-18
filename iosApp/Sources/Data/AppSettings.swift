@@ -8,17 +8,25 @@ import TachiyomiKit
 /// convention. Rather than pick for the user, the drawer is the default and the bar is available.
 @MainActor
 final class AppSettings: ObservableObject {
+    /// The keys the settings screens actually write.
+    ///
+    /// These were this app's own names (`library.skipCompleted` and so on), written by a settings
+    /// UI that no longer exists. The vendored screens write the fork's keys, so the library-update
+    /// rules were reading preferences nothing set: every refresh ran with the defaults no matter
+    /// what the user chose. Reading the same keys the UI writes is the whole point.
     private enum Key {
-        static let bottomTabs = "navigation.usesBottomTabs"
         static let contentFilter = "extensions.contentFilter"
-        static let updateCategories = "library.updateCategories"
-        static let skipCompleted = "library.skipCompleted"
-        static let skipFullyRead = "library.skipFullyRead"
-        static let skipUnread = "library.skipUnread"
-        static let skipNotStarted = "library.skipNotStarted"
-        static let libraryColumns = "library.columns"
-        static let colorScheme = "appearance.colorScheme"
-        static let accent = "appearance.accent"
+        static let excludedUpdateCategories = "Library.excludedUpdateCategories"
+        static let skipTitles = "Library.skipTitles"
+        static let updateOnlyOnWifi = "Library.updateOnlyOnWifi"
+        static let refreshMetadata = "Library.refreshMetadata"
+    }
+
+    /// Values the "skip titles" multi-select stores, as declared in Settings.swift.
+    private enum SkipTitle {
+        static let hasUnread = "hasUnread"
+        static let completed = "completed"
+        static let notStarted = "notStarted"
     }
 
     /// How much of a repository's content to show.
@@ -42,71 +50,54 @@ final class AppSettings: ObservableObject {
         }
     }
 
-    @Published var usesBottomTabs: Bool {
-        didSet { UserDefaults.standard.set(usesBottomTabs, forKey: Key.bottomTabs) }
-    }
-
     @Published var contentFilter: ContentFilter {
         didSet { UserDefaults.standard.set(contentFilter.rawValue, forKey: Key.contentFilter) }
     }
 
-    /// Categories a library update is limited to. Empty means every category.
-    @Published var updateCategories: [Int32] {
-        didSet {
-            UserDefaults.standard.set(updateCategories.map(Int.init), forKey: Key.updateCategories)
-        }
+    /// Read fresh each time rather than cached at init: the vendored settings screens write these
+    /// keys directly, so a value cached here would go stale the moment the user changed one.
+    private static var defaults: UserDefaults { .standard }
+
+    /// Categories a library update is limited to.
+    ///
+    /// The setting is *excluded* categories, so this inverts it into the "categories to update"
+    /// list the shared `selectLibraryMangaToUpdate` takes. Empty means every category, which is
+    /// also what the shared rule treats as no restriction.
+    var updateCategories: [Int32] {
+        let excluded = Set(Self.defaults.stringArray(forKey: Key.excludedUpdateCategories) ?? [])
+        guard !excluded.isEmpty else { return [] }
+        guard let handler = MangaManager.shared.library?.handler else { return [] }
+        return handler.getCategories()
+            .filter { !excluded.contains($0.name) }
+            .compactMap { $0.id?.int32Value }
+    }
+
+    private var skipTitles: Set<String> {
+        Set(Self.defaults.stringArray(forKey: Key.skipTitles) ?? [])
     }
 
     /// Handled by the shared `selectLibraryMangaToUpdate`.
-    @Published var skipCompleted: Bool {
-        didSet { UserDefaults.standard.set(skipCompleted, forKey: Key.skipCompleted) }
-    }
+    var skipCompleted: Bool { skipTitles.contains(SkipTitle.completed) }
 
-    /// The three below are applied on top of the shared selection, because they depend on read
-    /// counts the shared rule does not take. Kept as plain filters so the shared rule stays the
-    /// single source of truth for everything it does cover.
-    @Published var skipFullyRead: Bool {
-        didSet { UserDefaults.standard.set(skipFullyRead, forKey: Key.skipFullyRead) }
-    }
+    /// Applied on top of the shared selection, because they depend on read counts the shared rule
+    /// does not take. Kept as plain filters so the shared rule stays the single source of truth for
+    /// everything it does cover.
+    var skipUnread: Bool { skipTitles.contains(SkipTitle.hasUnread) }
 
-    @Published var skipUnread: Bool {
-        didSet { UserDefaults.standard.set(skipUnread, forKey: Key.skipUnread) }
-    }
+    var skipNotStarted: Bool { skipTitles.contains(SkipTitle.notStarted) }
 
-    @Published var skipNotStarted: Bool {
-        didSet { UserDefaults.standard.set(skipNotStarted, forKey: Key.skipNotStarted) }
-    }
+    /// Not offered by the settings screens; the fork's "skip titles" has no fully-read option.
+    var skipFullyRead: Bool { false }
 
-    @Published var libraryColumns: Int {
-        didSet { UserDefaults.standard.set(libraryColumns, forKey: Key.libraryColumns) }
-    }
+    /// Whether a refresh should re-read details as well as chapters.
+    var refreshMetadata: Bool { Self.defaults.bool(forKey: Key.refreshMetadata) }
 
-    @Published var colorScheme: AppColorScheme {
-        didSet { UserDefaults.standard.set(colorScheme.rawValue, forKey: Key.colorScheme) }
-    }
-
-    @Published var accent: AppAccent {
-        didSet { UserDefaults.standard.set(accent.rawValue, forKey: Key.accent) }
-    }
+    var updateOnlyOnWifi: Bool { Self.defaults.bool(forKey: Key.updateOnlyOnWifi) }
 
     init() {
-        let defaults = UserDefaults.standard
-        // Defaults to false: drawer navigation, matching Android.
-        usesBottomTabs = defaults.bool(forKey: Key.bottomTabs)
         // Defaults to hiding only 18+, so mixed-content sources stay visible.
-        contentFilter = defaults.string(forKey: Key.contentFilter)
+        contentFilter = UserDefaults.standard.string(forKey: Key.contentFilter)
             .flatMap(ContentFilter.init(rawValue:)) ?? .hideAdult
-        updateCategories = (defaults.array(forKey: Key.updateCategories) as? [Int] ?? []).map(Int32.init)
-        skipCompleted = defaults.bool(forKey: Key.skipCompleted)
-        skipFullyRead = defaults.bool(forKey: Key.skipFullyRead)
-        skipUnread = defaults.bool(forKey: Key.skipUnread)
-        skipNotStarted = defaults.bool(forKey: Key.skipNotStarted)
-        let columns = defaults.integer(forKey: Key.libraryColumns)
-        libraryColumns = columns == 0 ? 3 : columns
-        colorScheme = defaults.string(forKey: Key.colorScheme)
-            .flatMap(AppColorScheme.init(rawValue:)) ?? .system
-        accent = defaults.string(forKey: Key.accent)
-            .flatMap(AppAccent.init(rawValue:)) ?? .blue
     }
 
     /// The read-state filters, applied after the shared selection rule.

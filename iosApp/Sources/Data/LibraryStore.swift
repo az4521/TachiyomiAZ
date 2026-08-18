@@ -243,31 +243,6 @@ final class LibraryStore: ObservableObject {
         await reload()
     }
 
-    // MARK: - Development helpers
-
-    func seedSampleData() async {
-        let handler = self.handler
-        let samples = [
-            ("Sample: One Piece", "https://example.invalid/one-piece", "Eiichiro Oda"),
-            ("Sample: Berserk", "https://example.invalid/berserk", "Kentaro Miura"),
-            ("Sample: Vinland Saga", "https://example.invalid/vinland", "Makoto Yukimura")
-        ]
-        handler.inTransaction {
-            for (title, url, author) in samples {
-                let m = MangaImpl()
-                m.title = title
-                m.url = url
-                m.author = author
-                m.source = 1
-                m.favorite = true
-                m.initialized = true
-                m.date_added = Int64(Date().timeIntervalSince1970 * 1000)
-                handler.insertManga(manga: m)
-            }
-        }
-        await reload()
-    }
-
     func clearLibrary() async {
         let handler = self.handler
         handler.inTransaction {
