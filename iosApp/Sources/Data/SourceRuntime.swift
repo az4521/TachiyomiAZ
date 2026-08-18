@@ -135,15 +135,42 @@ final class SourceRuntime: ObservableObject {
     // MARK: - Browsing
 
     func popular(_ source: SourceDescriptor, page: Int) async throws -> TachiyomiXMangaPage {
-        try await withRuntime { runtime in
-            try runtime.popularManga(extensionId: source.extensionId, sourceId: source.id, page: page)
-        }
+        try await pagedManga(operation: "getPopularManga", source: source, page: page)
     }
 
     func latest(_ source: SourceDescriptor, page: Int) async throws -> TachiyomiXMangaPage {
-        try await withRuntime { runtime in
-            try runtime.latestManga(extensionId: source.extensionId, sourceId: source.id, page: page)
+        try await pagedManga(operation: "getLatestUpdates", source: source, page: page)
+    }
+
+    /// One shape for every paged listing, so all of them get the Cloudflare retry.
+    ///
+    /// The page number travels in `argument`, matching TachiyomiXExtensionClient's own encoding --
+    /// the host has no page field.
+    private func pagedManga(
+        operation: String,
+        source: SourceDescriptor,
+        page: Int,
+        query: String? = nil,
+        filterStates: String? = nil
+    ) async throws -> TachiyomiXMangaPage {
+        guard page > 0 else {
+            throw JVMRuntimeError.invalidConfiguration("Manga page must be at least 1")
         }
+        let response = try await dispatchWithBypass(
+            ExtensionHostRequest(
+                operation: operation,
+                extensionId: source.extensionId,
+                sourceId: String(source.id),
+                argument: String(page),
+                query: query,
+                filterStates: filterStates
+            ),
+            source: source
+        )
+        guard response.success, let result = response.result else {
+            throw JVMRuntimeError.decodingFailed(response.error ?? "\(operation) failed")
+        }
+        return try JSONDecoder().decode(TachiyomiXMangaPage.self, from: Data(result.utf8))
     }
 
     func search(
@@ -152,34 +179,15 @@ final class SourceRuntime: ObservableObject {
         page: Int,
         filterStates: String? = nil
     ) async throws -> TachiyomiXMangaPage {
-        // The package's searchManga rejects an empty query, but a filter-only search is legitimate
-        // -- browsing by genre with no text is the normal way to use most sources -- so the
-        // request is built directly when filters are supplied.
-        if let filterStates, !filterStates.isEmpty {
-            return try await withRuntime { runtime in
-                let request = ExtensionHostRequest(
-                    operation: "searchManga",
-                    extensionId: source.extensionId,
-                    sourceId: String(source.id),
-                    argument: String(page),
-                    query: query,
-                    filterStates: filterStates
-                )
-                let response: ExtensionHostResponse = try runtime.dispatch(request)
-                guard response.success, let result = response.result else {
-                    throw JVMRuntimeError.decodingFailed(response.error ?? "Search failed")
-                }
-                return try JSONDecoder().decode(TachiyomiXMangaPage.self, from: Data(result.utf8))
-            }
-        }
-        return try await withRuntime { runtime in
-            try runtime.searchManga(
-                extensionId: source.extensionId,
-                sourceId: source.id,
-                query: query,
-                page: page
-            )
-        }
+        // A filter-only search with no text is normal -- browsing by genre is how most sources are
+        // used -- so an empty query is not rejected here.
+        try await pagedManga(
+            operation: "searchManga",
+            source: source,
+            page: page,
+            query: query,
+            filterStates: filterStates
+        )
     }
 
     func filters(_ source: SourceDescriptor) async throws -> [SourceFilter] {
@@ -204,15 +212,21 @@ final class SourceRuntime: ObservableObject {
         title: String,
         memo: String?
     ) async throws -> TachiyomiXMangaUpdate {
-        try await withRuntime { runtime in
-            try runtime.mangaUpdate(
+        let response = try await dispatchWithBypass(
+            ExtensionHostRequest(
+                operation: "getMangaUpdate",
                 extensionId: source.extensionId,
-                sourceId: source.id,
+                sourceId: String(source.id),
                 mangaURL: url,
                 mangaTitle: title,
                 mangaMemo: memo
-            )
+            ),
+            source: source
+        )
+        guard response.success, let result = response.result else {
+            throw JVMRuntimeError.decodingFailed(response.error ?? "Details unavailable")
         }
+        return try JSONDecoder().decode(TachiyomiXMangaUpdate.self, from: Data(result.utf8))
     }
 
     func pages(
@@ -221,15 +235,21 @@ final class SourceRuntime: ObservableObject {
         chapterName: String,
         memo: String?
     ) async throws -> [TachiyomiXPage] {
-        try await withRuntime { runtime in
-            try runtime.pages(
+        let response = try await dispatchWithBypass(
+            ExtensionHostRequest(
+                operation: "getPageList",
                 extensionId: source.extensionId,
-                sourceId: source.id,
+                sourceId: String(source.id),
                 chapterURL: chapterURL,
                 chapterName: chapterName,
                 chapterMemo: memo
-            )
+            ),
+            source: source
+        )
+        guard response.success, let result = response.result else {
+            throw JVMRuntimeError.decodingFailed(response.error ?? "Pages unavailable")
         }
+        return try JSONDecoder().decode([TachiyomiXPage].self, from: Data(result.utf8))
     }
 
     /// Runs work on the VM off the main actor. Every host call is synchronous and can block for as
@@ -241,6 +261,103 @@ final class SourceRuntime: ObservableObject {
             throw JVMRuntimeError.invalidConfiguration("The JVM is not running.")
         }
         return try await Task.detached(priority: .userInitiated) { try body(runtime) }.value
+    }
+
+    // MARK: - Cloudflare
+
+    /// Cached per-source user agents from solved challenges, so one solve covers later requests.
+    private static var solvedUserAgents: [String: String] = [:]
+
+    /// Dispatches, and on a Cloudflare challenge solves it and retries once.
+    ///
+    /// This is the piece that was missing and that makes sources behave: the host reports a
+    /// challenge as an error string rather than throwing, so without this a Cloudflare-fronted
+    /// source simply fails -- which is what "connection reset" looked like on Weeb Central.
+    /// Modelled on tachiyomiazios's JVMSourceRuntime.dispatch.
+    func dispatchWithBypass(
+        _ request: ExtensionHostRequest,
+        source: SourceDescriptor
+    ) async throws -> ExtensionHostResponse {
+        let key = "\(source.extensionId):\(source.id)"
+
+        var outgoing = request
+        // Reuse an already-solved agent before trying anything, so a solved source stays solved.
+        if let known = Self.solvedUserAgents[key] {
+            outgoing.userAgent = known
+        }
+
+        let response = try await withRuntime { runtime -> ExtensionHostResponse in
+            try runtime.dispatch(outgoing)
+        }
+
+        guard Self.isCloudflareChallenge(response) else { return response }
+
+        let userAgent = try await solveChallenge(for: source)
+        Self.solvedUserAgents[key] = userAgent
+
+        var retried = request
+        retried.userAgent = userAgent
+        return try await withRuntime { runtime -> ExtensionHostResponse in
+            try runtime.dispatch(retried)
+        }
+    }
+
+    /// The host signals a challenge in the error text; there is no distinct status for it.
+    private static func isCloudflareChallenge(_ response: ExtensionHostResponse) -> Bool {
+        guard !response.success else { return false }
+        let message = response.error?.lowercased() ?? ""
+        return message.contains("tachiyomiazcloudflarechallenge")
+            || message.contains("cloudflare bypass currently disabled")
+    }
+
+    /// Asks the extension where to log in, solves the challenge in a WebView, and hands the
+    /// resulting cookies back to the JVM so its OkHttp client is authenticated too.
+    private func solveChallenge(for source: SourceDescriptor) async throws -> String {
+        let info = try await withRuntime { runtime -> ExtensionHostResponse in
+            try runtime.dispatch(
+                ExtensionHostRequest(
+                    operation: "getWebLoginInfo",
+                    extensionId: source.extensionId,
+                    sourceId: String(source.id)
+                )
+            )
+        }
+        guard info.success,
+              let payload = info.result?.data(using: .utf8),
+              let parsed = try? JSONSerialization.jsonObject(with: payload) as? [String: Any],
+              let baseURL = parsed["baseURL"] as? String,
+              let url = URL(string: baseURL) else {
+            throw JVMRuntimeError.decodingFailed(
+                info.error ?? "The extension gave no Cloudflare login URL."
+            )
+        }
+
+        var request = URLRequest(url: url)
+        let declared = (parsed["userAgent"] as? String) ?? ""
+        let userAgent = declared.isEmpty
+            ? await UserAgentProvider.shared.getExtensionNetworkUserAgent()
+            : declared
+        if !userAgent.isEmpty {
+            request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
+        }
+
+        let session = try await CloudflareHandler.shared.solve(request: request)
+
+        let cookies = session.cookies
+            .map { "\($0.name)=\($0.value)" }
+            .joined(separator: "; ")
+        _ = try? await withRuntime { runtime -> ExtensionHostResponse in
+            try runtime.dispatch(
+                ExtensionHostRequest(
+                    operation: "setWebLoginCookies",
+                    extensionId: source.extensionId,
+                    sourceId: String(source.id),
+                    argument: cookies,
+                    userAgent: session.userAgent
+                )
+            )
+        }
+        return session.userAgent
     }
 }
 
