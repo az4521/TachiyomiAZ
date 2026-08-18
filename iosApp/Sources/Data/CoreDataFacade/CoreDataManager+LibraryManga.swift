@@ -26,7 +26,7 @@ extension CoreDataManager {
     }
 
     func hasLibraryManga(sourceId: String, mangaId: String, context: Any? = nil) -> Bool {
-        getManga(sourceId: sourceId, mangaId: mangaId)?.favorite == true
+        sharedManga(sourceId: sourceId, mangaId: mangaId)?.favorite == true
     }
 
     func clearLibrary(context: Any? = nil) {

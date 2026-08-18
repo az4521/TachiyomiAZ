@@ -1,21 +1,33 @@
+//
+//  ExtensionRunnerExtensions.swift
+//
+//  Vendored from tachiyomiazios (Shared/Extensions/ExtensionRunner.swift).
+//
+//  Upstream's copy opens with an `InterpreterConfiguration.defaultConfig` and a URLSession delegate
+//  for Aidoku's WASM interpreter. This port drives JVM extensions instead -- the request path lives
+//  in JVMSourceRuntime -- so those are left behind and everything from `Source` onward is kept: the
+//  model conversions, formatted titles and image-request modification the vendored UI relies on.
+//
+
 import ExtensionRunner
 import Foundation
 
-// Only the ExtensionRunner.Source extension is taken from tachiyomiazios's ExtensionRunner.swift.
-// The rest of that file bridged an older Manga model than the one in Models.swift here, and
-// nothing in this port needs it. getModifiedImageRequest is the important part: it lets a source
-// authenticate, decrypt or descramble its own images, and deliberately fails loudly rather than
-// falling back to the raw URL when a source advertises image-request support.
-
 extension ExtensionRunner.Source {
-    // Upstream's convenience init built a Source from a WASM bundle; sources here come from the
-    // JVM host instead, so it is not carried over.
+    /// Upstream asks whether the source runs in Aidoku's WASM interpreter. Every source in this
+    /// port is a JVM extension, so nothing is external in that sense.
+    var isExternal: Bool { false }
 
-    var isExternal: Bool {
-        runner is Interpreter
+    func toInfo() -> SourceInfo2 {
+        SourceInfo2(
+            sourceId: key,
+            iconUrl: imageUrl,
+            name: name,
+            languages: languages,
+            version: version,
+            contentRating: contentRating,
+            external: isExternal
+        )
     }
-
-    // toInfo() built a SourceInfo2 for Aidoku's source list, which this port does not use.
 
     func getModifiedImageRequest(url: URL, context: PageContext?) async -> URLRequest {
         var result: URLRequest
@@ -86,5 +98,304 @@ extension ExtensionRunner.Source {
         } else {
             return languages
         }
+    }
+}
+
+extension ExtensionRunner.Manga {
+    func toOld() -> Manga {
+        Manga(
+            sourceId: sourceKey,
+            id: key,
+            title: title,
+            author: authors.flatMap { $0.isEmpty ? nil : $0.joined(separator: ", ") },
+            artist: artists.flatMap { $0.isEmpty ? nil : $0.joined(separator: ", ") },
+            description: description,
+            tags: tags,
+            coverUrl: cover.flatMap({ URL(string: $0) }),
+            url: url,
+            status: {
+                switch status {
+                    case .unknown: .unknown
+                    case .ongoing: .ongoing
+                    case .completed: .completed
+                    case .cancelled: .cancelled
+                    case .hiatus: .hiatus
+                }
+            }(),
+            nsfw: {
+                switch contentRating {
+                    case .unknown: .safe
+                    case .safe: .safe
+                    case .suggestive: .suggestive
+                    case .nsfw: .nsfw
+                }
+            }(),
+            viewer: {
+                switch viewer {
+                    case .unknown: .defaultViewer
+                    case .rightToLeft: .rtl
+                    case .leftToRight: .ltr
+                    case .vertical: .vertical
+                    case .webtoon: .scroll
+                }
+            }(),
+            updateStrategy: updateStrategy,
+            nextUpdateTime: nextUpdateTime.flatMap { Date(timeIntervalSince1970: TimeInterval($0)) },
+        )
+    }
+
+    /// Local file sources are not built yet -- see Vendored/_excluded/Local -- so nothing is local.
+    /// The key is still compared against upstream's so this starts reporting correctly the moment
+    /// that source is restored.
+    func isLocal() -> Bool {
+        sourceKey == "local"
+    }
+
+    var uniqueKey: String {
+        "\(sourceKey).\(key)"
+    }
+
+    var identifier: MangaIdentifier {
+        .init(sourceKey: sourceKey, mangaKey: key)
+    }
+}
+
+extension ExtensionRunner.PublishingStatus {
+    var title: String {
+        switch self {
+            case .unknown: NSLocalizedString("UNKNOWN")
+            case .ongoing: NSLocalizedString("STATUS_ONGOING")
+            case .completed: NSLocalizedString("STATUS_COMPLETED")
+            case .cancelled: NSLocalizedString("STATUS_CANCELLED")
+            case .hiatus: NSLocalizedString("STATUS_HIATUS")
+        }
+    }
+}
+
+extension ExtensionRunner.ContentRating {
+    var title: String {
+        switch self {
+            case .unknown: NSLocalizedString("UNKNOWN")
+            case .safe: NSLocalizedString("SAFE")
+            case .suggestive: NSLocalizedString("SUGGESTIVE")
+            case .nsfw: NSLocalizedString("NSFW")
+        }
+    }
+}
+
+extension ExtensionRunner.SourceContentRating {
+    var title: String {
+        switch self {
+            case .safe: NSLocalizedString("SAFE")
+            case .containsNsfw: NSLocalizedString("CONTAINS_NSFW")
+            case .primarilyNsfw: NSLocalizedString("PRIMARILY_NSFW")
+        }
+    }
+
+    var stringValue: String {
+        switch self {
+            case .safe: "safe"
+            case .containsNsfw: "containsNsfw"
+            case .primarilyNsfw: "primarilyNsfw"
+        }
+    }
+
+    init?(stringValue: String) {
+        switch stringValue {
+            case "safe": self = .safe
+            case "containsNsfw": self = .containsNsfw
+            case "primarilyNsfw": self = .primarilyNsfw
+            default: return nil
+        }
+    }
+}
+
+extension ExtensionRunner.Chapter {
+    func formattedTitle(forceMode: ChapterTitleDisplayMode = .default) -> String {
+        if forceMode == .default {
+            if volumeNumber == nil && (title?.isEmpty ?? true) {
+                // Chapter X
+                return if let chapterNumber {
+                    String(format: NSLocalizedString("CHAPTER_X"), chapterNumber)
+                } else {
+                    NSLocalizedString("UNTITLED")
+                }
+            } else if let volumeNumber, chapterNumber == nil && title == nil {
+                return String(format: NSLocalizedString("VOLUME_X"), volumeNumber)
+            } else {
+                var components: [String] = []
+                // Vol.X
+                if let volumeNumber {
+                    components.append(
+                        String(format: NSLocalizedString("VOL_X"), volumeNumber)
+                    )
+                }
+                // Ch.X
+                if let chapterNumber {
+                    components.append(
+                        String(format: NSLocalizedString("CH_X"), chapterNumber)
+                    )
+                }
+                // title
+                if let title, !title.isEmpty {
+                    if !components.isEmpty {
+                        components.append("-")
+                    }
+                    components.append(title)
+                }
+                return components.joined(separator: " ")
+            }
+        } else {
+            var components: [String] = []
+            if forceMode == .chapter {
+                if let chapterNumber {
+                    components.append(String(format: NSLocalizedString("CHAPTER_X"), chapterNumber))
+                } else if let volumeNumber {
+                    components.append(String(format: NSLocalizedString("CHAPTER_X"), volumeNumber))
+                }
+            } else {
+                if let volumeNumber {
+                    components.append(String(format: NSLocalizedString("VOLUME_X"), volumeNumber))
+                } else if let chapterNumber {
+                    components.append(String(format: NSLocalizedString("VOLUME_X"), chapterNumber))
+                }
+            }
+            if let title, !title.isEmpty {
+                if !components.isEmpty {
+                    components.append("-")
+                }
+                components.append(title)
+            }
+            return components.joined(separator: " ")
+        }
+    }
+
+    func formattedSubtitle(page: Int?, sourceKey: String) -> String? {
+        var components: [String] = []
+        // date
+        if let dateUploaded {
+            components.append(makeRelativeDate(for: dateUploaded))
+        }
+        // page (if reading in progress)
+        if let page, page > 0 {
+            components.append(String(format: NSLocalizedString("PAGE_X"), page))
+        }
+        // scanlator
+        if let scanlators, !scanlators.isEmpty {
+            components.append(scanlators.joined(separator: ", "))
+        }
+        // language (if source has multiple enabled)
+        if
+            let language,
+            let languageCount = UserDefaults.standard.array(forKey: "\(sourceKey).languages")?.count,
+            languageCount > 1
+        {
+            components.append(language)
+        }
+        return components.isEmpty ? nil : components.joined(separator: " • ")
+    }
+
+    private func makeRelativeDate(for date: Date) -> String {
+        let endOfDay = Date.endOfDay()
+        let isInFuture = date > endOfDay
+        let endDate = if isInFuture {
+            // if the date is in the future, compare the difference to the start of the day instead of end
+            Date.startOfDay()
+        } else {
+            endOfDay
+        }
+        let difference = Calendar.autoupdatingCurrent.dateComponents(
+            Set([Calendar.Component.day]),
+            from: date,
+            to: endDate
+        )
+        let days = difference.day ?? 0
+
+        if days <= 1 {
+            // today or yesterday
+            let formatter = DateFormatter()
+            formatter.locale = Locale.autoupdatingCurrent
+            formatter.dateStyle = .medium
+            formatter.doesRelativeDateFormatting = true
+            return formatter.string(from: date)
+        } else if days < 7 {
+            // n days ago
+            let formatter = DateComponentsFormatter()
+            formatter.unitsStyle = .short
+            formatter.allowedUnits = .day
+            guard let timePhrase = formatter.string(from: difference) else { return "" }
+            return String(format: NSLocalizedString("%@_AGO", comment: ""), timePhrase)
+        } else {
+            return DateFormatter.localizedString(from: date, dateStyle: .medium, timeStyle: .none)
+        }
+    }
+
+    func toOld(
+        sourceId: String,
+        mangaId: String,
+        sourceOrder: Int? = nil
+    ) -> Chapter {
+        Chapter(
+            sourceId: sourceId,
+            id: key,
+            mangaId: mangaId,
+            title: title,
+            scanlator: scanlators.flatMap { $0.isEmpty ? nil : $0.joined(separator: ", ") },
+            url: url?.absoluteString,
+            lang: language ?? "en",
+            chapterNum: chapterNumber,
+            volumeNum: volumeNumber,
+            dateUploaded: dateUploaded,
+            thumbnail: thumbnail,
+            locked: locked,
+            sourceOrder: sourceOrder ?? 0
+        )
+    }
+}
+
+extension ExtensionRunner.Page {
+    func toOld(sourceId: String, chapterId: String) -> Page {
+        switch content {
+            case let .url(url, context):
+                Page(
+                    sourceId: sourceId,
+                    chapterId: chapterId,
+                    imageURL: url.absoluteString,
+                    context: context,
+                    hasDescription: hasDescription,
+                    description: description
+                )
+            case let .text(text):
+                Page(
+                    sourceId: sourceId,
+                    chapterId: chapterId,
+                    text: text,
+                    hasDescription: hasDescription,
+                    description: description
+                )
+            case let .image(image):
+                Page(
+                    sourceId: sourceId,
+                    chapterId: chapterId,
+                    image: image.image,
+                    hasDescription: hasDescription,
+                    description: description
+                )
+            case let .zipFile(url, filePath):
+                Page(
+                    sourceId: sourceId,
+                    chapterId: chapterId,
+                    imageURL: filePath,
+                    zipURL: url.absoluteString,
+                    hasDescription: hasDescription,
+                    description: description
+                )
+        }
+    }
+}
+
+extension ExtensionRunner.SelectFilter {
+    var resolvedDefaultValue: String {
+        defaultValue ?? ids?.first ?? options.first ?? ""
     }
 }

@@ -29,3 +29,14 @@ final class CoreDataManager {
     /// Kept because the vendored UI calls it after mutating.
     func save() {}
 }
+
+extension CoreDataManager {
+    /// Upstream migrates chapter progress out of a legacy per-chapter history entity.
+    ///
+    /// Nothing to do here: the shared schema keeps `last_page_read` on the chapter row and has
+    /// always done so, which is the shape that migration produces. Kept so the settings page's
+    /// "migrate history" action compiles and reports completion.
+    func migrateChapterHistory(progress: (@Sendable (Float) -> Void)? = nil) async {
+        progress?(1)
+    }
+}

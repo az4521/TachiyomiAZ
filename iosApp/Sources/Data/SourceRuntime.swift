@@ -124,6 +124,14 @@ final class SourceRuntime: ObservableObject {
         sources = descriptors.sorted {
             $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
         }
+
+        // Publish names where background work can read them -- backup encoding, for one.
+        SourceManager.shared.updateNames(
+            Dictionary(
+                sources.map { (TachiyomiXSourceRunner.key(for: $0.id), $0.name) },
+                uniquingKeysWith: { first, _ in first }
+            )
+        )
     }
 
     /// Forgets a loaded extension so the next reload picks up a new version of it.
@@ -358,6 +366,17 @@ final class SourceRuntime: ObservableObject {
             )
         }
         return session.userAgent
+    }
+
+    /// Removes every installed extension, then reloads so the source list reflects it.
+    ///
+    /// Backs the "reset" action in settings. Uninstalling goes through the catalog so the JARs are
+    /// deleted and the record persisted, rather than only clearing the in-memory source list.
+    func uninstallAll() async {
+        for item in catalog.installed {
+            catalog.uninstall(item)
+        }
+        await reload()
     }
 }
 

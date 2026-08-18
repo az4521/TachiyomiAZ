@@ -43,6 +43,15 @@ packages:
   SwiftSoup:
     url: https://github.com/scinfu/SwiftSoup
     majorVersion: 2.10.1
+  # Downloads are stored as CBZ, which is a zip; the vendored download subsystem reads and writes
+  # them through this.
+  ZIPFoundation:
+    url: https://github.com/weichsel/ZIPFoundation
+    majorVersion: 0.9.0
+  # Manga descriptions arrive as markdown from some sources; the details header renders them.
+  MarkdownUI:
+    url: https://github.com/gonzalezreal/swift-markdown-ui
+    majorVersion: 2.0.0
 
 targets:
   TachiyomiAZ:
@@ -56,6 +65,10 @@ targets:
       # The JVM runtime is copied in wholesale. JVMRuntimeConfiguration resolves these by name
       # against the bundle's resource root, so the folder must land flattened rather than nested
       # under a group -- hence "folder" rather than "group".
+      # Image assets. Xcode generates the symbol accessors the vendored UI uses (UIImage
+      # .mangaPlaceholder and friends) from this catalog.
+      - path: Resources/Assets.xcassets
+        buildPhase: resources
       - path: Resources/JVM/java_bundle
         type: folder
         buildPhase: resources
@@ -74,6 +87,13 @@ targets:
       - framework: Vendor/jvm/OpenJDK.xcframework
         embed: false
         link: true
+      # The webtoon reader renders pages as Texture nodes, from the same fork tachiyomiazios pins.
+      # Declared as a package it is a binaryTarget, and SPM's artifact download for it hangs
+      # indefinitely, so the xcframework is fetched once and linked directly instead. Replace with
+      #   ./Scripts/fetch-texture.sh
+      - framework: Vendor/AsyncDisplayKit.xcframework
+        embed: true
+        link: true
       - package: TachiJVMRunner
       - package: ExtensionRunner
         product: ExtensionRunner
@@ -84,6 +104,8 @@ targets:
       - package: Gifu
       - package: SwiftUIIntrospect
       - package: SwiftSoup
+      - package: ZIPFoundation
+      - package: MarkdownUI
     info:
       path: Sources/Info.plist
       properties:
@@ -106,6 +128,9 @@ targets:
         SWIFT_VERSION: "5.0"
         TARGETED_DEVICE_FAMILY: "1,2"
         ENABLE_USER_SCRIPT_SANDBOXING: NO
+        # The asset catalog carries image assets only. Left unset, Xcode requires an "AppIcon" set
+        # in it; the app has no icon artwork of its own yet, and the fork's is Aidoku's.
+        ASSETCATALOG_COMPILER_APPICON_NAME: ""
         # Simulator only. allow-jit and allow-unsigned-executable-memory are macOS
         # hardened-runtime entitlements: the Simulator needs them because it runs as a macOS
         # process, a real device neither needs nor is granted them, and requesting them on a

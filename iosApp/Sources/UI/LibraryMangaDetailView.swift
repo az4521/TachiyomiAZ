@@ -12,7 +12,7 @@ struct LibraryMangaDetailView: View {
     @EnvironmentObject private var runtime: SourceRuntime
     @EnvironmentObject private var settings: AppSettings
 
-    @State private var chapters: [Chapter] = []
+    @State private var chapters: [DbChapter] = []
     @State private var isRefreshing = false
     @State private var error: String?
 
@@ -91,7 +91,7 @@ struct LibraryMangaDetailView: View {
         .padding(.vertical, 4)
     }
 
-    private func chapterRow(_ chapter: Chapter) -> some View {
+    private func chapterRow(_ chapter: DbChapter) -> some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text(chapter.name)
@@ -129,7 +129,7 @@ struct LibraryMangaDetailView: View {
         )
     }
 
-    private func toggleRead(_ chapter: Chapter) {
+    private func toggleRead(_ chapter: DbChapter) {
         let handler = library.handler
         chapter.read = !chapter.read
         if chapter.read { chapter.last_page_read = 0 }

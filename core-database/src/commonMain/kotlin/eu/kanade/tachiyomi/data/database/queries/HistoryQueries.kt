@@ -71,6 +71,10 @@ interface HistoryQueries : DbProvider {
             .asFlow()
             .mapToList(databaseDispatcher)
 
+    /** Every history row, for whole-library reporting such as the reading statistics. */
+    fun getAllHistory(): List<History> =
+        sqlDatabase.historyQueries.getAllHistory(::mapHistory).executeAsList()
+
     fun getHistoryByMangaId(mangaId: Long): List<History> =
         sqlDatabase.historyQueries.getHistoryByMangaId(mangaId, ::mapHistory).executeAsList()
 

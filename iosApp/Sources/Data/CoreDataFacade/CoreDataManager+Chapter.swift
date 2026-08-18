@@ -6,13 +6,17 @@ import TachiyomiKit
 /// Read state lives on the chapter row here (`read`, `last_page_read`), as on Android, rather than
 /// being split across a separate history entity.
 extension CoreDataManager {
-    func getChapters(sourceId: String, mangaId: String, context: Any? = nil) -> [DbChapter] {
-        guard let manga = getManga(sourceId: sourceId, mangaId: mangaId) else { return [] }
+    /// The shared rows, for the facade's own queries.
+    func sharedChapters(sourceId: String, mangaId: String) -> [DbChapter] {
+        guard let manga = sharedManga(sourceId: sourceId, mangaId: mangaId) else { return [] }
         return handler.getChapters(manga: manga)
     }
 
-    func getChapters(sourceId: String, mangaId: String) async -> [DbChapter] {
-        getChapters(sourceId: sourceId, mangaId: mangaId, context: nil)
+    /// `context` is required here, unlike its siblings: the async overload in ModelConversions
+    /// shares these argument labels, and a default would make every call ambiguous.
+    func getChapters(sourceId: String, mangaId: String, context: Any?) -> [ChapterObject] {
+        sharedChapters(sourceId: sourceId, mangaId: mangaId)
+            .map { ChapterObject(row: $0, sourceId: sourceId, mangaId: mangaId) }
     }
 
     func getChapters(sourceId: String, context: Any? = nil) -> [DbChapter] {
@@ -24,8 +28,15 @@ extension CoreDataManager {
         handler.getAllChapters()
     }
 
-    func getChapter(sourceId: String, mangaId: String, chapterId: String, context: Any? = nil) -> DbChapter? {
-        getChapters(sourceId: sourceId, mangaId: mangaId).first { $0.url == chapterId }
+    func getChapter(sourceId: String, mangaId: String, chapterId: String, context: Any? = nil) -> ChapterObject? {
+        sharedChapters(sourceId: sourceId, mangaId: mangaId)
+            .first { $0.url == chapterId }
+            .map { ChapterObject(row: $0, sourceId: sourceId, mangaId: mangaId) }
+    }
+
+    /// The shared row for one chapter.
+    func sharedChapter(sourceId: String, mangaId: String, chapterId: String) -> DbChapter? {
+        sharedChapters(sourceId: sourceId, mangaId: mangaId).first { $0.url == chapterId }
     }
 
     func hasChapter(sourceId: String, mangaId: String, chapterId: String, context: Any? = nil) -> Bool {
@@ -33,7 +44,7 @@ extension CoreDataManager {
     }
 
     func removeChapters(sourceId: String, mangaId: String, context: Any? = nil) {
-        handler.deleteChapters(chapters: getChapters(sourceId: sourceId, mangaId: mangaId))
+        handler.deleteChapters(chapters: sharedChapters(sourceId: sourceId, mangaId: mangaId))
     }
 
     func clearChapters(context: Any? = nil) {
@@ -76,14 +87,14 @@ extension CoreDataManager {
     }
 
     func getHighestReadNumber(sourceId: String, mangaId: String, context: Any? = nil) -> Float? {
-        getChapters(sourceId: sourceId, mangaId: mangaId)
+        sharedChapters(sourceId: sourceId, mangaId: mangaId)
             .filter(\.read)
             .map(\.chapter_number)
             .max()
     }
 
     private func matching(sourceId: String, mangaId: String, scanlators: [String]?) -> [DbChapter] {
-        let chapters = getChapters(sourceId: sourceId, mangaId: mangaId)
+        let chapters = sharedChapters(sourceId: sourceId, mangaId: mangaId)
         guard let scanlators, !scanlators.isEmpty else { return chapters }
         return chapters.filter { chapter in
             guard let scanlator = chapter.scanlator else { return false }

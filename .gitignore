@@ -35,3 +35,6 @@ app/src/main/res/values-iw/
 # JVM runtime binaries: ~200MB, built by tachiyomiazios Scripts/. See IOS_PORT.md.
 /iosApp/Vendor/
 /iosApp/Resources/JVM/
+
+# Texture (AsyncDisplayKit), fetched by iosApp/Scripts/fetch-texture.sh
+iosApp/Vendor/AsyncDisplayKit.xcframework/

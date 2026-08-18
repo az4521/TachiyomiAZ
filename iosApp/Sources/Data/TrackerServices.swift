@@ -6,7 +6,7 @@ import Foundation
 ///
 /// UserDefaults rather than the Keychain, matching what the rest of this port does for now. Worth
 /// moving before anyone signs in with a real account on a shared device.
-private enum TokenStore {
+enum TokenStore {
     static func token(_ service: TrackerService) -> String? {
         UserDefaults.standard.string(forKey: "tracker.\(service.rawValue).token")
     }

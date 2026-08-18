@@ -126,7 +126,7 @@ final class TrackingStore: ObservableObject {
     func isLoggedIn(_ service: TrackerService) -> Bool { trackers[service]?.isLoggedIn ?? false }
 
     /// Existing tracks for a library entry, straight from the shared query.
-    func tracks(for manga: Manga) -> [Track] {
+    func tracks(for manga: DbManga) -> [Track] {
         library.handler.getTracks(manga: manga)
     }
 
@@ -134,7 +134,7 @@ final class TrackingStore: ObservableObject {
     func bind(
         _ result: TrackSearchResult,
         service: TrackerService,
-        to manga: Manga,
+        to manga: DbManga,
         status: TrackStatus = .reading,
         lastChapterRead: Int = 0
     ) async {
@@ -167,7 +167,7 @@ final class TrackingStore: ObservableObject {
         }
     }
 
-    func updateProgress(_ track: Track, manga: Manga, lastChapterRead: Int) async {
+    func updateProgress(_ track: Track, manga: DbManga, lastChapterRead: Int) async {
         let handler = library.handler
         guard let service = TrackerService(rawValue: track.sync_id) else { return }
         track.last_chapter_read = Int32(lastChapterRead)
@@ -198,7 +198,7 @@ final class TrackingStore: ObservableObject {
         )
     }
 
-    func unbind(_ track: Track, from manga: Manga) async {
+    func unbind(_ track: Track, from manga: DbManga) async {
         let handler = library.handler
         handler.deleteTrackForManga(manga: manga, syncId: Int32(track.sync_id))
     }

@@ -9,7 +9,6 @@ struct TachiyomiAZApp: App {
     @StateObject private var catalog: ExtensionCatalog
     @StateObject private var runtime: SourceRuntime
     @StateObject private var history: HistoryStore
-    @StateObject private var downloads = DownloadQueue()
     @StateObject private var tracking: TrackingStore
 
     init() {
@@ -34,7 +33,6 @@ struct TachiyomiAZApp: App {
                 .environmentObject(catalog)
                 .environmentObject(runtime)
                 .environmentObject(history)
-                .environmentObject(downloads)
                 .environmentObject(tracking)
                 .task { await library.load() }
                 .task { await jvm.start() }

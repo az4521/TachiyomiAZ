@@ -10,7 +10,7 @@ import TachiyomiKit
 extension CoreDataManager {
     /// Chapter key to progress, as the reader expects it.
     func getReadingHistory(sourceId: String, mangaId: String) async -> [String: (page: Int, date: Int)] {
-        let chapters = getChapters(sourceId: sourceId, mangaId: mangaId, context: nil)
+        let chapters = sharedChapters(sourceId: sourceId, mangaId: mangaId)
         var result: [String: (page: Int, date: Int)] = [:]
         for chapter in chapters {
             guard let history = handler.getHistoryByChapterUrl(chapterUrl: chapter.url) else { continue }
@@ -28,7 +28,7 @@ extension CoreDataManager {
         chapterId: String,
         context: Any? = nil
     ) -> (completed: Bool, progress: Int?) {
-        guard let chapter = getChapter(sourceId: sourceId, mangaId: mangaId, chapterId: chapterId) else {
+        guard let chapter = sharedChapter(sourceId: sourceId, mangaId: mangaId, chapterId: chapterId) else {
             return (false, nil)
         }
         return (chapter.read, chapter.last_page_read == 0 ? nil : Int(chapter.last_page_read))
@@ -45,9 +45,12 @@ extension CoreDataManager {
         completed: Bool? = nil,
         context: Any? = nil
     ) {
-        guard let chapter = getChapter(sourceId: sourceId, mangaId: mangaId, chapterId: chapterId) else { return }
+        guard let chapter = sharedChapter(sourceId: sourceId, mangaId: mangaId, chapterId: chapterId) else { return }
         chapter.last_page_read = Int32(progress)
         if let completed { chapter.read = completed }
+        if let scrollPosition {
+            setScrollPosition(scrollPosition, sourceId: sourceId, mangaId: mangaId, chapterId: chapterId)
+        }
         handler.updateChapterProgress(chapter: chapter)
         touchHistory(chapter: chapter, date: dateRead ?? Date())
     }
@@ -72,14 +75,14 @@ extension CoreDataManager {
         context: Any? = nil
     ) -> Bool {
         let wanted = Set(chapterIds)
-        let chapters = getChapters(sourceId: sourceId, mangaId: mangaId).filter { wanted.contains($0.url) }
+        let chapters = sharedChapters(sourceId: sourceId, mangaId: mangaId).filter { wanted.contains($0.url) }
         guard !chapters.isEmpty else { return false }
         setCompleted(chapters: chapters, date: date)
         return true
     }
 
     func hasHistory(sourceId: String, mangaId: String, context: Any? = nil) -> Bool {
-        getChapters(sourceId: sourceId, mangaId: mangaId)
+        sharedChapters(sourceId: sourceId, mangaId: mangaId)
             .contains { handler.getHistoryByChapterUrl(chapterUrl: $0.url) != nil }
     }
 
@@ -90,7 +93,7 @@ extension CoreDataManager {
     func removeHistory(sourceId: String, mangaId: String, context: Any? = nil) {
         let handler = self.handler
         handler.inTransaction {
-            for chapter in self.getChapters(sourceId: sourceId, mangaId: mangaId) {
+            for chapter in self.sharedChapters(sourceId: sourceId, mangaId: mangaId) {
                 guard let history = handler.getHistoryByChapterUrl(chapterUrl: chapter.url) else { continue }
                 history.last_read = 0
                 handler.updateHistoryLastRead(history: history)
@@ -102,7 +105,7 @@ extension CoreDataManager {
         let wanted = Set(chapterIds)
         let handler = self.handler
         handler.inTransaction {
-            for chapter in self.getChapters(sourceId: sourceId, mangaId: mangaId, context: nil)
+            for chapter in self.sharedChapters(sourceId: sourceId, mangaId: mangaId)
                 where wanted.contains(chapter.url) {
                 guard let history = handler.getHistoryByChapterUrl(chapterUrl: chapter.url) else { continue }
                 history.last_read = 0
@@ -122,7 +125,7 @@ extension CoreDataManager {
     }
 
     func getEarliestReadDate(sourceId: String, mangaId: String, context: Any? = nil) -> Date? {
-        getChapters(sourceId: sourceId, mangaId: mangaId)
+        sharedChapters(sourceId: sourceId, mangaId: mangaId)
             .compactMap { handler.getHistoryByChapterUrl(chapterUrl: $0.url)?.last_read }
             .filter { $0 > 0 }
             .min()
@@ -140,5 +143,17 @@ extension CoreDataManager {
             history.last_read = stamp
             handler.insertHistory(history: history)
         }
+    }
+}
+
+extension CoreDataManager {
+    /// Accumulates time spent reading a chapter, in `history.time_read`.
+    func addReadTime(seconds: Int64, sourceId: String, mangaId: String, chapterId: String) {
+        guard
+            let chapter = sharedChapter(sourceId: sourceId, mangaId: mangaId, chapterId: chapterId),
+            let history = handler.getHistoryByChapterUrl(chapterUrl: chapter.url)
+        else { return }
+        history.time_read += seconds
+        handler.updateHistoryLastRead(history: history)
     }
 }

@@ -62,4 +62,77 @@ final class MangaManager {
         }
         return true
     }
+
+    // MARK: - Next chapter
+
+    // Lifted verbatim from tachiyomiazios' MangaManager. That class is not vendored -- it drives
+    // chapter syncing, which this port takes from :core-domain -- but this method is pure logic
+    // over the chapter list and reading history, touching no persistence, so it comes across as-is
+    // rather than being reimplemented and drifting from the behaviour the UI expects.
+    nonisolated func getNextChapter(
+        manga: ExtensionRunner.Manga,
+        chapters: [ExtensionRunner.Chapter],
+        readingHistory: [String: (page: Int, date: Int)],
+        sortAscending: Bool,
+        downloadStatuses: [String: DownloadStatus]? = nil
+    ) -> ExtensionRunner.Chapter? {
+        let resumeLastOpened = UserDefaults.standard.bool(forKey: "Library.resumeLastOpenedChapter")
+
+        // 1. Resume Reading: Find the most recently read chapter that isn't
+        // completed, unless the "resume last opened" option is enabled.
+        var selectedChapter: ExtensionRunner.Chapter?
+        var selectedDate: Int = -1
+
+        for chapter in chapters {
+            guard
+                let history = readingHistory[chapter.id],
+                resumeLastOpened || history.page != -1,
+                history.date > selectedDate
+            else { continue }
+
+            if chapter.locked {
+                let isDownloaded = if let downloadStatuses {
+                    downloadStatuses[chapter.key] == .finished
+                } else {
+                    DownloadManager.shared.getDownloadStatus(
+                        for: .init(
+                            sourceKey: manga.sourceKey,
+                            mangaKey: manga.key,
+                            chapterKey: chapter.key
+                        )
+                    ) == .finished
+                }
+                guard isDownloaded else { continue }
+            }
+
+            selectedDate = history.date
+            selectedChapter = chapter
+        }
+
+        if let selectedChapter {
+            return selectedChapter
+        }
+
+        // 2. Fallback: Find first uncompleted chapter in sort order (Start Reading)
+        let sorted = sortAscending ? chapters : chapters.reversed()
+
+        return sorted.first(where: { chapter in
+            let isDownloaded = if let downloadStatuses {
+                downloadStatuses[chapter.key] == .finished
+            } else {
+                DownloadManager.shared.getDownloadStatus(
+                    for: .init(
+                        sourceKey: manga.sourceKey,
+                        mangaKey: manga.key,
+                        chapterKey: chapter.key
+                    )
+                ) == .finished
+            }
+            let isUnlocked = !chapter.locked || isDownloaded
+            let history = readingHistory[chapter.id]
+            let isCompleted = history?.page ?? 0 == -1
+
+            return isUnlocked && !isCompleted
+        })
+    }
 }

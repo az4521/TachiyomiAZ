@@ -14,6 +14,9 @@ CREATE INDEX history_history_chapter_id_index ON history(history_chapter_id);
 getHistoryByChapterId:
 SELECT * FROM history WHERE history_chapter_id = ?;
 
+getAllHistory:
+SELECT * FROM history;
+
 getHistoryByMangaId:
 SELECT history.* FROM history
 JOIN chapters ON history.history_chapter_id = chapters._id

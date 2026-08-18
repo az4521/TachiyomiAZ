@@ -11,7 +11,7 @@ extension CoreDataManager {
     }
 
     func getTracks(sourceId: String, mangaId: String, context: Any? = nil) -> [Track] {
-        guard let manga = getManga(sourceId: sourceId, mangaId: mangaId) else { return [] }
+        guard let manga = sharedManga(sourceId: sourceId, mangaId: mangaId) else { return [] }
         return handler.getTracks(manga: manga)
     }
 
@@ -36,7 +36,7 @@ extension CoreDataManager {
     func removeTrack(trackerId: String, sourceId: String, mangaId: String, context: Any? = nil) {
         guard
             let sync = TrackerService(name: trackerId)?.rawValue,
-            let manga = getManga(sourceId: sourceId, mangaId: mangaId)
+            let manga = sharedManga(sourceId: sourceId, mangaId: mangaId)
         else { return }
         handler.deleteTrackForManga(manga: manga, syncId: sync)
     }

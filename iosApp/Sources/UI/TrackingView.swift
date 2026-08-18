@@ -65,7 +65,7 @@ struct TrackingSettingsView: View {
 
 /// Binding a library entry to a tracker, and editing an existing track.
 struct MangaTrackingView: View {
-    let manga: Manga
+    let manga: DbManga
 
     @EnvironmentObject private var tracking: TrackingStore
 

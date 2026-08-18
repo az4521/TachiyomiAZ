@@ -1,55 +1,44 @@
-# Vendored UI from tachiyomiazios — migration in progress
+# Vendored UI
 
-These files are **in-tree but not compiled** (`project.yml` excludes `Vendored/**`). The app builds
-and runs without them; re-including them is how the migration continues.
+Source copied from [tachiyomiazios](https://github.com/az4521/tachiyomiazios) — the Aidoku fork —
+and committed here rather than depended on as a library. Everything in this directory arrived from
+that project; everything outside it is this port's own code.
 
-## Why this exists
+Only one edit is applied wholesale: `AidokuRunner` → `ExtensionRunner`. That package had already
+replaced Aidoku's WASM runner with one driving JVM extensions, so the Aidoku name described nothing
+that remained.
 
-Hand-built screens were coming out unusable next to tachiyomiazios's mature UI. Taking that UI is
-viable because its coupling turned out to be shallow — it binds to about six model types, not to
-Aidoku's logic:
+**Keep changes here minimal.** Re-syncing with upstream is a diff against these files, and every
+local edit makes that harder. Where the fork expects something this port spells differently, prefer
+adapting *our* side: `Category.title` bridges to the shared model's `name`, and `DatabaseContainer`
+mimics `NSPersistentContainer` so ~100 `performBackgroundTask` call sites need no edits at all.
 
-| | |
-|---|---|
-| `iOS/New` SwiftUI UI | 134 files, 27.6k loc, **no** AsyncDisplayKit |
-| Files touching `NSManagedObject` directly | 29 |
-| `ExtensionRunner` (was `ExtensionRunner`) | 9 files, 1.3k loc, **no** dependencies after dropping vestigial Wasm3 |
+## What is here
 
-The rule this migration follows: **take the UI, and nothing else.** Persistence, caching and source
-access go to the KMP modules, so the shared database stays the single source of truth. Adopting
-Aidoku's Core Data layer would give a working app that quietly abandons the point of the port.
+| Area | Notes |
+| --- | --- |
+| `Common/`, `Extensions/`, `Utilities/`, `Models/` | UI infrastructure — cells, modifiers, button styles, view models |
+| `Models/Legacy/` | The fork's `Manga`/`Chapter` classes. These are the UI's currency; the shared KMP models are the database's. `ModelConversions.swift` is the one seam between them |
+| `Settings/` | The multi-page settings tree (`Settings.swift`) and its pages |
+| `Logging/` | Full logging subsystem, including the log viewer the settings page opens |
+| `Downloads/` | Download manager, queue, tasks and cache (2,212 lines, verbatim) |
+| `Backup/Models/` | Backup models with their CoreData halves stripped |
+| `Manga/`, `Reader/`, `Browse/` | Manga details, the readers, source icons |
 
-## Done
+## What is deliberately not here
 
-- `ExtensionRunner` package vendored and renamed from `ExtensionRunner` — that name described Aidoku's
-  WASM runner, which tachiyomiazios had already replaced with a JVM one, so it named nothing that
-  remained. Its vestigial Wasm3 dependency was dropped: `Interpreter` is already a stub and "Wasm3"
-  survives only in a comment.
-- `Common/`, `Utilities/`, `Extensions/`, and two view-model types vendored (~7k loc).
-- Third-party packages matched to the fork's versions: Nuke 13 (also the image cache), Gifu,
-  SwiftUIIntrospect, SwiftSoup.
-- KMP-backed shims written for what the UI expects: `MangaManager` (library operations through
-  `IosDatabaseHandler`) and `SourceManager` (source lookup through `SourceRuntime`).
+**Persistence.** The fork's CoreData stack is not vendored. `:core-database` is already the store and
+the Android app reads it through the same generated queries, so a second stack would give the two
+apps schemas that drift. `Sources/Data/CoreDataFacade/` keeps upstream's method names and runs
+SQLDelight underneath.
 
-## Remaining, in order
+**The manager layer.** `MangaManager`, `HistoryManager` and `TrackerManager` drive chapter syncing
+and library updates. This port takes those rules from `:core-domain` (`syncChaptersWithSource`,
+`selectLibraryMangaToUpdate`) so both apps apply one rule rather than two implementations of it.
 
-1. `Common/Settings/SettingView.swift` — references `TachiyomiXSourceRunner` for per-source
-   settings, and `AppDelegate.presentAlert`. Needs the source-settings path rebuilt on
-   `SourceRuntime` plus a small alert helper.
-2. A `CoreDataManager`-shaped adapter over the shared queries, for the 54 files that call it. The
-   API is per-entity (Chapter, Category, History, LibraryManga, Track, Manga) and maps closely onto
-   `:core-database`'s query mixins.
-3. The 29 files holding `NSManagedObject` directly — real adaptation, not a shim.
-4. Then the feature areas, cheapest first: Library (2 files, 0 CoreData), Reader (1 file, 0),
-   Browse, Manga, History, Settings (24 files — Backups, Categories, Downloads, Insights/stats,
-   About, Tracking).
+**Aidoku's built-in sources.** Komga, Kavita, Suwayomi and the local-file source are Aidoku
+concepts; every source here is a JVM extension. `SourceListsView` went with them — extension
+repositories are `RepositoryStore`'s job.
 
-## Deliberate omissions, already made
-
-- `MangaCollectionViewController.swift` (in `_excluded/`) — extends AsyncDisplayKit's view
-  controller; a large framework for one legacy screen the SwiftUI layer does not need.
-- `SourceWebBrowserView` / `SourceWebBrowserPresenter`, removed from `Common/Settings/WebView.swift`
-  — took `TachiyomiXSourceRunner`. The per-source login browser needs rebuilding on `SourceRuntime`.
-- `JVMImageURLProtocol` in `Common/SourceImageView.swift` — routed cover requests back through the
-  JVM for per-source headers. Without it, sources gating covers on a referer or Cloudflare cookie
-  will show broken covers. Browsing and reading are unaffected.
+See `_excluded/` for code kept for reference but not compiled, and the README in each subdirectory
+for why.
