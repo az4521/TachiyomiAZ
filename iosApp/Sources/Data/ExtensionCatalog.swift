@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import TachiyomiKit
 
@@ -202,9 +203,29 @@ final class ExtensionCatalog: ObservableObject {
             try FileManager.default.moveItem(at: temporaryURL, to: destination)
 
             // The VM is the authority on whether this is loadable, not the index metadata.
-            let entryClass: String
+            let inspection: JVMExtensionInspection
             do {
-                entryClass = try await jvm.inspect(jarPath: destination.path).entryClass
+                inspection = try await jvm.inspect(jarPath: destination.path)
+            } catch {
+                try? FileManager.default.removeItem(at: destination)
+                lastError = "\(extensionItem.name): \(error.localizedDescription)"
+                return
+            }
+            let entryClass = inspection.entryClass
+
+            // Hand the JAR to JVMSourceRuntime, which owns the VM and keeps the layout its own
+            // installedManifests() reads. Without this the extension installs but no source ever
+            // appears, because the two halves look in different directories.
+            do {
+                let manifest = JVMExtensionManifest(
+                    inspection: inspection,
+                    sourceURL: url,
+                    iconURL: URL(string: extensionItem.iconURL),
+                    sha256: try Self.sha256(of: destination),
+                    versionCode: String(extensionItem.versionCode),
+                    isNsfw: extensionItem.isNsfw
+                )
+                _ = try await JVMSourceRuntime.shared.install(jar: destination, manifest: manifest)
             } catch {
                 try? FileManager.default.removeItem(at: destination)
                 lastError = "\(extensionItem.name): \(error.localizedDescription)"
@@ -235,10 +256,53 @@ final class ExtensionCatalog: ObservableObject {
         }
         installed.removeAll { $0.packageName == item.packageName }
         persist()
+        // The VM holds the loaded classes and its own copy of the JAR.
+        let packageName = item.packageName
+        Task { try? await JVMSourceRuntime.shared.uninstall(extensionId: packageName) }
+    }
+
+    /// Checksum the manifest records, so a later load can tell the JAR has not been swapped.
+    private static func sha256(of url: URL) throws -> String {
+        let digest = SHA256.hash(data: try Data(contentsOf: url))
+        return digest.map { String(format: "%02x", $0) }.joined()
     }
 
     private func persist() {
         guard let data = try? JSONEncoder().encode(installed) else { return }
         UserDefaults.standard.set(data, forKey: key)
+    }
+
+    // MARK: - Migration
+
+    /// Re-registers extensions installed before JVMSourceRuntime became the sole VM owner.
+    ///
+    /// Installs used to land as flat JARs in `Extensions/`, which the runtime never reads -- it
+    /// keeps its own `JVMExtensions/<id>/<version>/` layout with a manifest. Anything recorded here
+    /// but missing from that layout would silently produce no sources, so it is handed over on
+    /// launch using the JAR already on disk. No re-download.
+    func migrateToRuntimeLayout() async {
+        let known = Set(((try? await JVMSourceRuntime.shared.installedManifests()) ?? []).map(\.id))
+        let stale = installed.filter { !known.contains($0.packageName) }
+        guard !stale.isEmpty else { return }
+
+        for item in stale {
+            guard
+                let jar = try? Self.jarURL(for: item),
+                FileManager.default.fileExists(atPath: jar.path)
+            else { continue }
+
+            do {
+                let inspection = try await jvm.inspect(jarPath: jar.path)
+                let manifest = JVMExtensionManifest(
+                    inspection: inspection,
+                    sourceURL: nil,
+                    sha256: try Self.sha256(of: jar),
+                    versionCode: String(item.versionCode)
+                )
+                _ = try await JVMSourceRuntime.shared.install(jar: jar, manifest: manifest)
+            } catch {
+                lastError = "\(item.name): could not be migrated to the runtime (\(error.localizedDescription))."
+            }
+        }
     }
 }

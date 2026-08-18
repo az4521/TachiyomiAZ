@@ -35,7 +35,12 @@ struct TachiyomiAZApp: App {
                 .environmentObject(history)
                 .environmentObject(tracking)
                 .task { await library.load() }
-                .task { await jvm.start() }
+                .task {
+                    await jvm.start()
+                    // Extensions installed before the runtime owned the VM live in the old flat
+                    // layout and would load nothing; hand those over before sources are read.
+                    await catalog.migrateToRuntimeLayout()
+                }
                 .preferredColorScheme(settings.colorScheme.resolved)
                 .tint(settings.accent.color)
         }
