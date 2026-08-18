@@ -1,0 +1,241 @@
+
+
+"CANCEL" = "निरस्त करें";
+"OK" = "ठीक है";
+"UNAVAILABLE" = "अनुपलब्ध";
+// General
+"CONTINUE" = "जारी रखें";
+"UNKNOWN" = "अनजान";
+"DELETE" = "मिटाना";
+"REMOVE" = "हटाएँ";
+"RENAME" = "नया नाम दे";
+"CLEAR" = "साफ़ करें";
+"LOADING_ELLIPSIS" = "लोडिंग…";
+"SHARE" = "शेयर करें";
+
+// Downloads
+"DOWNLOAD" = "डाउनलोड";
+"DOWNLOADED" = "डाउन्लोडेड";
+"DOWNLOAD_QUEUE" = "डाउनलोड क़तार";
+"CANCEL_DOWNLOAD" = "कैन्सल डाउनलोड";
+"REMOVE_DOWNLOAD" = "डाउनलोड हटाएँ";
+"REMOVE_ALL_DOWNLOADS" = "सब डाउनलोड हटाएँ";
+"REMOVE_DOWNLOADS" = "डाउन्लोड्ज़ हटाएँ";
+
+// Library
+"LIBRARY" = "लाइब्रेरी";
+"ADD_TO_LIBRARY" = "लाइब्रेरी में जोड़े";
+"REMOVE_FROM_LIBRARY" = "लाइब्रेरी से हटाएँ";
+"SORT_LAST_OPENED" = "पिछली बार खोला गया";
+"SORT_LAST_READ" = "पिछली बार पढ़े";
+"SORT_LATEST_CHAPTER" = "लेटेस्ट चैप्टर";
+"SORT_DATE_ADDED" = "डेट ऐडेड";
+
+// Categories
+"ALL" = "सब";
+"NONE" = "कुछ भी नहीं";
+"CATEGORIES" = "कैटेगॉरीज़";
+"EDIT_CATEGORIES" = "एडिट कैटेगॉरीज़";
+"CATEGORY_ADD" = "कैटेगॉरी जोड़े";
+"CATEGORY_ADD_TEXT" = "नए कैटेगॉरी को बनाने के लिए टाइटल एंटर करें।";
+"DEFAULT_CATEGORY" = "डिफ़ॉल्ट कैटेगॉरी";
+"ALWAYS_ASK" = "हमेशा पूछे";
+
+// Browse
+"BROWSE" = "ब्राउज़";
+"BROWSE_NO_SOURCES" = "कोई सोर्स नहीं है";
+"ADDING_SOURCES_GUIDE_BUTTON" = "सॉर्सेज़ जोड़ने का गाइड";
+"UPDATES" = "अप्डेट्स";
+"INSTALLED" = "इन्स्टॉल्ड";
+"EXTERNAL" = "इक्स्टर्नल";
+"BUTTON_UPDATE" = "अप्डेट";
+"BUTTON_GET" = "लाएँ";
+"BUTTON_ERROR" = "एरर";
+
+// Source
+"SOURCE_INFO" = "सोर्स जानकारी";
+"LANGUAGE" = "भाषा";
+"LANGUAGES" = "भाषाएँ";
+"VERSION" = "वर्ज़न";
+"BUILD" = "बिल्ड";
+"LIST_HEADER" = "लिस्ट";
+"LIST_ALL" = "सब";
+
+// Manga
+"UNTITLED" = "अंटाइटल्ड";
+"STATUS_ONGOING" = "ऑनगोइंग";
+"STATUS_CANCELLED" = "कैन्सेल्ड";
+"STATUS_COMPLETED" = "ख़त्म";
+"STATUS_HIATUS" = "रुका हुआ";
+"SUGGESTIVE" = "सजेस्टिव";
+"NSFW" = "नसफव";
+"MORE" = "ज़्यादा";
+"MISSING_SOURCE" = "ग़ायब सोर्स";
+"SELECT_ALL" = "सब चुने";
+"SELECT_CHAPTERS" = "अध्याय चुने";
+"DESELECT_ALL" = "सब डीसिलेक्ट करे";
+
+// Reader
+"CHAPTER" = "अध्याय";
+"CHAPTERS" = "अध्यायों";
+"VOLUME_X" = "आवाज़ %ग";
+"CHAPTER_X" = "अध्याय %ग";
+"VOL_X" = "आवा.%ग";
+"CH_X" = "च.%ग";
+"VOL_SPACE_X" = "आवा.%ग";
+"CH_SPACE_X" = "च.%ग";
+"START_READING" = "पढ़ना शुरू करें";
+"UNREAD" = "अपठित";
+"MARK" = "निशान";
+"MARK_ALL" = "सब पर निशान लगाए";
+"MARK_PREVIOUS" = "पूर्ण को निशान लगाए";
+"MARK_READ" = "पठित हेतु निशान लगाए";
+"PREVIOUS_COLON" = "पूर्ण:";
+"NEXT_COLON" = "आगे:";
+"NO_CHAPTERS" = "कोई अध्याय नहीं";
+"FINISHED_COLON" = "ख़त्म:";
+"CURRENT_COLON" = "वर्तमान:";
+"NO_NEXT_CHAPTER" = "आगे कोई अध्याय नहीं है";
+"NO_PREVIOUS_CHAPTER" = "पीछे कोई अध्याय नहीं है";
+"READER_SETTINGS" = "रीडर सेटिंग्स";
+"READING_MODE" = "रीडिंग मोड";
+"DEFAULT" = "डिफ़ॉल्ट";
+"LTR" = "बाएँ से दाएँ";
+"SAVE_TO_PHOTOS" = "फ़ोटोज़ में सेव करें";
+
+// History
+"HISTORY" = "इतिहास";
+"%@_AGO" = "%@ पहले";
+"PAGE_X" = "पृष्ठ %i";
+"REMOVE_CHAPTER_HISTORY_TEXT" = "यह इस अध्याय का इतिहास मिटा देगा। क्या आप निश्चित है कि आप आगे बढ़ना चाहते है?";
+"AUTH_FOR_HISTORY" = "इतिहास पढ़ने के लिए ऑथेंटिकेट करे।";
+
+// Search
+"SEARCH" = "खोजे";
+"VIEW_MORE" = "ज़्यादा देखें";
+"AUTH_TO_ENABLE" = "एनेबल करने के लिए ऑथेंटिकेट करे।";
+"AUTH_TO_DISABLE" = "डिसेबल करने के लिए ऑथेंटिकेट करे।";
+"ABOUT" = "बारे में";
+"GITHUB_REPO" = "GitHub रिपॉज़िटॉरी";
+"GENERAL" = "जेनरल";
+"ICLOUD_SYNC" = "iCloud सिंक";
+"INCOGNITO_MODE" = "इंकॉग्नीटो मोड";
+"INCOGNITO_MODE_TEXT" = "एनेबल करने पर इतिहास पढ़ते वक्त उसे रोक दिया जाता है";
+"APPEARANCE" = "दिखावट";
+"RESET" = "रीसेट";
+"LIBRARY_SEARCH" = "लाइब्रेरी में ढूँढे";
+"MANGA_INFO" = "माँगा जानकारी";
+"REMOVE_DOWNLOADS_CONFIRM" = "क्या आप निश्चित है की आप सभी सिलेक्टेड डाउन्लोड्ज़ को हटाना चाहते है?";
+"SORT_TITLE" = "टाइटल";
+"LIBRARY_EMPTY" = "लाइब्रेरी ख़ाली";
+"FILTER_BY" = "फ़िल्टर बाई";
+"INFO" = "जानकारी";
+"SORT_BY" = "सॉर्ट बाई";
+"UNINSTALL" = "उनिंस्टल्ल";
+"BUTTON_FILTER" = "फ़िल्टर";
+"SOURCE_ORDER" = "सोर्स ऑर्डर";
+"MISSING_SOURCE_TEXT" = "इस माँगा का अरिजिनल सोर्स मिसिंग है।कृपया उसे फिरसे डाउनलोड करें या इस टाइटल को अपने लाइब्रेरी से हटा दें।";
+"RTL" = "दाएँ से बाएँ";
+"EXPERIMENTAL" = "इक्स्पेरिमेंटल";
+"NO_CHAPTERS_AVAILABLE" = "कोई अध्याय उपलब्ध नहीं";
+"INFINITE_VERTICAL_SCROLL" = "इन्फ़िनिट वर्टिकल स्क्रोलिंग";
+"READ" = "पढ़े";
+"MARK_UNREAD" = "अपठित हेतु निशान लगाए";
+"CONTINUE_READING" = "पढ़ाई जारी रखे";
+"VERTICAL" = "वर्टिकल";
+"VERTICAL_SCROLL" = "वर्टिकल स्क्रोल";
+"REMOVE_ALL_MANGA_HISTORY" = "सब माँगा इतिहास को मिटा दे";
+"HISTORY_LOCKED" = "इतिहास लॉक्ड है।";
+"VIEW_HISTORY" = "इतिहास देखे";
+
+// Settings
+"SETTINGS" = "सेटिंग्स";
+"DISCORD_SERVER" = "डिस्कॉर्ड सर्वर";
+"SUPPPORT_DEVELOPMENT" = "सपोर्ट डिवेलप्मेंट";
+"APPEARANCE_LIGHT" = "रोशनी";
+"APPEARANCE_DARK" = "अंधेरा";
+"USE_SYSTEM_APPEARANCE" = "सिस्टम अपीयरेंस प्रयोग करे";
+"PORTRAIT" = "पोर्ट्रेट";
+"LANDSCAPE" = "लैंडस्केप";
+"READER" = "रीडर";
+"OPEN_READER_VIEW" = "रीडर व्यू खोले";
+"UNREAD_CHAPTER_BADGES" = "अपठित अध्याय बैजेज़";
+"PIN_UNREAD" = "अपठित";
+"LIBRARY_UPDATING" = "लाइब्रेरी अप्डेटिंग";
+"UPDATE_INTERVAL" = "अप्डेट इंटर्वल";
+"SKIP_TITLES" = "टाइटल स्किप करे";
+"ONLY_UPDATE_ON_WIFI" = "सिर्फ़ Wi-Fi पर अप्डेट करे";
+"EXCLUDED_CATEGORIES" = "बहिष्कृत कैटेगॉरीज़";
+"REFRESH_METADATA" = "मेटाडेटा रेफ़्रेश करे";
+"NEVER" = "कभी नहीं";
+"EVERY_12_HOURS" = "हर १२ घंटे";
+"WEEKLY" = "सप्ताही";
+"WITH_UNREAD_CHAPTERS" = "अपठित अध्याय के साथ";
+"SOURCE_LISTS" = "सोर्स सूचि";
+"SOURCE_LIST_ADDED" = "सोर्स लिस्ट जोड़ दिया गया है";
+"SOURCE_LIST_URL" = "सोर्स लिस्ट यूआरएल";
+"SOURCE_LIST_ADD" = "सोर्स लिस्ट जोड़े";
+"SOURCE_LIST_ADD_TEXT" = "सोर्स लिस्ट यूआरएल डाले";
+"SOURCE_LIST_ADD_FAIL" = "सोर्स लिस्ट जोड़ने में विफल हुआ";
+"LOCK_HISTORY_TAB" = "इतिहास टैब लॉक करें";
+"DOWNSAMPLE_IMAGES" = "इमिजेज़ डाउनसैम्पल करे";
+"BACKUP_NAME" = "बैकअप का नाम";
+"RENAME_BACKUP" = "बैकअप रीनेम करे";
+"CORRUPTED_BACKUP" = "बैकअप करप्टेड है";
+"CORRUPTED_BACKUP_TEXT" = "यह बैकप में मिस्कन्फ़िग्यर्ड डेटा है। रीनेम करना नामुमकिन हो गया है।";
+"MISSING_SOURCES" = "ग़ायब सॉर्सेज़";
+"RESTORE_BACKUP" = "इस बैकप पर रेस्टॉर करे?";
+"RESTORE_BACKUP_TEXT" = "पूरा वर्तमान डेटा नीता दिया जाएगा और इसे बैकप डेटा से रिप्लेस कर दिया जाएगा।";
+"BACKUP_IMPORT_SUCCESS" = "बैकप इम्पोर्टेड";
+"IMPORT_FAIL" = "इंपोर्ट विफल";
+"BACKUP_IMPORT_FAIL_TEXT" = "बैकप सेव करने में विफल हुए। कृपया सुनिश्चित कीजिए की बैकप सही फ़ॉर्मैट में है।";
+"RESTORE" = "रेस्टॉर";
+"LOGS" = "लॉग्ज़";
+"LOGGING" = "लॉगिंग";
+"LOG_SERVER" = "लोग सर्वर";
+"EXPORT_LOGS" = "इक्स्पॉर्ट लॉग्ज़";
+"DISPLAY_LOGS" = "डिस्प्ले लॉग्ज़";
+"ADVANCED" = "एडवान्स्ड";
+"CLEAR_NETWORK_CACHE" = "नेट्वर्क कैश क्लीर करे";
+"CLEAR_NETWORK_CACHE_TEXT" = "यह कार्य इरेवर्सिबल है। कैश्ट नेट्वर्क रेक्वेस्ट्स और इमिजेज़ क्लीर करदिए जाएँगे।";
+"CLEAR_READ_HISTORY" = "पठित इतिहास खाली करे";
+"CLEAR_READ_HISTORY_TEXT" = "यह कार्य इरेवर्सिबल है।पूरा इतिहास मिटा दिया जाएगा।";
+"RESET_SETTINGS" = "रीसेट सेटिंग्स";
+"RESET_SETTINGS_TEXT" = "यह कार्य इरेवर्सिबल है। पूरे ऐप और सोर्स सेटिंग्स रीसेट कर दिए जाएँगे।";
+"PAGE_X_OF_X" = "पृष्ठ %i / %i";
+"LIBRARY_LOCKED" = "लाइब्रेरी लॉक्ड है।";
+"CATEGORY_LOCKED" = "कैटेगॉरी लॉक्ड है।";
+"VIEW_LIBRARY" = "लाइब्रेरी देखे";
+"CATEGORY_EMPTY" = "कैटेगॉरी ख़ाली";
+"AUTH_TO_OPEN" = "खोलने के लिए आज्ञा दे।";
+"LOCKED_CATEGORIES" = "लॉक्ड कैटेगॉरीज़";
+"AUTH_FOR_LIBRARY" = "लाइब्रेरी देखने के लिए आज्ञा दे।";
+"LOCK_LIBRARY" = "लाइब्रेरी लॉक करे";
+"SET_AS_WIDE_PAGE" = "वाइड पेज के रूप में सेट करें";
+"AUTOMATIC" = "ऑटमैटिक";
+"SET_AS_NORMAL_PAGE" = "सामान्य पृष्ठ के रूप में सेट करें";
+"PAGES_TO_PRELOAD" = "प्रीलोड करने के लिए पृष्ठ";
+"SINGLE_PAGE" = "एकल पृष्ठ";
+"PAGED" = "पृष्ठांकित";
+"PAGE_LAYOUT" = "पेज लेआउट";
+"DOUBLE_PAGE" = "डबल पेज";
+"MULTI_LANGUAGE" = "बहु-भाषा";
+"TRACKERS" = "ट्रैकर्स";
+"LOGOUT" = "लोग आउट";
+"LOGOUT_FROM_%@" = "%a से लोग आउट करेंगे ?";
+"BACKUP_INFO" = "बैकप पर लम्बा प्रेस करे उसे इक्स्पॉर्ट करने के लिए, या लेफ़्ट स्वाइप करे मिटाने के लिए।";
+"MISSING_SOURCES_TEXT" = "रेस्टॉर्ड बैकप में दिए गए सॉर्सेज़ से डेटा हो सकता है, जो इस वक्त इन्स्टॉल्ड नहीं है:";
+"BACKUP_IMPORT_SUCCESS_TEXT" = "इस बैकअप को रिस्टोर करने के लिए, इसे सेटिंग्स में बैकअप पृष्ठ पर खोजें।";
+"EXPORT" = "इक्स्पॉर्ट";
+"WITH_COMPLETED_STATUS" = "समाप्त स्टैटुस के साथ";
+"BACKUPS" = "बैकअप्स";
+"RESET_TEXT" = "यह कार्य इरेवर्सिबल है। सब डेटा,सेटिंग्स और कैशेज़ क्लीर और रीसेट कर दिए जाएँगे।";
+"DAILY" = "हमेशा";
+"EVERY_2_DAYS" = "हर २ दिन";
+"THAT_HAVENT_BEEN_READ" = "जो पढ़ा ना गया हो";
+"SOURCE_LIST_ADDED_TEXT" = "आप इक्स्टर्नल सॉर्सेज़ ब्राउज़ तब में ब्राउज़ कर सकते है।";
+"SOURCE_LIST_ADD_FAIL_TEXT" = "दिया गया सोर्स लिस्ट यूआरएल इन्वैलिड है या पहले से जोड़ दिया गया है।";
+"RENAME_BACKUP_TEXT" = "बैकअप के लिए नया नाम डाले";
+"ONE_PAGE_LEFT" = "1 पृष्ठ बाकी";
+"%i_PAGES_LEFT" = "%i पृष्ठ बाकी";
+"SUPPORT_VIA_KOFI" = "Ko-Fi के माध्यम से सहयोग करे";

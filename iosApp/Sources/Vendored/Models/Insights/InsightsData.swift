@@ -38,8 +38,11 @@ struct InsightsData {
                 total: pagesTotal,
                 thisMonth: pagesMonth,
                 thisYear: pagesYear,
-                subtitle: NSLocalizedString("PAGE_PLURAL"),
-                singularSubtitle: NSLocalizedString("PAGE_SINGULAR")
+                // Relabelled from PAGE_*: upstream counts pages, recorded per reading session.
+                // The shared schema has no historical page count -- see CoreDataManager+Stats --
+                // so this figure is chapters read, and says so.
+                subtitle: NSLocalizedString("CHAPTER_PLURAL"),
+                singularSubtitle: NSLocalizedString("CHAPTER_SINGULAR")
             ),
             .init(
                 total: seriesTotal,
