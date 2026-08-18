@@ -7,6 +7,7 @@ import TachiyomiKit
 /// `:core-domain`, the same decoder `:app` uses, so both apps read a repository identically.
 struct ExtensionsView: View {
     @EnvironmentObject private var repositories: RepositoryStore
+    @EnvironmentObject private var jvm: JVMHost
     @State private var newRepoUrl = ""
     @State private var showingAdd = false
 
@@ -31,7 +32,7 @@ struct ExtensionsView: View {
             Section("Status") {
                 LabeledContent("Index models", value: "shared")
                 LabeledContent("Fetch + decode", value: "working")
-                LabeledContent("JVM runtime", value: "not started")
+                jvmStatusRow
             }
         }
         .refreshable { await repositories.refreshAll() }
@@ -54,6 +55,35 @@ struct ExtensionsView: View {
             }
         } message: {
             Text("Paste the direct URL to the repository's index file.")
+        }
+    }
+
+    @ViewBuilder
+    private var jvmStatusRow: some View {
+        switch jvm.state {
+        case .notStarted:
+            Button("Start JVM runtime") {
+                Task { await jvm.start() }
+            }
+        case .starting:
+            HStack {
+                Text("JVM runtime")
+                Spacer()
+                ProgressView().controlSize(.small)
+            }
+        case let .running(javaVersion, runtime):
+            LabeledContent("JVM runtime", value: "Java \(javaVersion)")
+            LabeledContent("Interpreter", value: runtime)
+        case let .failed(reason):
+            VStack(alignment: .leading, spacing: 4) {
+                Text("JVM runtime failed").foregroundStyle(.primary)
+                Text(reason)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .textSelection(.enabled)
+                Button("Retry") { Task { await jvm.retry() } }
+                    .font(.caption)
+            }
         }
     }
 

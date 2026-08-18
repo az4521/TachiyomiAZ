@@ -11,9 +11,18 @@ options:
 #
 #     cd iosApp && xcodegen generate
 #
-# TachiyomiKit.xcframework is produced by the Gradle umbrella module and is not checked in:
+# Two things this target needs that are not in git, both large binaries:
 #
-#     ./gradlew :shared-ios:assembleTachiyomiKitDebugXCFramework
+#   TachiyomiKit.xcframework  ./gradlew :shared-ios:assembleTachiyomiKitDebugXCFramework
+#   Vendor/ and Resources/JVM  the OpenJDK Mobile runtime; see IOS_PORT.md
+#
+# Stage the JVM resources for the platform you are building before generating:
+#
+#     ./Scripts/stage-jvm-resources.sh simulator
+
+packages:
+  TachiJVMRunner:
+    path: Packages/TachiJVMRunner
 
 targets:
   TachiyomiAZ:
@@ -21,11 +30,28 @@ targets:
     platform: iOS
     sources:
       - path: Sources
+      # The JVM runtime is copied in wholesale. JVMRuntimeConfiguration resolves these by name
+      # against the bundle's resource root, so the folder must land flattened rather than nested
+      # under a group -- hence "folder" rather than "group".
+      - path: Resources/JVM/java_bundle
+        type: folder
+        buildPhase: resources
+      - path: Resources/JVM/tachiaz-compat
+        type: folder
+        buildPhase: resources
+      - path: Resources/JVM/tachiaz-extension-host.jar
+        buildPhase: resources
+      - path: Resources/JVM/tachiaz-mobile-shims.jar
+        buildPhase: resources
     dependencies:
-      # Static framework: linked in at build time, so it must not also be embedded.
+      # Static frameworks: linked at build time, so they must not also be embedded.
       - framework: ../shared-ios/build/XCFrameworks/debug/TachiyomiKit.xcframework
         embed: false
         link: true
+      - framework: Vendor/jvm/OpenJDK.xcframework
+        embed: false
+        link: true
+      - package: TachiJVMRunner
     info:
       path: Sources/Info.plist
       properties:
@@ -44,5 +70,7 @@ targets:
         SWIFT_VERSION: "5.0"
         TARGETED_DEVICE_FAMILY: "1,2"
         ENABLE_USER_SCRIPT_SANDBOXING: NO
-        # Kotlin/Native's SQLDelight driver links the system SQLite.
-        OTHER_LDFLAGS: "-lsqlite3"
+        CODE_SIGN_ENTITLEMENTS: Sources/TachiyomiAZ.entitlements
+        # -lsqlite3 for SQLDelight's native driver; the rest are what the statically linked
+        # mobile VM pulls in -- it has no dynamic framework to carry its own dependencies.
+        OTHER_LDFLAGS: "-lsqlite3 -lz -liconv -lc++ -framework CoreGraphics -framework CoreText -framework ImageIO -framework JavaScriptCore -framework Security"

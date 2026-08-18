@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  The embedded JVM reserves an executable CodeCache at startup. On a real device the Zero
+	  interpreter needs no JIT, but the reservation itself still asks for executable pages, and
+	  on the *simulator* the app runs as a macOS process under hardened-runtime rules — where an
+	  unentitled RWX mapping is refused and the VM dies with:
+
+	      Error occurred during initialization of VM
+	      Could not reserve enough space in CodeCache (4096K)
+
+	  These two entitlements are what let that reservation succeed for local development.
+	-->
+	<key>com.apple.security.cs.allow-jit</key>
+	<true/>
+	<key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+	<true/>
+</dict>
+</plist>

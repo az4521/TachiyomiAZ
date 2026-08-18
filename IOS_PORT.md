@@ -107,6 +107,51 @@ The legacy flat-array index stays in `:app`. It describes APK extensions, which 
 load; this port uses JAR extensions exclusively. Note that keiyoushi's `index.min.json` is that
 legacy format and is now just an "Outdated App" stub -- use its `index.pb`.
 
+## The JVM extension runtime
+
+The runtime is built and wired into the app, but **the VM does not start on the iOS Simulator.**
+
+Built from `tachiyomiazios/Scripts/` and copied into `iosApp/Vendor/` (gitignored, ~200MB):
+
+| Artifact | Notes |
+|---|---|
+| `OpenJDK.xcframework` | OpenJDK Mobile 26 Zero, ios-arm64 + simulator, 52MB |
+| `java_bundle-device` / `-simulator` | JDK images, 44MB each |
+| `tachiaz-extension-host.jar` | receives `dispatch()` requests |
+| `tachiaz-mobile-shims.jar` | boot classpath |
+| 38 Suwayomi compat JARs | AndroidCompat and dependencies |
+
+`Scripts/stage-jvm-resources.sh [device|simulator]` copies these into the exact layout
+`JVMRuntimeConfiguration.bundled()` resolves by name. The names are not configurable.
+
+### The blocker
+
+```
+Error occurred during initialization of VM
+Could not reserve enough space in CodeCache (NK)
+```
+
+N is always exactly `InitialCodeCacheSize`. Ruled out by experiment:
+
+- **Not capacity.** 256k fails as readily as 8m.
+- **Not segmentation.** `-XX:-SegmentedCodeCache` changes nothing.
+- **Not the JIT entitlement.** `com.apple.security.cs.allow-jit` plus
+  `allow-unsigned-executable-memory`, verified present with `codesign -d --entitlements -`,
+  still fails. Note XcodeGen's `CODE_SIGN_ENTITLEMENTS` produced an *empty* entitlements dict on
+  simulator builds; it had to be applied with `codesign --force --sign -` to take effect at all.
+
+So the reservation of executable pages is refused outright rather than being too small.
+
+### What to try next
+
+The decisive experiment is to build and run `tachiyomiazios` itself on this simulator. Its README
+claims Apple-silicon simulator support, but that claim is untested here — if its VM also fails to
+boot, the support is device-only and this is expected rather than a wiring mistake. If it boots,
+something in its Xcode target differs from `iosApp/project.yml` and diffing the two settles it.
+
+Failing that, a real device is where this runtime actually ships, and sideloaded builds are its
+supported configuration.
+
 ## Guard
 
 ```bash
