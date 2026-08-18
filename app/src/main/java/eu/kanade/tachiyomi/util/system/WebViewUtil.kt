@@ -73,8 +73,13 @@ fun WebView.setDefaultSettings() {
         loadWithOverviewMode = true
         cacheMode = WebSettings.LOAD_DEFAULT
 
-        // Handle popups properly
-        setSupportMultipleWindows(true)
+        // Leave multiple-window support off. Turning it on makes WebView refuse to open
+        // window.open()/target="_blank" links itself: it defers to
+        // WebChromeClient.onCreateWindow, whose default implementation drops the request without
+        // a trace, so every popup-opening tap becomes a silent no-op. Nothing here implements
+        // onCreateWindow, so off is the only setting that actually opens popups -- WebView then
+        // loads them in place, in this same view.
+        setSupportMultipleWindows(false)
 
         // Allow zooming
         setSupportZoom(true)
