@@ -60,12 +60,9 @@ final class LibraryStore: ObservableObject {
         isLoading = true
         defer { isLoading = false }
 
-        // A library with no category cannot render tabs, and Android seeds the default on first
-        // launch too.
-        if handler.getCategories().isEmpty {
-            handler.insertCategory(category: CategoryCompanion.shared.createDefault())
-        }
-
+        // No category is seeded. "Uncategorized" is not a row -- it is the library screen's name
+        // for entries belonging to no category -- so creating a "Default" row alongside it produced
+        // two tabs meaning the same thing, one of which nothing was ever filed under.
         categories = handler.getCategories()
         manga = handler.getLibraryMangas()
     }
@@ -176,10 +173,14 @@ final class LibraryStore: ObservableObject {
     /// Which entries are touched is decided by `selectLibraryMangaToUpdate` in `:core-domain`,
     /// given the user's settings -- so "excluded categories" and "skip completed" mean exactly what
     /// they mean on Android.
+    /// - Parameter onProgress: called as each entry finishes, so the caller can drive a progress
+    ///   view. Reported here rather than only published, because the refresh runs off the screen
+    ///   that shows it.
     func refresh(
         categoryId: Int32?,
         runtime: SourceRuntime,
-        settings: AppSettings
+        settings: AppSettings,
+        onProgress: ((Int, Int) -> Void)? = nil
     ) async {
         lastError = nil
 
@@ -207,6 +208,7 @@ final class LibraryStore: ObservableObject {
 
         for (index, entry) in targets.enumerated() {
             refreshProgress = (index, targets.count)
+            onProgress?(index, targets.count)
             guard let source = runtime.sources.first(where: { $0.id == entry.source }) else { continue }
             do {
                 let update = try await runtime.mangaDetails(

@@ -128,7 +128,7 @@ extension Track {
     func toItem() -> TrackItem {
         TrackItem(
             id: String(media_id),
-            trackerId: TrackerService(rawValue: sync_id)?.title ?? String(sync_id),
+            trackerId: TrackerSyncId.trackerId(for: sync_id) ?? String(sync_id),
             sourceId: "",
             mangaId: String(manga_id_),
             title: title,

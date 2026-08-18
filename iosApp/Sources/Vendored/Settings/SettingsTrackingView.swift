@@ -112,8 +112,8 @@ struct SettingsTrackingView: View {
                 }
             }
 
-            // Aidoku's enhanced trackers (Komga, Kavita, Suwayomi) track against the server a
-            // manga came from. This port has no such sources, so there is nothing to list.
+            // Enhanced trackers (Komga, Kavita, Suwayomi) are not built -- see
+            // Vendored/_excluded/Tracking -- so there is no section to show.
 
         }
         .navigationTitle(NSLocalizedString("TRACKING"))
@@ -152,7 +152,8 @@ struct SettingsTrackingView: View {
 
             for tracker in trackers {
                 guard let oauthTracker = tracker as? OAuthTracker else { return }
-                if oauthTracker.needsRelogin {
+                let needsRelogin = await oauthTracker.oauthClient.tokens?.askedForRefresh == true
+                if needsRelogin {
                     trackersNeedingRelogin.insert(tracker.id)
                 }
             }
@@ -190,39 +191,46 @@ struct SettingsTrackingView: View {
 }
 
 extension SettingsTrackingView {
-    /// Aidoku groups sources by which enhanced tracker serves them. This port has no such
-    /// sources -- every source is a JVM extension -- so there is nothing to group.
     func loadEnhancedTrackerSources() {}
+
 
     func handleEnhancedTrackingStateChange(sourceKey: String, enabled: Bool) {
         UserDefaults.standard.set(!enabled, forKey: "\(sourceKey).disableTracking")
-        // Upstream tells the enhanced tracker the toggle changed. There is none here, so the
-        // preference above is the whole effect.
     }
 
+
     func login(to tracker: Tracker) async {
-        // Upstream opens the authentication session here, from a URL the tracker hands back. The
-        // trackers in this port own that flow themselves -- each presents its own session and
-        // exchanges the code -- so signing in is one call.
-        guard let tracker = tracker as? OAuthTracker else { return }
+        if let tracker = tracker as? OAuthTracker {
+            guard let url = await tracker.getAuthenticationUrl() else { return }
+            let session = ASWebAuthenticationSession(url: url, callbackURLScheme: "aidoku") { callbackURL, error in
+                if let error {
+                    LogManager.logger.error("Tracker authentication error: \(error.localizedDescription)")
+                }
+                if let callbackURL {
+                    Task { @MainActor in
+                        let loadingIndicator = UIActivityIndicatorView(style: .medium)
+                        loadingIndicator.startAnimating()
 
-        loadingTrackerId = tracker.id
-        defer { loadingTrackerId = nil }
+                        loadingTrackerId = tracker.id
+                        await tracker.handleAuthenticationCallback(url: callbackURL)
+                        loadingTrackerId = nil
 
-        do {
-            try await tracker.logIn()
-        } catch {
-            LogManager.logger.error("Tracker authentication error: \(error.localizedDescription)")
-            return
-        }
+                        if let index = trackers.firstIndex(where: { $0.id == tracker.id }) {
+                            trackers[index] = tracker
+                        }
 
-        if let index = trackers.firstIndex(where: { $0.id == tracker.id }) {
-            trackers[index] = tracker
+                        if tracker.isLoggedIn {
+                            await tracker.oauthClient.loadTokens()
+                            trackersNeedingRelogin.remove(tracker.id)
+                        }
+
+                        NotificationCenter.default.post(name: .updateTrackers, object: nil)
+                    }
+                }
+            }
+            session.presentationContextProvider = Self.loginShimController
+            session.start()
         }
-        if tracker.isLoggedIn {
-            trackersNeedingRelogin.remove(tracker.id)
-        }
-        NotificationCenter.default.post(name: .updateTrackers, object: nil)
     }
 }
 

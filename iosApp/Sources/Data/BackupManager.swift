@@ -151,7 +151,7 @@ final class BackupManager {
                 tracks.append(
                     BackupTrackItem(
                         id: String(track.media_id),
-                        trackerId: TrackerService(rawValue: track.sync_id)?.title ?? String(track.sync_id),
+                        trackerId: TrackerSyncId.trackerId(for: track.sync_id) ?? String(track.sync_id),
                         mangaId: mangaId,
                         sourceId: sourceId,
                         title: track.title,

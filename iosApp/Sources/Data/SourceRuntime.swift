@@ -117,6 +117,13 @@ final class SourceRuntime: ObservableObject {
             )
         )
 
+        SourceManager.shared.updateDescriptors(sources)
+
+        // Komga, Kavita and Suwayomi track against their own server, and their trackers read its
+        // address from where a source's settings live. These sources are JVM extensions, so their
+        // settings have to be mirrored out of the VM first.
+        await EnhancedSourceBridge.mirrorSettings(for: sources)
+
         loadErrors.removeAll()
         if loaded.isEmpty && !catalog.installed.isEmpty {
             loadErrors["*"] = "No sources loaded from \(catalog.installed.count) installed extension(s)."

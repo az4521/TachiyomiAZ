@@ -1,4 +1,5 @@
 import BackgroundTasks
+import UIKit
 import ExtensionRunner
 import Foundation
 import TachiyomiKit
@@ -27,18 +28,20 @@ final class MangaManager {
         chapters: [ExtensionRunner.Chapter] = [],
         fetchMangaDetails: Bool = false
     ) async {
-        guard let library, let sourceId = Int64(manga.sourceKey) else { return }
+        // A source key is `mihon.<id>`, so parsing it as a number always failed and these three
+        // methods silently did nothing -- adding to the library from the manga screen included.
+        guard let library, let sourceId = SourceIdentity.numericId(manga.sourceKey) else { return }
         await library.addFromRunner(manga, sourceId: sourceId)
     }
 
     func removeFromLibrary(sourceId: String, mangaId: String) async {
-        guard let library, let source = Int64(sourceId) else { return }
+        guard let library, let source = SourceIdentity.numericId(sourceId) else { return }
         await library.remove(url: mangaId, sourceId: source)
     }
 
     /// Re-fetches details purely to refresh a broken cover URL.
     func resetCover(manga: ExtensionRunner.Manga) async -> String? {
-        guard let runtime, let sourceId = Int64(manga.sourceKey),
+        guard let runtime, let sourceId = SourceIdentity.numericId(manga.sourceKey),
               let source = runtime.sources.first(where: { $0.id == sourceId }) else { return nil }
         let update = try? await runtime.mangaDetails(
             source,
@@ -267,11 +270,25 @@ final class MangaManager {
         let categoryId = category.flatMap { title in
             CoreDataManager.shared.getCategory(title: title)?.id?.int32Value
         }
+
+        // The tab bar shows the progress accessory at the bottom of the screen. Nothing was
+        // driving it, so a refresh ran silently -- indistinguishable from not running at all.
+        let tabBarController = (UIApplication.shared.delegate as? AppDelegate)?
+            .window?.rootViewController as? TabBarController
+        tabBarController?.showLibraryRefreshView()
+
         await library.refresh(
             categoryId: categoryId,
             runtime: runtime,
             settings: AppEnvironment.shared.settings
-        )
+        ) { completed, total in
+            tabBarController?.setLibraryRefreshProgress(
+                LibraryRefreshProgress(completed: completed, total: total)
+            )
+        }
+
+        tabBarController?.hideAccessoryView()
+        NotificationCenter.default.post(name: Notification.Name("updateLibrary"), object: nil)
     }
 
     /// Drops library membership for a set of titles, returning what was dropped so the caller can

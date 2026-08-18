@@ -16,13 +16,11 @@ final class AppEnvironment {
     let repositories = RepositoryStore()
     let catalog: ExtensionCatalog
     let runtime: SourceRuntime
-    let tracking: TrackingStore
 
     private init() {
         let catalog = ExtensionCatalog(jvm: jvm)
         self.catalog = catalog
         runtime = SourceRuntime(jvm: jvm, catalog: catalog)
-        tracking = TrackingStore(library: library)
 
         SourceManager.shared.runtime = runtime
         SourceManager.shared.catalog = catalog
@@ -33,10 +31,20 @@ final class AppEnvironment {
     /// Brings the database and the extension runtime up. Called once, from the scene.
     func start() async {
         await library.load()
+        // Primed before any request goes out: the extension host asks for this synchronously, and
+        // an empty answer is what a site sees as a missing User-Agent.
+        _ = await UserAgentProvider.shared.getUserAgent()
+
         await jvm.start()
         // Extensions installed before the runtime owned the VM live in the old flat layout and
         // would load nothing; hand those over before sources are read.
         await catalog.migrateToRuntimeLayout()
         await runtime.reload()
+
+        // The library renders each entry against its source, so entries loaded before the sources
+        // existed showed as unavailable until something else triggered a reload -- which is why
+        // browsing one source appeared to fix the whole library.
+        NotificationCenter.default.post(name: Notification.Name("updateSourceList"), object: nil)
+        NotificationCenter.default.post(name: Notification.Name("updateLibrary"), object: nil)
     }
 }

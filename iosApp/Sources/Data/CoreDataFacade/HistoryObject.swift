@@ -13,10 +13,12 @@ import TachiyomiKit
 final class HistoryObject {
     let scrollPosition: NSNumber?
     let dateRead: Date?
+    let isCompleted: Bool
 
-    init(scrollPosition: NSNumber?, dateRead: Date?) {
+    init(scrollPosition: NSNumber?, dateRead: Date?, isCompleted: Bool = false) {
         self.scrollPosition = scrollPosition
         self.dateRead = dateRead
+        self.isCompleted = isCompleted
     }
 }
 
@@ -42,7 +44,8 @@ extension CoreDataManager {
 
         return HistoryObject(
             scrollPosition: scroll,
-            dateRead: (stored?.last_read).flatMap { $0 > 0 ? Date(timeIntervalSince1970: TimeInterval($0) / 1000) : nil }
+            dateRead: (stored?.last_read).flatMap { $0 > 0 ? Date(timeIntervalSince1970: TimeInterval($0) / 1000) : nil },
+            isCompleted: chapter.read
         )
     }
 
@@ -128,4 +131,12 @@ extension CoreDataManager {
         guard offset < entries.count else { return [] }
         return Array(entries[offset..<min(offset + limit, entries.count)])
     }
+}
+
+extension HistoryObject {
+    /// Whether the chapter was finished, as opposed to left partway through.
+    ///
+    /// The shared schema keeps this on the chapter (`read`), not the history row, so it is resolved
+    /// from there rather than stored twice.
+    var completed: Bool { isCompleted }
 }

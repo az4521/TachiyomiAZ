@@ -43,6 +43,22 @@ final class SourceManager {
         return Self.loadedSources.first { $0.key == key }
     }
 
+    /// The descriptors behind the loaded sources, which carry the extension each came from.
+    nonisolated var descriptors: [SourceDescriptor] {
+        Self.descriptorLock.lock()
+        defer { Self.descriptorLock.unlock() }
+        return Self.loadedDescriptors
+    }
+
+    nonisolated func updateDescriptors(_ descriptors: [SourceDescriptor]) {
+        Self.descriptorLock.lock()
+        Self.loadedDescriptors = descriptors
+        Self.descriptorLock.unlock()
+    }
+
+    private nonisolated static let descriptorLock = NSLock()
+    nonisolated(unsafe) private static var loadedDescriptors: [SourceDescriptor] = []
+
     /// Every loaded source, as the vendored UI addresses them.
     nonisolated var sources: [ExtensionRunner.Source] {
         Self.sourceLock.lock()
@@ -182,9 +198,16 @@ final class SourceManager {
         return manifest
     }
 
+    /// Removes an installed extension.
+    ///
+    /// The runtime owns the copy that actually loads, so it does the uninstalling; the catalog's
+    /// own record is cleared alongside. Going only through the catalog left the runtime's copy in
+    /// place, which is why uninstalling appeared to do nothing.
     func uninstallTachiyomiXExtension(id extensionId: String) async throws {
-        guard let catalog, let item = catalog.installed.first(where: { $0.packageName == extensionId }) else { return }
-        catalog.uninstall(item)
+        try await JVMSourceRuntime.shared.uninstall(extensionId: extensionId)
+        if let catalog, let item = catalog.installed.first(where: { $0.packageName == extensionId }) {
+            catalog.uninstall(item)
+        }
         await runtime?.reload()
     }
 

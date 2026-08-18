@@ -37,15 +37,29 @@ class UserAgentProvider {
         }
     }
 
+    /// A desktop Safari string, used when the WebView cannot be asked.
+    ///
+    /// The fallback used to be an empty string, which sites read as a missing User-Agent -- and
+    /// some, WeebCentral among them, answer that with a block page. Anything is better than
+    /// nothing here, and this matches what the WebView would have reported.
+    static let fallback = """
+        Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 \
+        (KHTML, like Gecko) Version/17.0 Safari/605.1.15
+        """
+
     func getUserAgent() async -> String {
-        if let userAgent {
+        if let userAgent, !userAgent.isEmpty {
             return userAgent
         }
-        return await task?.value ?? ""
+        let fetched = await task?.value ?? nil
+        if let fetched, !fetched.isEmpty {
+            return fetched
+        }
+        return Self.fallback
     }
 
     func getUserAgentBlocking() -> String {
-        if let userAgent {
+        if let userAgent, !userAgent.isEmpty {
             return userAgent
         }
         return BlockingTask {

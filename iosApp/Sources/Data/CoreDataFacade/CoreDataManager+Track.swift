@@ -4,7 +4,8 @@ import TachiyomiKit
 /// Tracker links, over the shared `manga_sync` table.
 ///
 /// Upstream keys a track by a string `trackerId`; the shared schema uses Android's numeric
-/// `sync_id`, and `TrackerService` is the enum that names those numbers.
+/// `sync_id`, and `TrackerSyncId` is the mapping between them -- pinned to Android's numbers so a
+/// title tracked on one app is recognised by the other.
 extension CoreDataManager {
     func getTracks(context: Any? = nil) -> [Track] {
         handler.getAllTracks()
@@ -16,12 +17,12 @@ extension CoreDataManager {
     }
 
     func getTracks(trackerId: String, context: Any? = nil) -> [Track] {
-        guard let sync = TrackerService(name: trackerId)?.rawValue else { return [] }
+        guard let sync = TrackerSyncId.syncId(for: trackerId) else { return [] }
         return handler.getAllTracks().filter { $0.sync_id == sync }
     }
 
     func getTrack(trackerId: String, sourceId: String, mangaId: String, context: Any? = nil) -> Track? {
-        guard let sync = TrackerService(name: trackerId)?.rawValue else { return nil }
+        guard let sync = TrackerSyncId.syncId(for: trackerId) else { return nil }
         return getTracks(sourceId: sourceId, mangaId: mangaId).first { $0.sync_id == sync }
     }
 
@@ -35,7 +36,7 @@ extension CoreDataManager {
 
     func removeTrack(trackerId: String, sourceId: String, mangaId: String, context: Any? = nil) {
         guard
-            let sync = TrackerService(name: trackerId)?.rawValue,
+            let sync = TrackerSyncId.syncId(for: trackerId),
             let manga = sharedManga(sourceId: sourceId, mangaId: mangaId)
         else { return }
         handler.deleteTrackForManga(manga: manga, syncId: sync)
@@ -44,7 +45,7 @@ extension CoreDataManager {
     /// Deletion is per-manga in the shared schema, so removing a tracker means walking the manga it
     /// is linked to rather than deleting by tracker in one statement.
     func removeTracks(trackerId: String, context: Any? = nil) {
-        guard let sync = TrackerService(name: trackerId)?.rawValue else { return }
+        guard let sync = TrackerSyncId.syncId(for: trackerId) else { return }
         remove(syncIds: [sync])
     }
 
@@ -64,5 +65,65 @@ extension CoreDataManager {
                 handler.deleteTrackForManga(manga: manga, syncId: track.sync_id)
             }
         }
+    }
+}
+
+extension CoreDataManager {
+    /// Links a title to a tracker, writing a row into the shared `manga_sync` table.
+    ///
+    /// `sync_id` comes from `TrackerSyncId`, so the row is the one the Android app would have
+    /// written for the same service.
+    @discardableResult
+    func createTrack(
+        id: String,
+        trackerId: String,
+        sourceId: String,
+        mangaId: String,
+        title: String?,
+        chapterOffset: Int = 0,
+        context: Any? = nil
+    ) -> Track? {
+        guard
+            let sync = TrackerSyncId.syncId(for: trackerId),
+            let manga = sharedManga(sourceId: sourceId, mangaId: mangaId),
+            let mangaRowId = manga.id?.int64Value
+        else { return nil }
+
+        let track = TrackImpl()
+        track.manga_id_ = mangaRowId
+        track.sync_id = sync
+        track.media_id = Int64(id) ?? 0
+        track.title = title ?? ""
+        track.tracking_url = ""
+        handler.insertTrack(track: track)
+
+        setTrackChapterOffset(
+            trackerId: trackerId,
+            sourceId: sourceId,
+            mangaId: mangaId,
+            chapterOffset: chapterOffset
+        )
+        return track
+    }
+
+    /// Android's `manga_sync` has no offset column -- it is this app's own adjustment for sources
+    /// whose chapter numbering differs from the tracker's -- so it is kept alongside.
+    func setTrackChapterOffset(
+        trackerId: String,
+        sourceId: String,
+        mangaId: String,
+        chapterOffset: Int,
+        context: Any? = nil
+    ) {
+        UserDefaults.standard.set(
+            chapterOffset,
+            forKey: "Tracking.chapterOffset.\(trackerId).\(sourceId).\(mangaId)"
+        )
+    }
+
+    func trackChapterOffset(trackerId: String, sourceId: String, mangaId: String) -> Int {
+        UserDefaults.standard.integer(
+            forKey: "Tracking.chapterOffset.\(trackerId).\(sourceId).\(mangaId)"
+        )
     }
 }

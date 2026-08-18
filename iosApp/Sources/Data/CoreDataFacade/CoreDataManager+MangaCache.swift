@@ -51,6 +51,13 @@ extension CoreDataManager {
         }
         record.initialized = true
         handler.insertManga(manga: record)
+
+        // `includeChapters` was accepted and ignored, so opening a title stored the manga row and
+        // dropped its chapters. Nothing else writes them outside a library refresh, which left
+        // every entry with no chapters -- and therefore no unread count and nothing to read.
+        if includeChapters, let chapters = manga.chapters, !chapters.isEmpty {
+            setChapters(chapters, sourceId: manga.sourceKey, mangaId: manga.key)
+        }
     }
 
     /// Upstream stamps a `lastOpened` column on its library entity. Android's schema has none, so
