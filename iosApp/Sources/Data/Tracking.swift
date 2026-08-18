@@ -12,6 +12,16 @@ enum TrackerService: Int32, CaseIterable, Identifiable {
 
     var id: Int32 { rawValue }
 
+    /// The vendored UI identifies a tracker by name, the shared schema by `sync_id`; this is how a
+    /// name from the UI reaches the right row.
+    init?(name: String) {
+        guard let match = Self.allCases.first(where: {
+            $0.title.caseInsensitiveCompare(name) == .orderedSame
+                || String(describing: $0).caseInsensitiveCompare(name) == .orderedSame
+        }) else { return nil }
+        self = match
+    }
+
     var title: String {
         switch self {
         case .myAnimeList: return "MyAnimeList"
@@ -37,6 +47,16 @@ enum TrackStatus: Int32, CaseIterable, Identifiable {
     case rereading = 6
 
     var id: Int32 { rawValue }
+
+    /// The vendored UI identifies a tracker by name, the shared schema by `sync_id`; this is how a
+    /// name from the UI reaches the right row.
+    init?(name: String) {
+        guard let match = Self.allCases.first(where: {
+            $0.title.caseInsensitiveCompare(name) == .orderedSame
+                || String(describing: $0).caseInsensitiveCompare(name) == .orderedSame
+        }) else { return nil }
+        self = match
+    }
 
     var title: String {
         switch self {
