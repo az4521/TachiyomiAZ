@@ -124,33 +124,31 @@ Built from `tachiyomiazios/Scripts/` and copied into `iosApp/Vendor/` (gitignore
 `Scripts/stage-jvm-resources.sh [device|simulator]` copies these into the exact layout
 `JVMRuntimeConfiguration.bundled()` resolves by name. The names are not configurable.
 
-### The blocker
+### Running it on the Simulator
 
-```
-Error occurred during initialization of VM
-Could not reserve enough space in CodeCache (NK)
-```
+The stock runtime **cannot** start on the Simulator, and this is not a configuration mistake --
+it needs three source changes. `Scripts/rebuild-jvm-simulator.sh` applies them and rebuilds only
+the simulator slice (~20 min; the device slice and both `java_bundle` images are reused untouched):
 
-N is always exactly `InitialCodeCacheSize`. Ruled out by experiment:
+| Upstream, for any `__IOS__` build | Effect on the Simulator |
+|---|---|
+| `anon_mmap` strips `MAP_JIT` | executable reservation refused; "Could not reserve enough space in CodeCache" |
+| `current_thread_enable_wx` body compiled out | writes into W^X memory `SIGBUS` |
+| SDK marks `pthread_jit_write_protect_np` unavailable on iOS | will not compile; resolved with `dlsym` instead |
 
-- **Not capacity.** 256k fails as readily as 8m.
-- **Not segmentation.** `-XX:-SegmentedCodeCache` changes nothing.
-- **Not the JIT entitlement.** `com.apple.security.cs.allow-jit` plus
-  `allow-unsigned-executable-memory`, verified present with `codesign -d --entitlements -`,
-  still fails. Note XcodeGen's `CODE_SIGN_ENTITLEMENTS` produced an *empty* entitlements dict on
-  simulator builds; it had to be applied with `codesign --force --sign -` to take effect at all.
+All three are *correct* for a real device: iOS has no `MAP_JIT` and no W^X toggle, and does not
+need them. They are wrong only for the Simulator, which is an arm64 macOS process wearing an iOS
+SDK. Every change is guarded by `TARGET_OS_SIMULATOR`, so the device slice is unaffected.
 
-So the reservation of executable pages is refused outright rather than being too small.
+Two things that make this hard to diagnose. The CodeCache error reports whatever
+`InitialCodeCacheSize` happens to be, so it reads as a sizing problem -- 256k fails exactly as
+readily as 8m. And `com.apple.security.cs.allow-jit` does not help on its own, because the
+entitlement only *permits* `MAP_JIT`; it does not imply it. The entitlement is still required, and
+note that XcodeGen's `CODE_SIGN_ENTITLEMENTS` produced an empty entitlements dict on simulator
+builds -- it has to be applied with `codesign --force --sign - --entitlements` to take effect.
 
-### What to try next
-
-The decisive experiment is to build and run `tachiyomiazios` itself on this simulator. Its README
-claims Apple-silicon simulator support, but that claim is untested here — if its VM also fails to
-boot, the support is device-only and this is expected rather than a wiring mistake. If it boots,
-something in its Xcode target differs from `iosApp/project.yml` and diffing the two settles it.
-
-Failing that, a real device is where this runtime actually ships, and sideloaded builds are its
-supported configuration.
+Verified: the app reports `Java 26-internal` / `OpenJDK/mobile Zero` from a real `ping` round trip
+through the extension host.
 
 ## Guard
 

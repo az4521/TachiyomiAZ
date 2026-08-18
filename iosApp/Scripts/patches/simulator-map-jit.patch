@@ -1,0 +1,40 @@
+Add MAP_JIT for the iOS Simulator so the VM can reserve executable memory.
+
+The mobile runtime strips MAP_JIT for every __IOS__ build:
+
+    const int flags = MAP_PRIVATE | MAP_NORESERVE | MAP_ANONYMOUS
+    #ifdef __IOS__
+        ;
+    #else
+        MACOS_ONLY(| (exec ? MAP_JIT : 0));
+    #endif
+
+That is right for a device -- iOS has no MAP_JIT and does not need one -- but the
+Simulator is not iOS. It is an arm64 macOS process wearing an iOS SDK, and Apple
+Silicon macOS refuses an executable mapping that was not requested with MAP_JIT.
+HotSpot therefore fails during initialisation, before anything else runs:
+
+    Error occurred during initialization of VM
+    Could not reserve enough space in CodeCache (4096K)
+
+The reported size is whatever InitialCodeCacheSize happens to be, which is why it
+looks like a sizing problem; it is not. 256K fails exactly as readily as 8M, and
+the com.apple.security.cs.allow-jit entitlement does not help on its own, because
+the entitlement only permits MAP_JIT -- it does not imply it.
+
+TARGET_OS_SIMULATOR distinguishes the two at compile time, so the device build is
+byte-for-byte unaffected.
+
+--- a/src/hotspot/os/bsd/os_bsd.cpp
++++ b/src/hotspot/os/bsd/os_bsd.cpp
+@@ static char* anon_mmap(char* requested_addr, size_t bytes, bool exec) {
+   // MAP_FIXED is intentionally left out, to leave existing mappings intact.
+   const int flags = MAP_PRIVATE | MAP_NORESERVE | MAP_ANONYMOUS
+-#ifdef __IOS__
++#if defined(__IOS__) && defined(TARGET_OS_SIMULATOR) && TARGET_OS_SIMULATOR
++      | (exec ? MAP_JIT : 0);
++#elif defined(__IOS__)
+       ;
+ #else
+       MACOS_ONLY(| (exec ? MAP_JIT : 0));
+ #endif

@@ -1,0 +1,140 @@
+diff --git a/src/java.base/share/classes/jdk/internal/util/OperatingSystem.java b/src/java.base/share/classes/jdk/internal/util/OperatingSystem.java
+index 927ab682c..4e6c9013e 100644
+--- a/src/java.base/share/classes/jdk/internal/util/OperatingSystem.java
++++ b/src/java.base/share/classes/jdk/internal/util/OperatingSystem.java
+@@ -131,6 +131,13 @@ public static OperatingSystem current() {
+      * Names not recognized throw ExceptionInInitializerError with IllegalArgumentException.
+      */
+     private static OperatingSystem initOS() {
+-        return OperatingSystem.valueOf(PlatformProps.CURRENT_OS_STRING.toUpperCase(Locale.ROOT));
++        String osName = PlatformProps.CURRENT_OS_STRING;
++        // This OpenJDK Mobile revision configures iOS as a distinct build OS,
++        // but java.base's OperatingSystem enum predates an IOS value. iOS has
++        // the Darwin/POSIX behavior expected by the existing MACOS branches.
++        if (osName.equalsIgnoreCase("ios")) {
++            return MACOS;
++        }
++        return OperatingSystem.valueOf(osName.toUpperCase(Locale.ROOT));
+     }
+ }
+
+diff --git a/src/hotspot/os/bsd/os_bsd.cpp b/src/hotspot/os/bsd/os_bsd.cpp
+index d860e823..dea72e30 100644
+--- a/src/hotspot/os/bsd/os_bsd.cpp
++++ b/src/hotspot/os/bsd/os_bsd.cpp
+@@ -449,6 +449,22 @@ void os::init_system_properties_values() {
+   // sysclasspath, java_home, dll_dir
+   {
+-    char *pslash;
++#ifdef __IOS__
++    // A statically linked iOS VM cannot infer java.home from a libjvm path:
++    // os::jvm_path() resolves to the app executable. The embedding app sets
++    // JAVA_HOME to its bundled runtime before JNI_CreateJavaVM.
++    const char *configured_java_home = ::getenv("JAVA_HOME");
++    if (configured_java_home == nullptr || configured_java_home[0] == '\0') {
++      vm_exit_during_initialization("JAVA_HOME is not set for the iOS VM");
++    }
++    if (strlen(configured_java_home) + sizeof("/lib") > bufsize) {
++      vm_exit_during_initialization("JAVA_HOME exceeds the iOS VM path limit");
++    }
++    strcpy(buf, configured_java_home);
++    Arguments::set_java_home(buf);
++    strcat(buf, "/lib");
++    Arguments::set_dll_dir(buf);
++#else
++    char *pslash;
+     os::jvm_path(buf, bufsize);
+
+     // Found the full path to libjvm.so.
+@@ -474,6 +490,7 @@ void os::init_system_properties_values() {
+     }
+ #endif
+     Arguments::set_java_home(buf);
++#endif
+     if (!set_boot_path('/', ':')) {
+         vm_exit_during_initialization("Failed setting boot class path.", nullptr);
+     }
+
+diff --git a/src/hotspot/share/runtime/os.cpp b/src/hotspot/share/runtime/os.cpp
+--- a/src/hotspot/share/runtime/os.cpp
++++ b/src/hotspot/share/runtime/os.cpp
+@@ -1513,11 +1513,7 @@ bool os::set_boot_path(char fileSep, char pathSep) {
+   struct stat st;
+
+   // modular image if "modules" jimage exists
+-#ifndef __IOS__
+   char* jimage = format_boot_path("%/lib/" MODULES_IMAGE_NAME, home, home_len, fileSep, pathSep);
+-#else
+-  char* jimage = format_boot_path("%/Documents/lib/" MODULES_IMAGE_NAME, home, home_len, fileSep, pathSep);
+-#endif
+   if (jimage == nullptr) return false;
+   bool has_jimage = (os::stat(jimage, &st) == 0);
+   if (has_jimage) {
+
+diff --git a/src/hotspot/os/posix/os_posix.cpp b/src/hotspot/os/posix/os_posix.cpp
+--- a/src/hotspot/os/posix/os_posix.cpp
++++ b/src/hotspot/os/posix/os_posix.cpp
+@@ -87,6 +87,10 @@
+   #include <crt_externs.h>
+ #endif
+ 
++#ifdef __IOS__
++extern "C" void* tachiyomiaz_lookup_static_symbol(const char* name);
++#endif
++
+ #define ROOT_UID 0
+ 
+ #ifndef MAP_ANONYMOUS
+@@ -816,6 +820,13 @@ void* os::get_default_process_handle() {
+ }
+ 
+ void* os::dll_lookup(void* handle, const char* name) {
++#ifdef __IOS__
++  void* static_symbol = tachiyomiaz_lookup_static_symbol(name);
++  if (static_symbol != nullptr) {
++    return static_symbol;
++  }
++#endif
++
+   ::dlerror(); // Clear any previous error
+   void* ret = ::dlsym(handle, name);
+   if (ret == nullptr) {
+@@ -866,6 +877,12 @@ void os::dll_unload(void *lib) {
+ }
+ 
+ void* os::lookup_function(const char* name) {
++#ifdef __IOS__
++  void* static_symbol = tachiyomiaz_lookup_static_symbol(name);
++  if (static_symbol != nullptr) {
++    return static_symbol;
++  }
++#endif
+   // This returns the global symbol in the main executable and its dependencies,
+   // as well as shared objects dynamically loaded with RTLD_GLOBAL flag.
+   return dlsym(RTLD_DEFAULT, name);
+
+diff --git a/src/hotspot/os_cpu/bsd_zero/os_bsd_zero.cpp b/src/hotspot/os_cpu/bsd_zero/os_bsd_zero.cpp
+--- a/src/hotspot/os_cpu/bsd_zero/os_bsd_zero.cpp
++++ b/src/hotspot/os_cpu/bsd_zero/os_bsd_zero.cpp
+@@ -91,4 +91,13 @@
+ address os::Posix::ucontext_get_pc(const ucontext_t* uc) {
++#if defined(__IOS__) && defined(__aarch64__)
++  // The generic Zero port leaves signal contexts unimplemented. On iOS this
++  // made every signal handled by HotSpot call ShouldNotCallThis() and abort,
++  // including otherwise recoverable signals received during library updates.
++  // Darwin's arm64 ucontext layout is the same one used by the BSD/AArch64
++  // HotSpot port.
++  return reinterpret_cast<address>(uc->uc_mcontext->__ss.__pc);
++#else
+   ShouldNotCallThis();
+   return nullptr;
++#endif
+ }
+@@ -96,3 +105,7 @@
+ void os::Posix::ucontext_set_pc(ucontext_t * uc, address pc) {
++#if defined(__IOS__) && defined(__aarch64__)
++  uc->uc_mcontext->__ss.__pc = reinterpret_cast<uintptr_t>(pc);
++#else
+   ShouldNotCallThis();
++#endif
+ }
