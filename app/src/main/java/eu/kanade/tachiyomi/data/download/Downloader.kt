@@ -42,6 +42,7 @@ import timber.log.Timber
 import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
 import java.io.File
+import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -410,7 +411,10 @@ class Downloader(
             return page
         }
 
-        val filename = String.format("%03d", page.number)
+        // Pad the page number to the width of the largest one in the chapter, so the filenames of
+        // a chapter with 1000+ pages still sort in reading order (999 before 1000, not after it).
+        val digitCount = (download.pages?.size ?: 0).toString().length.coerceAtLeast(3)
+        val filename = String.format(Locale.ENGLISH, "%0${digitCount}d", page.number)
         val tmpFile = tmpDir.findFile("$filename.tmp")
 
         // Delete temp file if it exists.

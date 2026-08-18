@@ -9,6 +9,7 @@ import eu.kanade.tachiyomi.data.download.model.DownloadQueue
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.source.model.Page
+import eu.kanade.tachiyomi.util.lang.compareToCaseInsensitiveNaturalOrder
 import kotlinx.coroutines.flow.StateFlow
 import timber.log.Timber
 import uy.kohesive.injekt.injectLazy
@@ -161,7 +162,12 @@ class DownloadManager(private val context: Context) {
             throw Exception("Page list is empty")
         }
 
-        return files.sortedBy { it.name }
+        // Natural order, not lexicographic: older downloads have unpadded names, where "1000.jpg"
+        // would otherwise sort ahead of "999.jpg".
+        return files
+            .sortedWith { f1, f2 ->
+                f1.name.orEmpty().compareToCaseInsensitiveNaturalOrder(f2.name.orEmpty())
+            }
             .mapIndexed { i, file ->
                 Page(i, uri = file.uri).apply { status = Page.READY }
             }
