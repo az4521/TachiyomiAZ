@@ -1,4 +1,5 @@
 import SwiftUI
+import TachiyomiKit
 
 /// User-facing app preferences.
 ///
@@ -10,6 +11,12 @@ final class AppSettings: ObservableObject {
     private enum Key {
         static let bottomTabs = "navigation.usesBottomTabs"
         static let contentFilter = "extensions.contentFilter"
+        static let updateCategories = "library.updateCategories"
+        static let skipCompleted = "library.skipCompleted"
+        static let skipFullyRead = "library.skipFullyRead"
+        static let skipUnread = "library.skipUnread"
+        static let skipNotStarted = "library.skipNotStarted"
+        static let libraryColumns = "library.columns"
     }
 
     /// How much of a repository's content to show.
@@ -18,11 +25,8 @@ final class AppSettings: ObservableObject {
     /// SAFE, MIXED or NSFW and the middle case is the interesting one -- MangaDex and Weeb Central
     /// are both MIXED, so folding it into "adult" hides the two biggest sources in the repository.
     enum ContentFilter: String, CaseIterable, Identifiable {
-        /// Hide only extensions marked 18+.
         case hideAdult
-        /// Hide both 18+ and mixed-content extensions.
         case hideAdultAndMixed
-        /// Show everything the repository offers.
         case showAll
 
         var id: String { rawValue }
@@ -44,11 +48,66 @@ final class AppSettings: ObservableObject {
         didSet { UserDefaults.standard.set(contentFilter.rawValue, forKey: Key.contentFilter) }
     }
 
-    init() {
-        // Defaults to false: drawer navigation, matching Android.
-        usesBottomTabs = UserDefaults.standard.bool(forKey: Key.bottomTabs)
-        // Defaults to hiding only 18+, so mixed-content sources stay visible.
-        contentFilter = UserDefaults.standard.string(forKey: Key.contentFilter)
-            .flatMap(ContentFilter.init(rawValue:)) ?? .hideAdult
+    /// Categories a library update is limited to. Empty means every category.
+    @Published var updateCategories: [Int32] {
+        didSet {
+            UserDefaults.standard.set(updateCategories.map(Int.init), forKey: Key.updateCategories)
+        }
     }
+
+    /// Handled by the shared `selectLibraryMangaToUpdate`.
+    @Published var skipCompleted: Bool {
+        didSet { UserDefaults.standard.set(skipCompleted, forKey: Key.skipCompleted) }
+    }
+
+    /// The three below are applied on top of the shared selection, because they depend on read
+    /// counts the shared rule does not take. Kept as plain filters so the shared rule stays the
+    /// single source of truth for everything it does cover.
+    @Published var skipFullyRead: Bool {
+        didSet { UserDefaults.standard.set(skipFullyRead, forKey: Key.skipFullyRead) }
+    }
+
+    @Published var skipUnread: Bool {
+        didSet { UserDefaults.standard.set(skipUnread, forKey: Key.skipUnread) }
+    }
+
+    @Published var skipNotStarted: Bool {
+        didSet { UserDefaults.standard.set(skipNotStarted, forKey: Key.skipNotStarted) }
+    }
+
+    @Published var libraryColumns: Int {
+        didSet { UserDefaults.standard.set(libraryColumns, forKey: Key.libraryColumns) }
+    }
+
+    init() {
+        let defaults = UserDefaults.standard
+        // Defaults to false: drawer navigation, matching Android.
+        usesBottomTabs = defaults.bool(forKey: Key.bottomTabs)
+        // Defaults to hiding only 18+, so mixed-content sources stay visible.
+        contentFilter = defaults.string(forKey: Key.contentFilter)
+            .flatMap(ContentFilter.init(rawValue:)) ?? .hideAdult
+        updateCategories = (defaults.array(forKey: Key.updateCategories) as? [Int] ?? []).map(Int32.init)
+        skipCompleted = defaults.bool(forKey: Key.skipCompleted)
+        skipFullyRead = defaults.bool(forKey: Key.skipFullyRead)
+        skipUnread = defaults.bool(forKey: Key.skipUnread)
+        skipNotStarted = defaults.bool(forKey: Key.skipNotStarted)
+        let columns = defaults.integer(forKey: Key.libraryColumns)
+        libraryColumns = columns == 0 ? 3 : columns
+    }
+
+    /// The read-state filters, applied after the shared selection rule.
+    ///
+    /// `hasStarted` is passed in rather than read off LibraryManga, which exposes only `category`
+    /// and `unread` -- whether anything was actually read has to come from the chapters table.
+    func shouldRefresh(unread: Int, hasStarted: Bool) -> Bool {
+        if skipUnread && unread > 0 { return false }
+        // "Fully read" means started and nothing left unread.
+        if skipFullyRead && hasStarted && unread == 0 { return false }
+        if skipNotStarted && !hasStarted { return false }
+        return true
+    }
+
+    /// True when any of the read-state filters is on, so callers can skip the per-manga chapter
+    /// lookup entirely in the common case where none is.
+    var needsReadState: Bool { skipFullyRead || skipUnread || skipNotStarted }
 }

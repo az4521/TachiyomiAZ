@@ -26,7 +26,7 @@ struct ExtensionsView: View {
         }
         .refreshable { await repositories.refreshAll() }
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItem(placement: .navigationBarTrailing) {
                 Button { showingAdd = true } label: { Image(systemName: "plus") }
                     .accessibilityLabel("Add repository")
             }
@@ -73,11 +73,7 @@ struct ExtensionsView: View {
     @ViewBuilder
     private var availableSection: some View {
         Section {
-            NavigationLink {
-                AvailableExtensionsView()
-                    .navigationTitle("Available")
-                    .navigationBarTitleDisplayMode(.inline)
-            } label: {
+            NavigationLink(destination: AvailableExtensionsView() .navigationTitle("Available") .navigationBarTitleDisplayMode(.inline)) {
                 HStack {
                     Label("Available extensions", systemImage: "square.and.arrow.down")
                     Spacer()
@@ -156,8 +152,8 @@ struct ExtensionsView: View {
     @ViewBuilder
     private var statusSection: some View {
         Section("Status") {
-            LabeledContent("Index models", value: "shared")
-            LabeledContent("Fetch + decode", value: "working")
+            LabeledRow("Index models", value: "shared")
+            LabeledRow("Fetch + decode", value: "working")
             jvmStatusRow
         }
     }
@@ -176,8 +172,8 @@ struct ExtensionsView: View {
                 ProgressView().controlSize(.small)
             }
         case let .running(javaVersion, runtime):
-            LabeledContent("JVM runtime", value: "Java \(javaVersion)")
-            LabeledContent("Interpreter", value: runtime)
+            LabeledRow("JVM runtime", value: "Java \(javaVersion)")
+            LabeledRow("Interpreter", value: runtime)
         case let .failed(reason):
             VStack(alignment: .leading, spacing: 4) {
                 Text("JVM runtime failed").foregroundStyle(.primary)

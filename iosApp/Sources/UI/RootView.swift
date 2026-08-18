@@ -39,24 +39,27 @@ struct RootView: View {
 
     /// Drawer-only: one stack, content swapped by the drawer selection.
     private var drawerOnlyContent: some View {
-        NavigationStack {
+        NavigationView {
             destination.screen
                 .navigationTitle(destination.title)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar { menuButton }
         }
+        // Stack style: the default splits on iPad, which is not what a drawer app wants.
+        .navigationViewStyle(.stack)
         .disabled(drawerOpen)
     }
 
     private var tabbedContent: some View {
         TabView(selection: $destination) {
             ForEach(Destination.allCases) { item in
-                NavigationStack {
+                NavigationView {
                     item.screen
                         .navigationTitle(item.title)
                         .navigationBarTitleDisplayMode(.inline)
                         .toolbar { menuButton }
                 }
+                .navigationViewStyle(.stack)
                 .tabItem { Label(item.title, systemImage: item.icon) }
                 .tag(item)
             }
@@ -65,7 +68,7 @@ struct RootView: View {
     }
 
     private var menuButton: some ToolbarContent {
-        ToolbarItem(placement: .topBarLeading) {
+        ToolbarItem(placement: .navigationBarLeading) {
             Button {
                 drawerOpen = true
             } label: {
@@ -90,18 +93,19 @@ struct RootView: View {
 }
 
 enum Destination: String, Identifiable, CaseIterable {
-    case library, updates, history, browse, extensions, more
+    case library, updates, history, sources, extensions, downloads, settings
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
         case .library: return "Library"
-        case .updates: return "Updates"
-        case .history: return "History"
-        case .browse: return "Browse"
+        case .updates: return "Recent Updates"
+        case .history: return "Recently Read"
+        case .sources: return "Sources"
         case .extensions: return "Extensions"
-        case .more: return "More"
+        case .downloads: return "Download Queue"
+        case .settings: return "Settings"
         }
     }
 
@@ -110,32 +114,22 @@ enum Destination: String, Identifiable, CaseIterable {
         case .library: return "books.vertical"
         case .updates: return "arrow.clockwise"
         case .history: return "clock"
-        case .browse: return "safari"
+        case .sources: return "safari"
         case .extensions: return "puzzlepiece.extension"
-        case .more: return "ellipsis"
+        case .downloads: return "arrow.down.circle"
+        case .settings: return "gearshape"
         }
     }
 
     @ViewBuilder var screen: some View {
         switch self {
-        case .library:
-            LibraryView()
-        case .updates:
-            NotYetPortedView(
-                area: "Updates",
-                detail: "The library update rules are already shared in :core-domain; this screen has not been built yet."
-            )
-        case .history:
-            NotYetPortedView(
-                area: "History",
-                detail: "HistoryQueries is already shared; this screen has not been built yet."
-            )
-        case .browse:
-            BrowseView()
-        case .extensions:
-            ExtensionsView()
-        case .more:
-            MoreView()
+        case .library: LibraryView()
+        case .updates: UpdatesView()
+        case .history: HistoryView()
+        case .sources: SourcesView()
+        case .extensions: ExtensionsView()
+        case .downloads: DownloadQueueView()
+        case .settings: SettingsView()
         }
     }
 }

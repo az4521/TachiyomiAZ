@@ -21,7 +21,7 @@ struct AvailableExtensionsView: View {
     /// "all" plus the system language. Stored as codes so it survives a locale change sensibly.
     static func defaultLanguages() -> Set<String> {
         var languages: Set<String> = ["all"]
-        if let code = Locale.current.language.languageCode?.identifier {
+        if let code = Locale.current.languageCode {
             languages.insert(code)
         }
         return languages
@@ -77,7 +77,7 @@ struct AvailableExtensionsView: View {
         .refreshable { await repositories.refreshAll() }
         .searchable(text: $search, placement: .navigationBarDrawer(displayMode: .automatic))
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) { filterMenu }
+            ToolbarItem(placement: .navigationBarTrailing) { filterMenu }
         }
     }
 

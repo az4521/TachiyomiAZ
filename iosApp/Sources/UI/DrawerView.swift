@@ -14,11 +14,6 @@ struct DrawerView: View {
                         row(destination)
                     }
 
-                    Divider().padding(.vertical, 8)
-
-                    disabledRow("Downloads", icon: "arrow.down.circle")
-                    disabledRow("Categories", icon: "folder")
-                    disabledRow("Settings", icon: "gearshape")
                 }
                 .padding(.horizontal, 12)
                 .padding(.top, 8)
@@ -69,14 +64,4 @@ struct DrawerView: View {
         .buttonStyle(.plain)
     }
 
-    private func disabledRow(_ title: String, icon: String) -> some View {
-        HStack(spacing: 16) {
-            Image(systemName: icon).frame(width: 24)
-            Text(title)
-            Spacer()
-        }
-        .padding(.vertical, 11)
-        .padding(.horizontal, 12)
-        .foregroundStyle(.tertiary)
-    }
 }

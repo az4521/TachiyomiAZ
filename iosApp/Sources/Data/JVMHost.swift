@@ -22,7 +22,9 @@ final class JVMHost: ObservableObject {
 
     @Published private(set) var state: State = .notStarted
 
-    private var runtime: JVMRuntime?
+    /// Exposed so SourceRuntime can dispatch without this class growing a method per host
+    /// operation -- the protocol already lives in TachiJVMRunner.
+    private(set) var runtime: JVMRuntime?
 
     var isRunning: Bool {
         if case .running = state { return true }

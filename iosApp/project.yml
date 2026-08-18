@@ -2,7 +2,7 @@ name: TachiyomiAZ
 options:
   bundleIdPrefix: eu.kanade.tachiyomi
   deploymentTarget:
-    iOS: "16.0"
+    iOS: "15.0"
   createIntermediateGroups: true
   generateEmptyDirectories: true
 

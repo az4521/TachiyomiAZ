@@ -39,9 +39,9 @@ struct MoreView: View {
             }
 
             Section("Shared core") {
-                LabeledContent("Framework", value: SharedCore.shared.description_)
-                LabeledContent("Library entries", value: "\(library.manga.count)")
-                LabeledContent("Categories", value: "\(library.categories.count)")
+                LabeledRow("Framework", value: SharedCore.shared.description_)
+                LabeledRow("Library entries", value: "\(library.manga.count)")
+                LabeledRow("Categories", value: "\(library.categories.count)")
             }
 
             Section("Development") {

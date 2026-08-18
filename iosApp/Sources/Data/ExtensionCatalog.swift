@@ -77,9 +77,62 @@ struct InstalledExtension: Codable, Identifiable, Hashable {
     let versionName: String
     let versionCode: Int64
     let entryClass: String
-    let jarPath: String
+    /// File name only, never an absolute path.
+    ///
+    /// iOS rewrites the app's data-container UUID on reinstall and on update, so a stored absolute
+    /// path goes stale and the host fails with NoSuchFileException against a directory that no
+    /// longer exists. Resolving against the current container at use time is the only thing that
+    /// survives.
+    let jarFileName: String
 
     var id: String { packageName }
+
+    /// Older builds persisted `jarPath`. Decode either, keeping only the file name.
+    private enum CodingKeys: String, CodingKey {
+        case packageName, name, versionName, versionCode, entryClass, jarFileName, jarPath
+    }
+
+    init(
+        packageName: String,
+        name: String,
+        versionName: String,
+        versionCode: Int64,
+        entryClass: String,
+        jarFileName: String
+    ) {
+        self.packageName = packageName
+        self.name = name
+        self.versionName = versionName
+        self.versionCode = versionCode
+        self.entryClass = entryClass
+        self.jarFileName = jarFileName
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(packageName, forKey: .packageName)
+        try container.encode(name, forKey: .name)
+        try container.encode(versionName, forKey: .versionName)
+        try container.encode(versionCode, forKey: .versionCode)
+        try container.encode(entryClass, forKey: .entryClass)
+        // jarPath is deliberately not written: it is read for migration only.
+        try container.encode(jarFileName, forKey: .jarFileName)
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        packageName = try container.decode(String.self, forKey: .packageName)
+        name = try container.decode(String.self, forKey: .name)
+        versionName = try container.decode(String.self, forKey: .versionName)
+        versionCode = try container.decode(Int64.self, forKey: .versionCode)
+        entryClass = try container.decode(String.self, forKey: .entryClass)
+        if let fileName = try container.decodeIfPresent(String.self, forKey: .jarFileName) {
+            jarFileName = fileName
+        } else {
+            let legacyPath = try container.decode(String.self, forKey: .jarPath)
+            jarFileName = (legacyPath as NSString).lastPathComponent
+        }
+    }
 }
 
 /// Downloads extension JARs and has the JVM validate them.
@@ -113,7 +166,12 @@ final class ExtensionCatalog: ObservableObject {
         installed.first { $0.packageName == extensionItem.packageName }?.versionCode
     }
 
-    private static func extensionsDirectory() throws -> URL {
+    /// Resolves an installed extension's JAR against the *current* container.
+    static func jarURL(for item: InstalledExtension) throws -> URL {
+        try extensionsDirectory().appendingPathComponent(item.jarFileName)
+    }
+
+    static func extensionsDirectory() throws -> URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         let directory = base.appendingPathComponent("Extensions", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -159,7 +217,7 @@ final class ExtensionCatalog: ObservableObject {
                     versionName: extensionItem.versionName,
                     versionCode: extensionItem.versionCode,
                     entryClass: entryClass,
-                    jarPath: destination.path
+                    jarFileName: destination.lastPathComponent
                 )
             )
             installed.sort { $0.name < $1.name }
@@ -170,7 +228,9 @@ final class ExtensionCatalog: ObservableObject {
     }
 
     func uninstall(_ item: InstalledExtension) {
-        try? FileManager.default.removeItem(atPath: item.jarPath)
+        if let url = try? Self.jarURL(for: item) {
+            try? FileManager.default.removeItem(at: url)
+        }
         installed.removeAll { $0.packageName == item.packageName }
         persist()
     }
