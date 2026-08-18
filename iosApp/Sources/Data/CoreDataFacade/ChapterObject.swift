@@ -66,3 +66,10 @@ extension ChapterObject {
     /// applies" at the call sites that check it.
     var lang: String? { nil }
 }
+
+extension ChapterObject {
+    /// When this chapter was first seen, which is what dates an entry in the updates feed.
+    var dateFetched: Date? {
+        row.date_fetch > 0 ? Date(timeIntervalSince1970: TimeInterval(row.date_fetch) / 1000) : nil
+    }
+}

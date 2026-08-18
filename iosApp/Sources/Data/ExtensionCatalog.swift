@@ -305,4 +305,44 @@ final class ExtensionCatalog: ObservableObject {
             }
         }
     }
+
+    /// Installs an extension from a JAR the user opened from Files.
+    ///
+    /// Same path as a repository install -- inspect, then hand to the runtime -- so a sideloaded
+    /// extension ends up in the identical layout and loads the same way.
+    func installLocalJar(at url: URL) async {
+        let secured = url.startAccessingSecurityScopedResource()
+        defer { if secured { url.stopAccessingSecurityScopedResource() } }
+
+        do {
+            let inspection = try await jvm.inspect(jarPath: url.path)
+            let destination = try Self.extensionsDirectory()
+                .appendingPathComponent("\(inspection.packageName).jar")
+            try? FileManager.default.removeItem(at: destination)
+            try FileManager.default.copyItem(at: url, to: destination)
+
+            let manifest = JVMExtensionManifest(
+                inspection: inspection,
+                sourceURL: nil,
+                sha256: try Self.sha256(of: destination)
+            )
+            _ = try await JVMSourceRuntime.shared.install(jar: destination, manifest: manifest)
+
+            installed.removeAll { $0.packageName == inspection.packageName }
+            installed.append(
+                InstalledExtension(
+                    packageName: inspection.packageName,
+                    name: inspection.name,
+                    versionName: inspection.version,
+                    versionCode: Int64(inspection.versionCode) ?? 0,
+                    entryClass: inspection.entryClass,
+                    jarFileName: destination.lastPathComponent
+                )
+            )
+            installed.sort { $0.name < $1.name }
+            persist()
+        } catch {
+            lastError = "Import failed: \(error.localizedDescription)"
+        }
+    }
 }

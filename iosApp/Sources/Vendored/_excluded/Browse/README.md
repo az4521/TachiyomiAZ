@@ -15,3 +15,10 @@ Browse tab*. This port keeps extension installation on its own screen — `Exten
 parked for the same reason.
 
 `OIDCLoginController` is the login flow for the self-hosted sources above.
+
+## The Browse tab itself
+
+`BrowseViewController` and `BrowseViewModel` present Aidoku's *source lists* — user-added URLs
+serving downloadable sources, versioned with `SemanticVersion` and installed inline. This port gets
+sources from extension repositories instead, so the Browse tab shows the installed sources
+(`SourcesView`) and installing lives on its own Extensions tab, which is where it was asked to be.

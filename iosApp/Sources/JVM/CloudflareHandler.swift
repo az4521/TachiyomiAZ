@@ -54,7 +54,7 @@ actor CloudflareHandler: NSObject {
 #else
     @MainActor
     private var parent: UIViewController? {
-        AppDelegate.shared.visibleViewController
+        (UIApplication.shared.delegate as? AppDelegate)?.topViewController
     }
 
     @MainActor

@@ -3,7 +3,12 @@ import TachiJVMRunner
 import TachiyomiKit
 
 /// A recently read chapter, as the History screen needs it.
-struct HistoryEntry: Identifiable, Hashable {
+/// One recently-read chapter, read straight from the shared `history` table.
+///
+/// Named apart from the vendored `HistoryEntry`: that one is the history screen's view model, this
+/// is what the shared query returns. Both exist because the screen's shape is upstream's and the
+/// data's shape is the database's.
+struct RecentReadEntry: Identifiable, Hashable {
     let mangaId: Int64
     let mangaTitle: String
     let mangaUrl: String
@@ -26,7 +31,7 @@ struct HistoryEntry: Identifiable, Hashable {
 /// here -- this only turns rows into something a SwiftUI list can show.
 @MainActor
 final class HistoryStore: ObservableObject {
-    @Published private(set) var entries: [HistoryEntry] = []
+    @Published private(set) var entries: [RecentReadEntry] = []
     @Published private(set) var isLoading = false
 
     private unowned let library: LibraryStore
@@ -47,7 +52,7 @@ final class HistoryStore: ObservableObject {
             let manga = row.manga
             let chapter = row.chapter
             let history = row.history
-            return HistoryEntry(
+            return RecentReadEntry(
                 mangaId: manga.id?.int64Value ?? 0,
                 mangaTitle: manga.title,
                 mangaUrl: manga.url,
@@ -96,7 +101,7 @@ final class HistoryStore: ObservableObject {
         await load()
     }
 
-    func remove(_ entry: HistoryEntry) async {
+    func remove(_ entry: RecentReadEntry) async {
         let handler = library.handler
         if let history = handler.getHistoryByChapterUrl(chapterUrl: entry.chapterUrl) {
             history.last_read = 0

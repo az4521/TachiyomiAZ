@@ -1,3 +1,4 @@
+import BackgroundTasks
 import ExtensionRunner
 import Foundation
 import TachiyomiKit
@@ -256,5 +257,114 @@ final class MangaManager {
         }
 
         NotificationCenter.default.post(name: Notification.Name("updateLibrary"), object: nil)
+    }
+
+    /// Refreshes the library without blocking the UI, as the pull-to-refresh and the scheduled
+    /// update both do. The rules -- which entries are eligible, how chapters are diffed -- come
+    /// from :core-domain via LibraryStore, so this only decides when to run.
+    func backgroundRefreshLibrary(category: String? = nil, skipReachabilityCheck: Bool = false) async {
+        guard let library, let runtime else { return }
+        let categoryId = category.flatMap { title in
+            CoreDataManager.shared.getCategory(title: title)?.id?.int32Value
+        }
+        await library.refresh(
+            categoryId: categoryId,
+            runtime: runtime,
+            settings: AppEnvironment.shared.settings
+        )
+    }
+
+    /// Drops library membership for a set of titles, returning what was dropped so the caller can
+    /// offer an undo.
+    ///
+    /// Everything else the title owns -- chapters, history, tracks, downloads -- is left alone;
+    /// only the `favorite` flag and category links change.
+    @discardableResult
+    func removeFromLibrary(manga identifiers: [MangaIdentifier]) async -> [LibraryMembershipSnapshot] {
+        var snapshots: [LibraryMembershipSnapshot] = []
+        for identifier in identifiers {
+            guard
+                let object = CoreDataManager.shared.getLibraryManga(
+                    sourceId: identifier.sourceKey,
+                    mangaId: identifier.mangaKey
+                )
+            else { continue }
+
+            snapshots.append(
+                LibraryMembershipSnapshot(
+                    identifier: identifier,
+                    categories: CoreDataManager.shared
+                        .getCategories(sourceId: identifier.sourceKey, mangaId: identifier.mangaKey)
+                        .map(\.name),
+                    lastOpened: object.lastOpened ?? .distantPast,
+                    lastUpdated: object.lastUpdated ?? .distantPast,
+                    lastUpdatedChapters: object.lastUpdatedChapters ?? .distantPast,
+                    lastChapter: object.lastChapter,
+                    lastRead: object.lastRead,
+                    dateAdded: object.dateAdded ?? .distantPast
+                )
+            )
+
+            await library?.remove(
+                url: identifier.mangaKey,
+                sourceId: SourceIdentity.numericId(identifier.sourceKey) ?? 0
+            )
+        }
+        NotificationCenter.default.post(name: Notification.Name("updateLibrary"), object: nil)
+        return snapshots
+    }
+
+    /// Puts back what `removeFromLibrary` took, for the undo action.
+    func restoreLibraryMembership(_ snapshots: [LibraryMembershipSnapshot]) async {
+        for snapshot in snapshots {
+            guard
+                let source = SourceIdentity.numericId(snapshot.identifier.sourceKey),
+                let manga = CoreDataManager.shared.sharedManga(
+                    sourceId: snapshot.identifier.sourceKey,
+                    mangaId: snapshot.identifier.mangaKey
+                )
+            else { continue }
+            _ = source
+
+            manga.favorite = true
+            Database.handler.updateMangaFavorite(manga: manga)
+
+            if !snapshot.categories.isEmpty {
+                await CoreDataManager.shared.setMangaCategories(
+                    sourceId: snapshot.identifier.sourceKey,
+                    mangaId: snapshot.identifier.mangaKey,
+                    categories: snapshot.categories
+                )
+            }
+        }
+        await library?.reload()
+        NotificationCenter.default.post(name: Notification.Name("updateLibrary"), object: nil)
+    }
+
+    // MARK: - Scheduled refresh
+
+    static let refreshTaskIdentifier = "app.tachiyomiaz.library-refresh"
+
+    /// Registers the background task the automatic library update setting drives.
+    func register() {
+        BGTaskScheduler.shared.register(
+            forTaskWithIdentifier: Self.refreshTaskIdentifier,
+            using: nil
+        ) { task in
+            Task { @MainActor in
+                await self.backgroundRefreshLibrary()
+                self.scheduleLibraryRefresh()
+                task.setTaskCompleted(success: true)
+            }
+        }
+    }
+
+    /// Asks the system to run a library refresh no sooner than the configured interval.
+    func scheduleLibraryRefresh() {
+        let interval = UserDefaults.standard.double(forKey: "Library.updateInterval")
+        guard interval > 0 else { return }
+        let request = BGAppRefreshTaskRequest(identifier: Self.refreshTaskIdentifier)
+        request.earliestBeginDate = Date(timeIntervalSinceNow: interval)
+        try? BGTaskScheduler.shared.submit(request)
     }
 }

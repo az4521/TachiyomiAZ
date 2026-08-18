@@ -115,3 +115,16 @@ extension MangaObjectRef {
         row.toLegacy().toNew()
     }
 }
+
+extension MangaObjectRef {
+    var author: String? { row.author }
+    var artist: String? { row.artist }
+    var tags: [String]? { row.genre?.components(separatedBy: ", ") }
+    var url: String? { row.url }
+    var contentRating: Int16 { 0 }
+    var status: Int16 { Int16(row.status) }
+
+    /// Android's schema has no content-rating column -- a Tachiyomi source declares NSFW at the
+    /// source level, not per title -- so nothing here is rated.
+    var nsfw: Int16 { 0 }
+}

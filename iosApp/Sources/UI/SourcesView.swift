@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Sources from installed extensions, grouped by language as on Android.
 struct SourcesView: View {
@@ -51,7 +52,7 @@ struct SourcesView: View {
             ForEach(grouped, id: \.language) { group in
                 Section(group.language) {
                     ForEach(group.sources) { source in
-                        NavigationLink(destination: SourceBrowseView(source: source)) {
+                        NavigationLink(destination: SourceScreen(descriptor: source)) {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(source.name)
                                 Text(source.extensionName)
@@ -108,4 +109,27 @@ struct SourcesView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
+}
+
+/// Opens the vendored source screen for one source.
+///
+/// `NewSourceViewController` is the screen upstream uses for runner-backed sources -- listings,
+/// search and the filter sheet -- so browsing goes there rather than to a second implementation.
+struct SourceScreen: UIViewControllerRepresentable {
+    let descriptor: SourceDescriptor
+
+    func makeUIViewController(context: Context) -> UIViewController {
+        guard let source = SourceManager.shared.source(for: SourceIdentity.key(for: descriptor.id)) else {
+            return UIHostingController(
+                rootView: UnavailableView(
+                    descriptor.name,
+                    systemImage: "exclamationmark.triangle",
+                    description: Text("This source is not loaded.")
+                )
+            )
+        }
+        return NewSourceViewController(source: source)
+    }
+
+    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
 }

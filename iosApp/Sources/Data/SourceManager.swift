@@ -21,6 +21,7 @@ final class SourceManager {
     ]
 
     weak var runtime: SourceRuntime?
+    weak var catalog: ExtensionCatalog?
 
     private init() {}
 
@@ -54,6 +55,12 @@ final class SourceManager {
         Self.sourceLock.lock()
         Self.loadedSources = sources
         Self.sourceLock.unlock()
+    }
+
+    /// Whether a source key resolves to something installed -- the library uses this to grey out
+    /// entries whose source has been removed.
+    nonisolated func hasSourceInstalled(id: String) -> Bool {
+        source(for: id) != nil
     }
 
     /// Sources the user has pinned to the top of Browse.
@@ -113,4 +120,52 @@ final class SourceManager {
             userDefaults.removeObject(forKey: key)
         }
     }
+
+    // MARK: - Pinning
+
+    private static let pinnedKey = "Browse.pinnedSources"
+
+    nonisolated func pin(source: ExtensionRunner.Source) {
+        var pinned = UserDefaults.standard.stringArray(forKey: Self.pinnedKey) ?? []
+        guard !pinned.contains(source.key) else { return }
+        pinned.append(source.key)
+        UserDefaults.standard.set(pinned, forKey: Self.pinnedKey)
+    }
+
+    nonisolated func unpin(source: ExtensionRunner.Source) {
+        var pinned = UserDefaults.standard.stringArray(forKey: Self.pinnedKey) ?? []
+        pinned.removeAll { $0 == source.key }
+        UserDefaults.standard.set(pinned, forKey: Self.pinnedKey)
+    }
+
+    // MARK: - Installing and removing
+
+    /// Removes the extension providing this source.
+    ///
+    /// A JVM extension can expose many sources -- MangaDex is one per language -- so removing a
+    /// source means uninstalling its extension, which is what the catalog owns.
+    func remove(source: ExtensionRunner.Source) {
+        removeSettings(from: source)
+        guard
+            let id = SourceIdentity.numericId(source.key),
+            let descriptor = runtime?.sources.first(where: { $0.id == id }),
+            let installed = catalog?.installed.first(where: { $0.packageName == descriptor.extensionId })
+        else { return }
+        catalog?.uninstall(installed)
+        Task { await runtime?.reload() }
+    }
+
+    /// Installs an extension JAR the user opened from Files, then returns the source it provides.
+    func importSource(from url: URL) async -> ExtensionRunner.Source? {
+        guard let catalog else { return nil }
+        await catalog.installLocalJar(at: url)
+        await runtime?.reload()
+        return sources.last
+    }
+
+    /// Aidoku keeps user-added lists of downloadable sources; this port gets sources from extension
+    /// repositories, which `RepositoryStore` owns. Nothing to load or list here.
+    nonisolated var sourceLists: [URL] { [] }
+
+    func loadSourceLists() async {}
 }

@@ -20,9 +20,13 @@ extension CoreDataManager {
             .map { ChapterObject(row: $0, sourceId: sourceId, mangaId: mangaId) }
     }
 
-    func getChapters(sourceId: String, context: Any? = nil) -> [DbChapter] {
+    func getChapters(sourceId: String, context: Any? = nil) -> [ChapterObject] {
         guard let source = SourceIdentity.numericId(sourceId) else { return [] }
-        return handler.getMangasBySource(sourceId: source).flatMap { handler.getChapters(manga: $0) }
+        return handler.getMangasBySource(sourceId: source).flatMap { manga in
+            handler.getChapters(manga: manga).map {
+                ChapterObject(row: $0, sourceId: sourceId, mangaId: manga.url)
+            }
+        }
     }
 
     func getChapters(context: Any? = nil) -> [DbChapter] {
@@ -107,8 +111,11 @@ extension CoreDataManager {
 extension CoreDataManager {
     /// Replaces a title's chapter list with what the source returned, and reports which are new.
     ///
-    /// Diffing is by chapter key, matching how `syncChaptersWithSource` in `:core-domain` decides
-    /// what is new -- read state on an existing chapter is preserved rather than reset.
+    /// The diff is `syncChaptersWithSource` from `:core-domain` -- the same call `LibraryStore`
+    /// makes on a library refresh, and the same one the Android app makes. It was hand-rolled here
+    /// first, which would have meant two implementations of "which chapters are new" writing to one
+    /// database; they would have drifted on exactly the cases that matter, like a silently renamed
+    /// chapter keeping its read state.
     @discardableResult
     func setChapters(
         _ chapters: [ExtensionRunner.Chapter],
@@ -116,51 +123,60 @@ extension CoreDataManager {
         mangaId: String,
         context: Any? = nil
     ) -> [ChapterObject] {
-        guard let manga = sharedManga(sourceId: sourceId, mangaId: mangaId),
-              let mangaRowId = manga.id?.int64Value
+        guard
+            !chapters.isEmpty,
+            let manga = sharedManga(sourceId: sourceId, mangaId: mangaId)
         else { return [] }
 
-        let existing = Dictionary(
-            sharedChapters(sourceId: sourceId, mangaId: mangaId).map { ($0.url, $0) },
-            uniquingKeysWith: { first, _ in first }
+        let sourceChapters: [SChapter] = chapters.map { chapter in
+            let s = SChapterImpl()
+            s.url = chapter.key
+            s.name = chapter.title ?? chapter.key
+            s.scanlator = chapter.scanlators?.joined(separator: ", ")
+            s.date_upload = Int64((chapter.dateUploaded?.timeIntervalSince1970 ?? 0) * 1000)
+            if let number = chapter.chapterNumber { s.chapter_number = number }
+            return s
+        }
+
+        let result = ChapterSyncKt.syncChaptersWithSource(
+            db: handler,
+            rawSourceChapters: sourceChapters,
+            manga: manga,
+            platform: Self.syncPlatform
         )
 
-        var added: [ChapterObject] = []
-        let handler = self.handler
-        handler.inTransaction {
-            for (order, chapter) in chapters.enumerated() {
-                if let stored = existing[chapter.key] {
-                    stored.name = chapter.title ?? stored.name
-                    stored.scanlator = chapter.scanlators?.joined(separator: ", ") ?? stored.scanlator
-                    stored.source_order = Int32(order)
-                    handler.insertChapter(chapter: stored)
-                } else {
-                    let record = ChapterImpl()
-                    record.manga_id = KotlinLong(value: mangaRowId)
-                    record.url = chapter.key
-                    record.name = chapter.title ?? chapter.key
-                    record.scanlator = chapter.scanlators?.joined(separator: ", ")
-                    record.chapter_number = chapter.chapterNumber ?? -1
-                    record.date_upload = Int64((chapter.dateUploaded?.timeIntervalSince1970 ?? 0) * 1000)
-                    record.date_fetch = Int64(Date().timeIntervalSince1970 * 1000)
-                    record.source_order = Int32(order)
-                    handler.insertChapter(chapter: record)
-                    added.append(ChapterObject(row: record, sourceId: sourceId, mangaId: mangaId))
-                }
-            }
-
-            // Chapters the source no longer lists are gone from it.
-            let keys = Set(chapters.map(\.key))
-            let removed = existing.values.filter { !keys.contains($0.url) }
-            if !removed.isEmpty {
-                handler.deleteChapters(chapters: removed)
-            }
-        }
-        return added
+        let added = (result.first as? [DbChapter]) ?? []
+        return added.map { ChapterObject(row: $0, sourceId: sourceId, mangaId: mangaId) }
     }
+
+    /// Shared with `LibraryStore`: the platform hooks `syncChaptersWithSource` delegates.
+    private static let syncPlatform = IOSChapterSyncPlatform()
 
     /// Upstream records every new chapter as a `MangaUpdate` row for the updates badge. The shared
     /// schema has no such table -- `MangaUpdateManager` keeps a viewed timestamp instead -- so
     /// there is nothing to write here.
     func createMangaUpdate(sourceId: String, mangaId: String, chapterObject: ChapterObject, context: Any? = nil) {}
+}
+
+extension CoreDataManager {
+    /// Unread counts for the whole library in one pass, which is what the library grid badges.
+    ///
+    /// Upstream runs a single aggregate fetch; here the chapters are read once and tallied, rather
+    /// than issuing one count query per entry.
+    func libraryUnreadCounts(context: Any? = nil) -> [MangaIdentifier: Int] {
+        let handler = self.handler
+        var byMangaId: [Int64: Int] = [:]
+        for chapter in handler.getAllChapters() where !chapter.read {
+            guard let mangaId = chapter.manga_id?.int64Value else { continue }
+            byMangaId[mangaId, default: 0] += 1
+        }
+
+        var counts: [MangaIdentifier: Int] = [:]
+        for manga in handler.getLibraryMangas() {
+            guard let id = manga.id?.int64Value else { continue }
+            counts[MangaIdentifier(sourceKey: manga.legacySourceId, mangaKey: manga.url)] =
+                byMangaId[id] ?? 0
+        }
+        return counts
+    }
 }

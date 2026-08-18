@@ -157,3 +157,35 @@ extension CoreDataManager {
         handler.updateHistoryLastRead(history: history)
     }
 }
+
+extension CoreDataManager {
+    /// Synchronous form of `getReadingHistory`, for callers already off the main actor.
+    func readingHistorySnapshot(sourceId: String, mangaId: String) -> [String: (page: Int, date: Int)] {
+        var result: [String: (page: Int, date: Int)] = [:]
+        for chapter in sharedChapters(sourceId: sourceId, mangaId: mangaId) {
+            guard let history = handler.getHistoryByChapterUrl(chapterUrl: chapter.url) else { continue }
+            result[chapter.url] = (
+                page: chapter.read ? -1 : Int(chapter.last_page_read),
+                date: Int(history.last_read / 1000)
+            )
+        }
+        return result
+    }
+}
+
+extension CoreDataManager {
+    /// Every history row for a source, as the "source changed its ids" migration walks them.
+    func getHistory(sourceId: String, context: Any? = nil) -> [ChapterIdentifier] {
+        guard let source = SourceIdentity.numericId(sourceId) else { return [] }
+        return handler.getMangasBySource(sourceId: source).flatMap { manga in
+            handler.getChapters(manga: manga).compactMap { chapter in
+                guard handler.getHistoryByChapterUrl(chapterUrl: chapter.url) != nil else { return nil }
+                return ChapterIdentifier(
+                    sourceKey: sourceId,
+                    mangaKey: manga.url,
+                    chapterKey: chapter.url
+                )
+            }
+        }
+    }
+}

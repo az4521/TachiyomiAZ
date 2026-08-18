@@ -60,3 +60,38 @@ extension CoreDataManager {
         return record.toLegacy()
     }
 }
+
+extension CoreDataManager {
+    /// Rewrites a source's manga and chapter keys after it changes its id scheme.
+    ///
+    /// The manga side goes through `updateMangaUrls` in `:core-database` -- the same call the
+    /// Android app makes for this -- rather than reinserting rows, so ids and relationships survive.
+    func migrateSourceIds(
+        sourceId: String,
+        mangaIds: [String: String],
+        chapterIds: [String: String]
+    ) {
+        guard let source = SourceIdentity.numericId(sourceId) else { return }
+        let handler = self.handler
+
+        handler.inTransaction {
+            let mangas = handler.getMangasBySource(sourceId: source)
+
+            for manga in mangas {
+                for chapter in handler.getChapters(manga: manga) {
+                    guard let newKey = chapterIds[chapter.url], newKey != chapter.url else { continue }
+                    chapter.url = newKey
+                    handler.insertChapter(chapter: chapter)
+                }
+            }
+
+            let renamed = mangas.filter { mangaIds[$0.url] != nil }
+            for manga in renamed {
+                manga.url = mangaIds[manga.url] ?? manga.url
+            }
+            if !renamed.isEmpty {
+                handler.updateMangaUrls(mangas: renamed)
+            }
+        }
+    }
+}

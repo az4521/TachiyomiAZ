@@ -104,3 +104,26 @@ extension CoreDataManager {
         await setMangaCategories(sourceId: sourceId, mangaId: mangaId, categories: remaining)
     }
 }
+
+/// Bulk category edits, as the library's selection mode makes them.
+extension CoreDataManager {
+    func addCategoriesToManga(_ identifiers: [MangaIdentifier], categories: [String]) async {
+        for identifier in identifiers {
+            await addCategoriesToManga(
+                sourceId: identifier.sourceKey,
+                mangaId: identifier.mangaKey,
+                categories: categories
+            )
+        }
+    }
+
+    func removeCategoriesFromManga(_ identifiers: [MangaIdentifier], categories: [String]) async {
+        for identifier in identifiers {
+            await removeCategoriesFromManga(
+                sourceId: identifier.sourceKey,
+                mangaId: identifier.mangaKey,
+                categories: categories
+            )
+        }
+    }
+}
