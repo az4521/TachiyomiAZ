@@ -65,3 +65,42 @@ extension CoreDataManager {
         handler.deleteCategories(categories: handler.getCategories())
     }
 }
+
+/// Which categories a manga belongs to, over the shared `mangas_categories` join table.
+extension CoreDataManager {
+    func getCategories(sourceId: String, mangaId: String, context: Any? = nil) -> [MangaCategory] {
+        guard let manga = sharedManga(sourceId: sourceId, mangaId: mangaId) else { return [] }
+        return handler.getCategoriesForManga(manga: manga)
+    }
+
+    /// Replaces a manga's category memberships with exactly the titles given.
+    ///
+    /// `setMangaCategories(mangasCategories:mangas:)` is a `:core-database` default method that
+    /// clears and reinserts in one transaction -- the same call the Android app makes -- so the
+    /// replacement is not reimplemented here.
+    func setMangaCategories(sourceId: String, mangaId: String, categories: [String]) async {
+        guard let manga = sharedManga(sourceId: sourceId, mangaId: mangaId) else { return }
+        let wanted = Set(categories)
+        let links = handler.getCategories()
+            .filter { wanted.contains($0.name) && $0.id != nil }
+            .map { TachiyomiKit.MangaCategory.companion.create(manga: manga, category: $0) }
+        handler.setMangaCategories(mangasCategories: links, mangas: [manga])
+    }
+
+    func addCategoriesToManga(sourceId: String, mangaId: String, categories: [String]) async {
+        let existing = getCategories(sourceId: sourceId, mangaId: mangaId).map(\.name)
+        await setMangaCategories(
+            sourceId: sourceId,
+            mangaId: mangaId,
+            categories: Array(Set(existing + categories))
+        )
+    }
+
+    func removeCategoriesFromManga(sourceId: String, mangaId: String, categories: [String]) async {
+        let removing = Set(categories)
+        let remaining = getCategories(sourceId: sourceId, mangaId: mangaId)
+            .map(\.name)
+            .filter { !removing.contains($0) }
+        await setMangaCategories(sourceId: sourceId, mangaId: mangaId, categories: remaining)
+    }
+}

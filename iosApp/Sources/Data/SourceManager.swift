@@ -13,6 +13,13 @@ import Foundation
 final class SourceManager {
     static let shared = SourceManager()
 
+    /// Language ordering for the browse and migration lists, in tachiyomiazios's order so the two
+    /// apps present sources the same way.
+    static let languageCodes = [
+        "multi", "en", "ca", "de", "es", "fr", "id", "it", "pl", "pt-br",
+        "vi", "tr", "ru", "ar", "zh", "zh-hans", "ja", "ko"
+    ]
+
     weak var runtime: SourceRuntime?
 
     private init() {}
@@ -27,16 +34,36 @@ final class SourceManager {
     }
 
     /// Nonisolated because callers reach it from background work -- the backup codec names each
-    /// source while encoding, off the main actor. Nothing isolated is touched: the result is
-    /// currently always nil, and the name lookup that does read state goes through `name(for:)`,
-    /// which is backed by its own synchronised snapshot.
+    /// source while encoding, off the main actor. The backing snapshot is refreshed by
+    /// `SourceRuntime.reload()` and guarded by its own lock.
     nonisolated func source(for key: String) -> ExtensionRunner.Source? {
-        // The vendored UI only uses the returned source to modify image requests. That path needs
-        // the JVM's per-source headers, which are not exposed as an ExtensionRunner.Source here --
-        // returning nil makes the caller fall back to an unmodified request, which is correct for
-        // every source that does not require referer or cookie headers on images.
-        nil
+        Self.sourceLock.lock()
+        defer { Self.sourceLock.unlock() }
+        return Self.loadedSources.first { $0.key == key }
     }
+
+    /// Every loaded source, as the vendored UI addresses them.
+    nonisolated var sources: [ExtensionRunner.Source] {
+        Self.sourceLock.lock()
+        defer { Self.sourceLock.unlock() }
+        return Self.loadedSources
+    }
+
+    /// Refreshed by `SourceRuntime.reload()`, which builds these from the loaded JVM extensions.
+    nonisolated func updateSources(_ sources: [ExtensionRunner.Source]) {
+        Self.sourceLock.lock()
+        Self.loadedSources = sources
+        Self.sourceLock.unlock()
+    }
+
+    /// Sources the user has pinned to the top of Browse.
+    nonisolated func getPinned() -> [ExtensionRunner.Source] {
+        let pinned = Set(UserDefaults.standard.stringArray(forKey: "Browse.pinnedSources") ?? [])
+        return sources.filter { pinned.contains($0.key) }
+    }
+
+    private nonisolated static let sourceLock = NSLock()
+    nonisolated(unsafe) private static var loadedSources: [ExtensionRunner.Source] = []
 
     /// "Reset everything" in settings clears installed sources along with the database.
     ///
@@ -72,5 +99,18 @@ final class SourceManager {
         Self.nameLock.lock()
         Self.names = names
         Self.nameLock.unlock()
+    }
+
+    /// Clears a source's stored settings.
+    ///
+    /// Lifted from tachiyomiazios: source settings are UserDefaults keys namespaced by the source
+    /// key, so removing a source means dropping its key and anything prefixed with it.
+    nonisolated func removeSettings(from source: ExtensionRunner.Source) {
+        let userDefaults = UserDefaults.standard
+        let keys = userDefaults.dictionaryRepresentation().keys
+
+        for key in keys where key == source.key || key.hasPrefix(source.key + ".") {
+            userDefaults.removeObject(forKey: key)
+        }
     }
 }

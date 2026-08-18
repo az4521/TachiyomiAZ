@@ -18,11 +18,56 @@ struct TrackerManager {
 
     static let shared = TrackerManager()
 
+    /// Every tracker this app implements. Upstream lists eight, including the self-hosted ones that
+    /// belong to Aidoku's own sources; this port has MyAnimeList and AniList.
+    static let trackers: [Tracker] = [MyAnimeListTracker(), AniListTracker()]
+
     /// Upstream identifies a tracker by string id. This port has MyAnimeList and AniList, named by
     /// `TrackerService`, and does not yet conform them to upstream's richer `Tracker` protocol --
     /// see Vendored/_excluded/Tracking. Until it does, nothing resolves and the callers below skip
     /// their sync work rather than acting on a tracker that cannot answer.
-    static func getTracker(id: String) -> Tracker? { nil }
+    static func getTracker(id: String) -> Tracker? {
+        trackers.first { $0.id == id }
+    }
+
+    /// Whether any tracker could take this title -- upstream asks per-title because its
+    /// self-hosted trackers only apply to their own sources. Here it is the same question as
+    /// whether a tracker is signed in at all.
+    func hasAvailableTrackers(sourceKey: String, mangaKey: String) async -> Bool {
+        Self.hasAvailableTrackers
+    }
+
+    /// Whether a title is linked to any tracker.
+    func isTracking(sourceId: String, mangaId: String) -> Bool {
+        CoreDataManager.shared.hasTrack(sourceId: sourceId, mangaId: mangaId)
+    }
+
+    /// The per-title chapter offset applied when syncing progress.
+    ///
+    /// Android's `manga_sync` has no offset column, so this is kept alongside rather than written
+    /// into the shared row -- it only affects how this app reports progress outward.
+    func setTrackChapterOffset(item: TrackItem, chapterOffset: Int) async {
+        UserDefaults.standard.set(
+            chapterOffset,
+            forKey: "Tracking.chapterOffset.\(item.trackerId).\(item.sourceId).\(item.mangaId)"
+        )
+    }
+
+    func chapterOffset(for trackItem: TrackItem) -> Int {
+        UserDefaults.standard.integer(
+            forKey: "Tracking.chapterOffset.\(trackItem.trackerId).\(trackItem.sourceId).\(trackItem.mangaId)"
+        )
+    }
+
+    /// Unlinks a title from one tracker.
+    func removeTrackItem(item: TrackItem) async {
+        CoreDataManager.shared.removeTrack(
+            trackerId: item.trackerId,
+            sourceId: item.sourceId,
+            mangaId: item.mangaId
+        )
+        NotificationCenter.default.post(name: NSNotification.Name("updateTrackers"), object: nil)
+    }
 }
 
 /// Marks a tracker that reports progress per page rather than per chapter.
@@ -42,7 +87,7 @@ extension TrackerManager {
     func syncPageTrackerHistory(
         tracker: Tracker,
         manga: ExtensionRunner.Manga,
-        chapters: [ExtensionRunner.Chapter]
+        chapters: [ExtensionRunner.Chapter]?
     ) async {}
 
     func getChaptersToSyncProgressFromTracker(

@@ -181,11 +181,12 @@ final class MyAnimeListTracker: Tracker {
 
     private static func remoteStatus(_ status: TrackStatus) -> String {
         switch status {
-        case .reading, .rereading: return "reading"
-        case .completed: return "completed"
-        case .onHold: return "on_hold"
-        case .dropped: return "dropped"
-        case .planToRead: return "plan_to_read"
+        case .reading, .rereading: "reading"
+        case .completed: "completed"
+        case .paused: "on_hold"
+        case .dropped: "dropped"
+        case .planning: "plan_to_read"
+        default: "reading"
         }
     }
 
@@ -290,12 +291,13 @@ final class AniListTracker: Tracker {
 
     private static func remoteStatus(_ status: TrackStatus) -> String {
         switch status {
-        case .reading: return "CURRENT"
-        case .completed: return "COMPLETED"
-        case .onHold: return "PAUSED"
-        case .dropped: return "DROPPED"
-        case .planToRead: return "PLANNING"
-        case .rereading: return "REPEATING"
+        case .reading: "CURRENT"
+        case .completed: "COMPLETED"
+        case .paused: "PAUSED"
+        case .dropped: "DROPPED"
+        case .planning: "PLANNING"
+        case .rereading: "REPEATING"
+        default: "CURRENT"
         }
     }
 

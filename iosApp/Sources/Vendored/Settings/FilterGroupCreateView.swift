@@ -196,8 +196,9 @@ extension FilterGroupCreateView {
             let allCategoryAndGroupTitles = CoreDataManager.shared.getCategoryTitles(excludeFilterGroups: false, context: context)
 
             var sourceKeys: Set<String> = []
-            for manga in CoreDataManager.shared.getLibraryManga(context: context) {
-                sourceKeys.insert(SourceIdentity.key(for: manga.source))
+            for object in CoreDataManager.shared.getLibraryManga(context: context) {
+                guard let manga = object.manga else { continue }
+                sourceKeys.insert(manga.sourceId)
             }
 
             var filters: [LibraryFilter] = []

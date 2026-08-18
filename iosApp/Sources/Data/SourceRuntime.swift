@@ -1,3 +1,4 @@
+import ExtensionRunner
 import Foundation
 import TachiJVMRunner
 
@@ -70,68 +71,56 @@ final class SourceRuntime: ObservableObject {
 
     /// Loads every installed extension that is not loaded yet and refreshes the source list.
     func reload() async {
-        guard let runtime = jvm.runtime else { return }
+        guard jvm.isRunning else { return }
         isLoading = true
         defer { isLoading = false }
 
-        // The Suwayomi/AndroidCompat surface has to be initialised before any extension class is
-        // touched, or the first source that reaches for an Android API dies instead of working.
-        if !compatibilityReady {
-            do {
-                _ = try await Task.detached { try runtime.initializeExtensionCompatibility() }.value
-                compatibilityReady = true
-            } catch {
-                loadErrors["*"] = "Compatibility layer failed: \(error.localizedDescription)"
-                return
+        // JVMSourceRuntime owns the VM and does the loading: installedAidokuSources() reads the
+        // installed manifests, loads any extension not yet loaded, and returns one Source per
+        // source it exposes -- each already carrying a TachiyomiXSourceRunner, which is what the
+        // vendored UI feature-detects on.
+        let loaded = await JVMSourceRuntime.shared.installedAidokuSources()
+        SourceManager.shared.updateSources(loaded)
+
+        // `staticListings` is private on Source, so which sources offer a "latest" listing is
+        // asked of each source rather than read off it.
+        var latestCapable: Set<String> = []
+        for source in loaded {
+            let listings = (try? await source.getListings()) ?? []
+            if listings.contains(where: { $0.id == "latest" }) {
+                latestCapable.insert(source.key)
             }
         }
 
-        var descriptors: [SourceDescriptor] = []
-        for installed in catalog.installed {
-            do {
-                if !loadedExtensions.contains(installed.packageName) {
-                    // Resolved against the current container, not a path stored at install time.
-                    let url = try ExtensionCatalog.jarURL(for: installed)
-                    let id = installed.packageName
-                    let entry = installed.entryClass
-                    _ = try await Task.detached {
-                        try runtime.loadTachiyomiXExtension(id: id, jarURL: url, entryClass: entry)
-                    }.value
-                    loadedExtensions.insert(installed.packageName)
-                }
-
-                let id = installed.packageName
-                let listed = try await Task.detached {
-                    try runtime.sources(extensionId: id)
-                }.value
-
-                descriptors.append(contentsOf: listed.map {
-                    SourceDescriptor(
-                        id: $0.id,
-                        extensionId: installed.packageName,
-                        extensionName: installed.name,
-                        name: $0.name,
-                        lang: $0.lang,
-                        supportsLatest: $0.supportsLatest
-                    )
-                })
-                loadErrors.removeValue(forKey: installed.packageName)
-            } catch {
-                loadErrors[installed.packageName] = error.localizedDescription
+        // This app's own screens still work in SourceDescriptor, derived from the same list so the
+        // two views of a source cannot disagree.
+        sources = loaded
+            .compactMap { source -> SourceDescriptor? in
+                guard let id = SourceIdentity.numericId(source.key) else { return nil }
+                let installed = catalog.installed.first { $0.packageName == source.id }
+                return SourceDescriptor(
+                    id: id,
+                    extensionId: installed?.packageName ?? source.id,
+                    extensionName: installed?.name ?? source.name,
+                    name: source.name,
+                    lang: source.languages.first ?? "en",
+                    supportsLatest: latestCapable.contains(source.key)
+                )
             }
-        }
-
-        sources = descriptors.sorted {
-            $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
-        }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
 
         // Publish names where background work can read them -- backup encoding, for one.
         SourceManager.shared.updateNames(
             Dictionary(
-                sources.map { (TachiyomiXSourceRunner.key(for: $0.id), $0.name) },
+                loaded.map { ($0.key, $0.name) },
                 uniquingKeysWith: { first, _ in first }
             )
         )
+
+        loadErrors.removeAll()
+        if loaded.isEmpty && !catalog.installed.isEmpty {
+            loadErrors["*"] = "No sources loaded from \(catalog.installed.count) installed extension(s)."
+        }
     }
 
     /// Forgets a loaded extension so the next reload picks up a new version of it.
@@ -143,43 +132,21 @@ final class SourceRuntime: ObservableObject {
     // MARK: - Browsing
 
     func popular(_ source: SourceDescriptor, page: Int) async throws -> TachiyomiXMangaPage {
-        try await pagedManga(operation: "getPopularManga", source: source, page: page)
+        try await JVMSourceRuntime.shared.popularManga(
+            extensionId: source.extensionId,
+            sourceId: source.id,
+            page: page
+        )
     }
 
     func latest(_ source: SourceDescriptor, page: Int) async throws -> TachiyomiXMangaPage {
-        try await pagedManga(operation: "getLatestUpdates", source: source, page: page)
+        try await JVMSourceRuntime.shared.latestManga(
+            extensionId: source.extensionId,
+            sourceId: source.id,
+            page: page
+        )
     }
 
-    /// One shape for every paged listing, so all of them get the Cloudflare retry.
-    ///
-    /// The page number travels in `argument`, matching TachiyomiXExtensionClient's own encoding --
-    /// the host has no page field.
-    private func pagedManga(
-        operation: String,
-        source: SourceDescriptor,
-        page: Int,
-        query: String? = nil,
-        filterStates: String? = nil
-    ) async throws -> TachiyomiXMangaPage {
-        guard page > 0 else {
-            throw JVMRuntimeError.invalidConfiguration("Manga page must be at least 1")
-        }
-        let response = try await dispatchWithBypass(
-            ExtensionHostRequest(
-                operation: operation,
-                extensionId: source.extensionId,
-                sourceId: String(source.id),
-                argument: String(page),
-                query: query,
-                filterStates: filterStates
-            ),
-            source: source
-        )
-        guard response.success, let result = response.result else {
-            throw JVMRuntimeError.decodingFailed(response.error ?? "\(operation) failed")
-        }
-        return try JSONDecoder().decode(TachiyomiXMangaPage.self, from: Data(result.utf8))
-    }
 
     func search(
         _ source: SourceDescriptor,
@@ -189,29 +156,26 @@ final class SourceRuntime: ObservableObject {
     ) async throws -> TachiyomiXMangaPage {
         // A filter-only search with no text is normal -- browsing by genre is how most sources are
         // used -- so an empty query is not rejected here.
-        try await pagedManga(
-            operation: "searchManga",
-            source: source,
-            page: page,
+        try await JVMSourceRuntime.shared.searchManga(
+            extensionId: source.extensionId,
+            sourceId: source.id,
             query: query,
-            filterStates: filterStates
+            page: page
         )
     }
 
     func filters(_ source: SourceDescriptor) async throws -> [SourceFilter] {
-        let json = try await withRuntime { runtime -> String in
-            let request = ExtensionHostRequest(
-                operation: "getSearchFilters",
-                extensionId: source.extensionId,
-                sourceId: String(source.id)
+        let descriptors = try await JVMSourceRuntime.shared.searchFilters(
+            extensionId: source.extensionId,
+            sourceId: source.id
+        )
+        return descriptors.enumerated().map { index, descriptor in
+            SourceFilter(
+                index: index,
+                name: descriptor.name,
+                kind: descriptor.sourceFilterKind
             )
-            let response: ExtensionHostResponse = try runtime.dispatch(request)
-            guard response.success, let result = response.result else {
-                throw JVMRuntimeError.decodingFailed(response.error ?? "Filters unavailable")
-            }
-            return result
         }
-        return SourceFilterDecoder.decode(json)
     }
 
     func mangaDetails(
@@ -220,21 +184,13 @@ final class SourceRuntime: ObservableObject {
         title: String,
         memo: String?
     ) async throws -> TachiyomiXMangaUpdate {
-        let response = try await dispatchWithBypass(
-            ExtensionHostRequest(
-                operation: "getMangaUpdate",
-                extensionId: source.extensionId,
-                sourceId: String(source.id),
-                mangaURL: url,
-                mangaTitle: title,
-                mangaMemo: memo
-            ),
-            source: source
+        try await JVMSourceRuntime.shared.mangaUpdate(
+            extensionId: source.extensionId,
+            sourceId: source.id,
+            mangaURL: url,
+            mangaTitle: title,
+            mangaMemo: memo
         )
-        guard response.success, let result = response.result else {
-            throw JVMRuntimeError.decodingFailed(response.error ?? "Details unavailable")
-        }
-        return try JSONDecoder().decode(TachiyomiXMangaUpdate.self, from: Data(result.utf8))
     }
 
     func pages(
@@ -243,72 +199,21 @@ final class SourceRuntime: ObservableObject {
         chapterName: String,
         memo: String?
     ) async throws -> [TachiyomiXPage] {
-        let response = try await dispatchWithBypass(
-            ExtensionHostRequest(
-                operation: "getPageList",
-                extensionId: source.extensionId,
-                sourceId: String(source.id),
-                chapterURL: chapterURL,
-                chapterName: chapterName,
-                chapterMemo: memo
-            ),
-            source: source
+        try await JVMSourceRuntime.shared.pages(
+            extensionId: source.extensionId,
+            sourceId: source.id,
+            chapterURL: chapterURL,
+            chapterName: chapterName,
+            chapterMemo: memo
         )
-        guard response.success, let result = response.result else {
-            throw JVMRuntimeError.decodingFailed(response.error ?? "Pages unavailable")
-        }
-        return try JSONDecoder().decode([TachiyomiXPage].self, from: Data(result.utf8))
     }
 
-    /// Runs work on the VM off the main actor. Every host call is synchronous and can block for as
-    /// long as the source's network does.
-    private func withRuntime<T: Sendable>(
-        _ body: @escaping @Sendable (JVMRuntime) throws -> T
-    ) async throws -> T {
-        guard let runtime = jvm.runtime else {
-            throw JVMRuntimeError.invalidConfiguration("The JVM is not running.")
-        }
-        return try await Task.detached(priority: .userInitiated) { try body(runtime) }.value
-    }
 
     // MARK: - Cloudflare
 
     /// Cached per-source user agents from solved challenges, so one solve covers later requests.
     private static var solvedUserAgents: [String: String] = [:]
 
-    /// Dispatches, and on a Cloudflare challenge solves it and retries once.
-    ///
-    /// This is the piece that was missing and that makes sources behave: the host reports a
-    /// challenge as an error string rather than throwing, so without this a Cloudflare-fronted
-    /// source simply fails -- which is what "connection reset" looked like on Weeb Central.
-    /// Modelled on tachiyomiazios's JVMSourceRuntime.dispatch.
-    func dispatchWithBypass(
-        _ request: ExtensionHostRequest,
-        source: SourceDescriptor
-    ) async throws -> ExtensionHostResponse {
-        let key = "\(source.extensionId):\(source.id)"
-
-        var outgoing = request
-        // Reuse an already-solved agent before trying anything, so a solved source stays solved.
-        if let known = Self.solvedUserAgents[key] {
-            outgoing.userAgent = known
-        }
-
-        let response = try await withRuntime { runtime -> ExtensionHostResponse in
-            try runtime.dispatch(outgoing)
-        }
-
-        guard Self.isCloudflareChallenge(response) else { return response }
-
-        let userAgent = try await solveChallenge(for: source)
-        Self.solvedUserAgents[key] = userAgent
-
-        var retried = request
-        retried.userAgent = userAgent
-        return try await withRuntime { runtime -> ExtensionHostResponse in
-            try runtime.dispatch(retried)
-        }
-    }
 
     /// The host signals a challenge in the error text; there is no distinct status for it.
     private static func isCloudflareChallenge(_ response: ExtensionHostResponse) -> Bool {
@@ -318,55 +223,6 @@ final class SourceRuntime: ObservableObject {
             || message.contains("cloudflare bypass currently disabled")
     }
 
-    /// Asks the extension where to log in, solves the challenge in a WebView, and hands the
-    /// resulting cookies back to the JVM so its OkHttp client is authenticated too.
-    private func solveChallenge(for source: SourceDescriptor) async throws -> String {
-        let info = try await withRuntime { runtime -> ExtensionHostResponse in
-            try runtime.dispatch(
-                ExtensionHostRequest(
-                    operation: "getWebLoginInfo",
-                    extensionId: source.extensionId,
-                    sourceId: String(source.id)
-                )
-            )
-        }
-        guard info.success,
-              let payload = info.result?.data(using: .utf8),
-              let parsed = try? JSONSerialization.jsonObject(with: payload) as? [String: Any],
-              let baseURL = parsed["baseURL"] as? String,
-              let url = URL(string: baseURL) else {
-            throw JVMRuntimeError.decodingFailed(
-                info.error ?? "The extension gave no Cloudflare login URL."
-            )
-        }
-
-        var request = URLRequest(url: url)
-        let declared = (parsed["userAgent"] as? String) ?? ""
-        let userAgent = declared.isEmpty
-            ? await UserAgentProvider.shared.getExtensionNetworkUserAgent()
-            : declared
-        if !userAgent.isEmpty {
-            request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
-        }
-
-        let session = try await CloudflareHandler.shared.solve(request: request)
-
-        let cookies = session.cookies
-            .map { "\($0.name)=\($0.value)" }
-            .joined(separator: "; ")
-        _ = try? await withRuntime { runtime -> ExtensionHostResponse in
-            try runtime.dispatch(
-                ExtensionHostRequest(
-                    operation: "setWebLoginCookies",
-                    extensionId: source.extensionId,
-                    sourceId: String(source.id),
-                    argument: cookies,
-                    userAgent: session.userAgent
-                )
-            )
-        }
-        return session.userAgent
-    }
 
     /// Removes every installed extension, then reloads so the source list reflects it.
     ///
@@ -420,6 +276,21 @@ enum SourceFilterDecoder {
             }
             return .group(children: children)
         default: return .header
+        }
+    }
+}
+
+extension TachiyomiXFilterDescriptor {
+    /// How this app's filter sheet renders the host's filter description.
+    var sourceFilterKind: SourceFilter.Kind {
+        switch type {
+        case "text": .text
+        case "check": .checkbox
+        case "tristate": .tristate
+        case "select": .select(options: options ?? [])
+        case "sort": .sort(options: options ?? [])
+        case "separator": .separator
+        default: .header
         }
     }
 }

@@ -59,3 +59,10 @@ final class ChapterObject {
         row.toNewChapter()
     }
 }
+
+extension ChapterObject {
+    /// A Tachiyomi source is single-language, so a chapter has no language of its own and the
+    /// shared schema has no column for one. Reported as nil, which reads as "no language filter
+    /// applies" at the call sites that check it.
+    var lang: String? { nil }
+}

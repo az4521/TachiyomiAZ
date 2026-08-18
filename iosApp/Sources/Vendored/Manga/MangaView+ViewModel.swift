@@ -481,7 +481,7 @@ extension MangaView.ViewModel {
                         newManga,
                         chapterLangFilter,
                         chapterScanlatorFilter
-                    ] context in
+                    ] context -> ExtensionRunner.Manga? in
                         guard
                             let libraryObject = CoreDataManager.shared.getLibraryManga(
                                 sourceId: sourceKey,

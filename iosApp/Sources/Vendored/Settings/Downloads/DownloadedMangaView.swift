@@ -199,8 +199,12 @@ struct DownloadedMangaView: View {
     }
 
     private func openMangaView(source: ExtensionRunner.Source) {
-        // The manga details screen is not built yet -- see Vendored/_excluded/Manga -- so tapping
-        // through from a downloaded series has nowhere to go. Restoring that file restores this.
+        let viewController = MangaViewController(
+            source: source,
+            manga: viewModel.manga.toManga(),
+            parent: path.rootViewController
+        )
+        path.push(viewController)
     }
 
     private func showShareSheet(chapter: DownloadedChapterInfo) {

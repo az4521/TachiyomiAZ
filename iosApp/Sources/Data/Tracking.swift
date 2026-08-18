@@ -1,4 +1,6 @@
 import Foundation
+import ExtensionRunner
+import UIKit
 import TachiyomiKit
 
 /// A tracking service.
@@ -37,38 +39,6 @@ enum TrackerService: Int32, CaseIterable, Identifiable {
     }
 }
 
-/// Reading status, in the encoding the shared `Track.status` column already uses.
-enum TrackStatus: Int32, CaseIterable, Identifiable {
-    case reading = 1
-    case completed = 2
-    case onHold = 3
-    case dropped = 4
-    case planToRead = 5
-    case rereading = 6
-
-    var id: Int32 { rawValue }
-
-    /// The vendored UI identifies a tracker by name, the shared schema by `sync_id`; this is how a
-    /// name from the UI reaches the right row.
-    init?(name: String) {
-        guard let match = Self.allCases.first(where: {
-            $0.title.caseInsensitiveCompare(name) == .orderedSame
-                || String(describing: $0).caseInsensitiveCompare(name) == .orderedSame
-        }) else { return nil }
-        self = match
-    }
-
-    var title: String {
-        switch self {
-        case .reading: return "Reading"
-        case .completed: return "Completed"
-        case .onHold: return "On hold"
-        case .dropped: return "Dropped"
-        case .planToRead: return "Plan to read"
-        case .rereading: return "Rereading"
-        }
-    }
-}
 
 /// A search result from a tracker, before it is bound to a library entry.
 struct TrackSearchResult: Identifiable, Hashable {
@@ -86,7 +56,7 @@ struct TrackSearchResult: Identifiable, Hashable {
 ///
 /// Deliberately small: search, push an update, and describe itself. Everything about *storing* a
 /// track is the shared database's job, so no implementation of this touches persistence.
-protocol Tracker {
+protocol Tracker: AnyObject {
     var service: TrackerService { get }
     var isLoggedIn: Bool { get }
 
@@ -98,6 +68,111 @@ protocol Tracker {
         score: Float
     ) async throws
     func logOut()
+}
+
+/// Marks a tracker bound to a particular source rather than a standalone service.
+///
+/// Upstream's Komga, Kavita and Suwayomi trackers are enhanced: they track against the same server
+/// the manga came from. Neither tracker here is, so nothing conforms -- the protocol exists so the
+/// vendored views' `is EnhancedTracker` checks compile and correctly answer false.
+protocol EnhancedTracker: Tracker {}
+
+/// The shape the vendored tracking UI addresses a tracker by.
+///
+/// Upstream declares `id`, `name` and `icon` on the protocol itself and has each tracker supply
+/// them. Here they follow from `TrackerService`, so they are derived once rather than reimplemented
+/// per tracker -- there is exactly one tracker per service.
+extension Tracker {
+    /// Stable string identifier, which is what a stored `TrackItem.trackerId` carries.
+    var id: String { String(describing: service) }
+
+    var name: String { service.title }
+
+    /// Whether a new entry can be created for this title. Upstream asks per-title because its
+    /// enhanced trackers only accept manga from their own server; both trackers here take anything.
+    func canRegister(sourceKey: String, mangaKey: String) -> Bool { true }
+
+    /// What the tracker supports. Both services here take the standard statuses and a 0-10 score.
+    func getTrackerInfo() async throws -> TrackerInfo {
+        TrackerInfo(supportedStatuses: TrackStatus.defaultStatuses, scoreType: .tenPoint)
+    }
+
+    /// The option-list label for a score. Neither service here uses an option list -- both are
+    /// numeric -- so this only has to be correct for the option-list case if one is added.
+    func option(for score: Int, options: [(String, Int)]) async -> String? {
+        options.first { $0.1 == score }?.0
+    }
+
+    /// The entry's current state on the service.
+    ///
+    /// Upstream's trackers fetch this from the remote API. Neither service here implements a state
+    /// read yet, so this reports what the shared `manga_sync` row holds -- which is what the app
+    /// last wrote -- rather than inventing remote values. Filling it in means adding one API call
+    /// per service; the UI above it already works.
+    func getState(trackId: String) async throws -> TrackState? {
+        guard
+            let remoteId = Int64(trackId),
+            let track = Database.handler.getAllTracks().first(where: {
+                $0.sync_id == service.rawValue && $0.media_id == remoteId
+            })
+        else { return nil }
+
+        var state = TrackState()
+        state.score = Int(track.score_)
+        state.status = TrackStatus(Int(track.status))
+        state.lastReadChapter = Float(track.last_chapter_read)
+        state.totalChapters = track.total_chapters == 0 ? nil : Int(track.total_chapters)
+        state.startReadDate = track.started_reading_date > 0
+            ? Date(timeIntervalSince1970: TimeInterval(track.started_reading_date) / 1000)
+            : nil
+        state.finishReadDate = track.finished_reading_date > 0
+            ? Date(timeIntervalSince1970: TimeInterval(track.finished_reading_date) / 1000)
+            : nil
+        return state
+    }
+
+    /// Pushes an edit made in the tracker sheet.
+    func update(trackId: String, update: TrackUpdate) async throws {
+        guard let remoteId = Int64(trackId) else { return }
+        try await self.update(
+            remoteId: remoteId,
+            status: update.status ?? .reading,
+            lastChapterRead: update.lastReadChapter.map { Int($0) } ?? 0,
+            score: Float(update.score ?? 0)
+        )
+    }
+
+    /// The tracker's web page for an entry, opened from the search results.
+    func getUrl(trackId: String) async -> URL? {
+        switch service {
+        case .myAnimeList: URL(string: "https://myanimelist.net/manga/\(trackId)")
+        case .aniList: URL(string: "https://anilist.co/manga/\(trackId)")
+        }
+    }
+
+    /// Upstream's enhanced trackers look a title up from the manga itself rather than a query.
+    /// Falling back to a title search is the closest this port can do.
+    func search(for manga: ExtensionRunner.Manga, includeNsfw: Bool) async throws -> [TrackSearchItem] {
+        try await search(title: manga.title, includeNsfw: includeNsfw)
+    }
+
+    var icon: PlatformImage? { UIImage(named: "tracker.\(id)") }
+
+    /// Upstream's search signature. NSFW filtering is the tracker's own concern and neither
+    /// MyAnimeList nor AniList is asked to filter here, so the flag is accepted and unused.
+    func search(title: String, includeNsfw: Bool) async throws -> [TrackSearchItem] {
+        try await search(title).map { result in
+            TrackSearchItem(
+                id: String(result.remoteId),
+                title: result.title,
+                coverUrl: result.coverURL,
+                description: result.summary,
+                status: nil,
+                type: nil,
+                tracked: false
+            )
+        }
+    }
 }
 
 /// Stores tracks through the shared `TrackQueries`, and drives whichever services are logged in.
@@ -148,7 +223,7 @@ final class TrackingStore: ObservableObject {
         track.title = result.title
         track.total_chapters = Int32(result.totalChapters)
         track.last_chapter_read = Int32(lastChapterRead)
-        track.status = status.rawValue
+        track.status = Int32(status.rawValue)
         track.tracking_url = result.trackingURL
         handler.insertTrack(track: track)
 
@@ -175,7 +250,7 @@ final class TrackingStore: ObservableObject {
         do {
             try await trackers[service]?.update(
                 remoteId: track.media_id,
-                status: TrackStatus(rawValue: track.status) ?? .reading,
+                status: TrackStatus(Int(track.status)),
                 lastChapterRead: lastChapterRead,
                 score: track.score_
             )
@@ -188,7 +263,7 @@ final class TrackingStore: ObservableObject {
     func setStatus(_ track: Track, status: TrackStatus) async {
         let handler = library.handler
         guard let service = TrackerService(rawValue: track.sync_id) else { return }
-        track.status = status.rawValue
+        track.status = Int32(status.rawValue)
         handler.insertTrack(track: track)
         try? await trackers[service]?.update(
             remoteId: track.media_id,

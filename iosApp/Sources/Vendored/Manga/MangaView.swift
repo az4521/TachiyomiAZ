@@ -60,9 +60,11 @@ struct MangaView: View {
         self._openAction = State(initialValue: openAction)
     }
 
-    var body: some View {
-        let list = ScrollViewReader { proxy in
-            List(selection: $selectedChapters) {
+    /// Split out of `body`: the type checker cannot solve that ~200-line modifier chain in
+    /// reasonable time when it also has to solve the availability branch below.
+    private var decoratedList: some View {
+        ScrollViewReader { proxy in
+            let base = List(selection: $selectedChapters) {
                 headerView
 
                 if let error = viewModel.error {
@@ -190,6 +192,8 @@ struct MangaView: View {
             } message: {
                 Text(mangaWebError ?? "")
             }
+            // Second stage: binding here splits one unsolvable chain into two tractable ones.
+            base
             .task {
                 guard !detailsLoaded else { return }
                 await viewModel.markUpdatesViewed()
@@ -267,6 +271,10 @@ struct MangaView: View {
             }
             .environment(\.editMode, $editMode)
         }
+    }
+
+    var body: some View {
+        let list = decoratedList
 
         if #available(iOS 26.0, *) {
             list

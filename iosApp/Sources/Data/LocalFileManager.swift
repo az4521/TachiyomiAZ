@@ -86,3 +86,20 @@ final class LocalFileManager {
         return pages
     }
 }
+
+/// Removal entry points the vendored UI calls when deleting a series or chapter.
+///
+/// Local file *sources* are parked (see Vendored/_excluded/Local), so nothing here is backed by a
+/// local file and there is nothing to remove. These exist so the delete paths in the manga and
+/// collection screens compile; restoring the parked index restores the real implementations.
+extension LocalFileManager {
+    func removeManga(with mangaId: String) async {}
+
+    func removeChapter(mangaId: String, chapterId: String) async {}
+}
+
+extension LocalFileManager {
+    /// Local sources are parked, so no title here is backed by a local file and there is no local
+    /// cover to write. Returning nil sends the caller down its normal path.
+    func setCover(for mangaId: String, image: PlatformImage) async -> String? { nil }
+}

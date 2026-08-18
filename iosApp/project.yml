@@ -37,9 +37,11 @@ packages:
   Gifu:
     url: https://github.com/kaishin/Gifu.git
     majorVersion: 3.4.0
+  # Pinned to the same commit tachiyomiazios uses: the vendored manga list introspects with
+  # `.iOS(.v18, .v26, .v27)`, and no tagged release declares those versions yet.
   SwiftUIIntrospect:
     url: https://github.com/siteline/swiftui-introspect
-    majorVersion: 1.0.0
+    revision: d2987affc5482a94d94aa730914aa26b124648a6
   SwiftSoup:
     url: https://github.com/scinfu/SwiftSoup
     majorVersion: 2.10.1

@@ -1,3 +1,4 @@
+import ExtensionRunner
 import Foundation
 import TachiyomiKit
 
@@ -101,4 +102,65 @@ extension CoreDataManager {
             return scanlators.contains(scanlator)
         }
     }
+}
+
+extension CoreDataManager {
+    /// Replaces a title's chapter list with what the source returned, and reports which are new.
+    ///
+    /// Diffing is by chapter key, matching how `syncChaptersWithSource` in `:core-domain` decides
+    /// what is new -- read state on an existing chapter is preserved rather than reset.
+    @discardableResult
+    func setChapters(
+        _ chapters: [ExtensionRunner.Chapter],
+        sourceId: String,
+        mangaId: String,
+        context: Any? = nil
+    ) -> [ChapterObject] {
+        guard let manga = sharedManga(sourceId: sourceId, mangaId: mangaId),
+              let mangaRowId = manga.id?.int64Value
+        else { return [] }
+
+        let existing = Dictionary(
+            sharedChapters(sourceId: sourceId, mangaId: mangaId).map { ($0.url, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+
+        var added: [ChapterObject] = []
+        let handler = self.handler
+        handler.inTransaction {
+            for (order, chapter) in chapters.enumerated() {
+                if let stored = existing[chapter.key] {
+                    stored.name = chapter.title ?? stored.name
+                    stored.scanlator = chapter.scanlators?.joined(separator: ", ") ?? stored.scanlator
+                    stored.source_order = Int32(order)
+                    handler.insertChapter(chapter: stored)
+                } else {
+                    let record = ChapterImpl()
+                    record.manga_id = KotlinLong(value: mangaRowId)
+                    record.url = chapter.key
+                    record.name = chapter.title ?? chapter.key
+                    record.scanlator = chapter.scanlators?.joined(separator: ", ")
+                    record.chapter_number = chapter.chapterNumber ?? -1
+                    record.date_upload = Int64((chapter.dateUploaded?.timeIntervalSince1970 ?? 0) * 1000)
+                    record.date_fetch = Int64(Date().timeIntervalSince1970 * 1000)
+                    record.source_order = Int32(order)
+                    handler.insertChapter(chapter: record)
+                    added.append(ChapterObject(row: record, sourceId: sourceId, mangaId: mangaId))
+                }
+            }
+
+            // Chapters the source no longer lists are gone from it.
+            let keys = Set(chapters.map(\.key))
+            let removed = existing.values.filter { !keys.contains($0.url) }
+            if !removed.isEmpty {
+                handler.deleteChapters(chapters: removed)
+            }
+        }
+        return added
+    }
+
+    /// Upstream records every new chapter as a `MangaUpdate` row for the updates badge. The shared
+    /// schema has no such table -- `MangaUpdateManager` keeps a viewed timestamp instead -- so
+    /// there is nothing to write here.
+    func createMangaUpdate(sourceId: String, mangaId: String, chapterObject: ChapterObject, context: Any? = nil) {}
 }

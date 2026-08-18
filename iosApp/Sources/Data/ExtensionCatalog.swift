@@ -202,10 +202,12 @@ final class ExtensionCatalog: ObservableObject {
             try FileManager.default.moveItem(at: temporaryURL, to: destination)
 
             // The VM is the authority on whether this is loadable, not the index metadata.
-            let inspection = try await jvm.inspect(jarPath: destination.path)
-            guard inspection.success, let entryClass = inspection.result, !entryClass.isEmpty else {
+            let entryClass: String
+            do {
+                entryClass = try await jvm.inspect(jarPath: destination.path).entryClass
+            } catch {
                 try? FileManager.default.removeItem(at: destination)
-                lastError = "\(extensionItem.name): \(inspection.error ?? "the host rejected this JAR.")"
+                lastError = "\(extensionItem.name): \(error.localizedDescription)"
                 return
             }
 

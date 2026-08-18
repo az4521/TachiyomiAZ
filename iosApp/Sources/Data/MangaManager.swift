@@ -135,4 +135,126 @@ final class MangaManager {
             return isUnlocked && !isCompleted
         })
     }
+
+    /// Sets which categories a title belongs to, and tells the library to refresh.
+    func setCategories(sourceId: String, mangaId: String, categories: [String]) async {
+        await CoreDataManager.shared.setMangaCategories(
+            sourceId: sourceId,
+            mangaId: mangaId,
+            categories: categories
+        )
+        NotificationCenter.default.post(
+            name: Notification.Name("updateMangaCategories"),
+            object: MangaInfo(mangaId: mangaId, sourceId: sourceId)
+        )
+    }
+
+    // MARK: - Cover
+
+    // Lifted from tachiyomiazios: writing a user-chosen cover into Documents/Covers and recording
+    // the URL is filesystem work with no persistence decisions in it, so it comes across unchanged.
+    // The CoreDataManager.setCover it calls is this port's own, backed by the shared row.
+    // sets uploaded cover image and returns the new cover url
+    func setCover(manga: ExtensionRunner.Manga, cover: PlatformImage) async -> String? {
+        if manga.isLocal() {
+            return await LocalFileManager.shared.setCover(for: manga.key, image: cover)
+        }
+
+        // upload cover image to Documents/Covers/id.png
+        let documentsDirectory = FileManager.default.documentDirectory
+        let targetDirectory = documentsDirectory.appendingPathComponent("Covers")
+        let ext = if #available(iOS 17.0, *) {
+            "heic"
+        } else {
+            "png"
+        }
+        var targetUrl = targetDirectory.appendingPathComponent(UUID().uuidString).appendingPathExtension(ext)
+        while targetUrl.exists {
+            targetUrl = targetDirectory.appendingPathComponent(UUID().uuidString).appendingPathExtension(ext)
+        }
+        targetDirectory.createDirectory()
+        do {
+            let data = if #available(iOS 17.0, *) {
+#if !os(macOS)
+                cover.heicData()
+#else
+                cover.pngData()
+#endif
+            } else {
+                cover.pngData()
+            }
+            try data?.write(to: targetUrl)
+        } catch {
+            LogManager.logger.error("MangaManager.setMangaCover: \(error.localizedDescription)")
+            return nil
+        }
+
+        // set cover in coredata
+        let coverUrl = "aidoku-image:///Covers/\(targetUrl.lastPathComponent)"
+        await CoreDataManager.shared.setCover(
+            sourceId: manga.sourceKey,
+            mangaId: manga.key,
+            coverUrl: coverUrl
+        )
+
+        return coverUrl
+    }
+
+    // MARK: - Migration
+
+    /// Moves (or copies) library entries from one source to another.
+    ///
+    /// Upstream's version threads through its CoreData object graph. This works in the same terms
+    /// the shared database does: the destination becomes a favourite carrying the source's details
+    /// and chapters, category membership follows it, and unless `copy` is set the original stops
+    /// being a favourite. Read state is not carried across -- the two sources number chapters
+    /// differently, and guessing an alignment would silently mark things read.
+    func migrate(
+        copy: Bool,
+        fromSeries: [ExtensionRunner.Manga],
+        toSeries: [MangaIdentifier: ExtensionRunner.Manga?],
+        withChapters: [MangaIdentifier: [ExtensionRunner.Chapter]] = [:],
+        progressReport: ((Float) -> Void)? = nil
+    ) async {
+        let total = Float(max(fromSeries.count, 1))
+        for (index, from) in fromSeries.enumerated() {
+            defer { progressReport?(Float(index + 1) / total) }
+
+            let identifier = MangaIdentifier(sourceKey: from.sourceKey, mangaKey: from.key)
+            guard let destination = toSeries[identifier] ?? nil else { continue }
+
+            await CoreDataManager.shared.cacheMangaDetails(destination, includeChapters: false)
+
+            if let chapters = withChapters[identifier] {
+                CoreDataManager.shared.setChapters(
+                    chapters,
+                    sourceId: destination.sourceKey,
+                    mangaId: destination.key
+                )
+            }
+
+            let categories = CoreDataManager.shared
+                .getCategories(sourceId: from.sourceKey, mangaId: from.key)
+                .map(\.name)
+
+            await library?.addFromRunner(destination, sourceId: SourceIdentity.numericId(destination.sourceKey) ?? 0)
+
+            if !categories.isEmpty {
+                await CoreDataManager.shared.setMangaCategories(
+                    sourceId: destination.sourceKey,
+                    mangaId: destination.key,
+                    categories: categories
+                )
+            }
+
+            if !copy {
+                await library?.remove(
+                    url: from.key,
+                    sourceId: SourceIdentity.numericId(from.sourceKey) ?? 0
+                )
+            }
+        }
+
+        NotificationCenter.default.post(name: Notification.Name("updateLibrary"), object: nil)
+    }
 }

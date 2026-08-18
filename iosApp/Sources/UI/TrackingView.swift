@@ -137,10 +137,10 @@ struct MangaTrackingView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Picker("Status", selection: Binding(
-                get: { TrackStatus(rawValue: track.status) ?? .reading },
-                set: { newValue in Task { await tracking.setStatus(track, status: newValue) } }
+                get: { Int(track.status) },
+                set: { newValue in Task { await tracking.setStatus(track, status: TrackStatus(newValue)) } }
             )) {
-                ForEach(TrackStatus.allCases) { Text($0.title).tag($0) }
+                ForEach(TrackStatus.defaultStatuses, id: \.rawValue) { Text($0.toString()).tag($0.rawValue) }
             }
             .pickerStyle(.menu)
         }

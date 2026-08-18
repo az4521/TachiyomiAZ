@@ -33,34 +33,41 @@ struct TrackerSearchView: View {
         self._includeNsfw = State(initialValue: manga.contentRating != .safe)
     }
 
+    /// Extracted from `body`: the row's button, context menu and async actions solved
+    /// together with the surrounding list took the type checker past its limit.
+    @ViewBuilder
+    private func resultRow(_ item: TrackSearchItem) -> some View {
+            Button {
+                if selectedItem == item.id {
+                    selectedItem = nil
+                } else {
+                    selectedItem = item.id
+                }
+            } label: {
+                TrackerSearchItemCell(item: item, selected: selectedItem == item.id)
+            }
+            .offsetListSeparator()
+            .contextMenu {
+                Button {
+                    Task {
+                        safariUrl = await tracker.getUrl(trackId: item.id)
+                        guard safariUrl != nil else { return }
+                        showSafari = true
+                    }
+                } label: {
+                    Label(
+                        NSLocalizedString("VIEW_ON_WEBSITE"),
+                        systemImage: "safari"
+                    )
+                }
+            }
+    }
+
     var body: some View {
         PlatformNavigationStack {
             List {
                 ForEach(results, id: \.id) { item in
-                    Button {
-                        if selectedItem == item.id {
-                            selectedItem = nil
-                        } else {
-                            selectedItem = item.id
-                        }
-                    } label: {
-                        TrackerSearchItemCell(item: item, selected: selectedItem == item.id)
-                    }
-                    .offsetListSeparator()
-                    .contextMenu {
-                        Button {
-                            Task {
-                                safariUrl = await tracker.getUrl(trackId: item.id)
-                                guard safariUrl != nil else { return }
-                                showSafari = true
-                            }
-                        } label: {
-                            Label(
-                                NSLocalizedString("VIEW_ON_WEBSITE"),
-                                systemImage: "safari"
-                            )
-                        }
-                    }
+                    resultRow(item)
                 }
             }
             .listStyle(.plain)

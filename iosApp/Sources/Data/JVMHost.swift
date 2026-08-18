@@ -11,6 +11,12 @@ import TachiJVMRunner
 /// Everything crosses the boundary as JSON through `dispatch`. That keeps the Swift side free of
 /// JNI and means the shared Kotlin layer can eventually sit in front of this with a plain
 /// interface, the same way it sits in front of the database.
+///
+/// This class does **not** own the VM. `JVMSourceRuntime` does, and starts it lazily on first use.
+/// JNI permits exactly one VM per process, so a second `JVMRuntime(configuration:)` here would fail
+/// with JNI_EEXIST -- and the vendored UI reaches the VM through `TachiyomiXSourceRunner`, which
+/// routes to `JVMSourceRuntime.shared`. This is the observable status wrapper the app's own screens
+/// bind to; starting it means asking that actor to come up.
 @MainActor
 final class JVMHost: ObservableObject {
     enum State: Equatable {
@@ -22,9 +28,9 @@ final class JVMHost: ObservableObject {
 
     @Published private(set) var state: State = .notStarted
 
-    /// Exposed so SourceRuntime can dispatch without this class growing a method per host
-    /// operation -- the protocol already lives in TachiJVMRunner.
-    private(set) var runtime: JVMRuntime?
+    /// Kept for the screens that check whether the host is up. Requests go through
+    /// `JVMSourceRuntime`, which owns the VM.
+    var runtime: JVMSourceRuntime? { isRunning ? JVMSourceRuntime.shared : nil }
 
     var isRunning: Bool {
         if case .running = state { return true }
@@ -38,30 +44,9 @@ final class JVMHost: ObservableObject {
         state = .starting
 
         do {
-            // The bridge asks for InitialCodeCacheSize=4m, which the simulator refuses. Zero is
-            // an interpreter and compiles nothing, so the code cache only ever holds stubs and
-            // adapters -- shrinking it costs nothing and is appended after the bridge's defaults,
-            // so these win.
-            // NOTE: the VM does not currently start on the iOS Simulator. It dies in
-            // initialisation with:
-            //
-            //     Could not reserve enough space in CodeCache (NK)
-            //
-            // where N is always exactly InitialCodeCacheSize. Ruled out by experiment: capacity
-            // (256k fails as readily as 8m), segmentation (-XX:-SegmentedCodeCache changes
-            // nothing), and the JIT entitlement (verified present via codesign -d --entitlements,
-            // still fails). The reservation of executable pages is being refused outright rather
-            // than being too small.
-            //
-            // Left on the bridge's own defaults deliberately -- overriding them only moved the
-            // number in the error. See IOS_PORT.md for what to try next.
-            let configuration = try JVMRuntimeConfiguration.bundled()
-            let runtime = try await Task.detached(priority: .userInitiated) {
-                try JVMRuntime(configuration: configuration)
-            }.value
-            self.runtime = runtime
-
-            let response = try await ping()
+            // Starting the VM is JVMSourceRuntime's job; pinging it is what brings it up. The
+            // simulator notes that used to live here have moved to IOS_PORT.md.
+            let response = try await JVMSourceRuntime.shared.ping()
             if response.success {
                 state = .running(
                     javaVersion: response.javaVersion ?? "unknown",
@@ -84,25 +69,13 @@ final class JVMHost: ObservableObject {
 
     /// Asks the host to open a JAR and report its metadata. This is what decides whether a
     /// downloaded file is really a loadable Mihon extension -- the index only claims it is.
-    func inspect(jarPath: String) async throws -> ExtensionHostResponse {
-        guard let runtime else {
-            throw JVMRuntimeError.invalidConfiguration("The JVM has not been started.")
-        }
-        let request = ExtensionHostRequest(operation: "inspectExtension", jarPath: jarPath)
-        return try await Task.detached(priority: .userInitiated) {
-            try runtime.dispatch(request) as ExtensionHostResponse
-        }.value
+    func inspect(jarPath: String) async throws -> JVMExtensionInspection {
+        try await JVMSourceRuntime.shared.inspect(jar: URL(fileURLWithPath: jarPath))
     }
 
     /// The cheapest possible round trip: proves the VM started, the host JAR is on the classpath,
     /// and JSON survives both directions.
     func ping() async throws -> ExtensionHostResponse {
-        guard let runtime else {
-            throw JVMRuntimeError.invalidConfiguration("The JVM has not been started.")
-        }
-        let request = ExtensionHostRequest(operation: "ping")
-        return try await Task.detached(priority: .userInitiated) {
-            try runtime.dispatch(request) as ExtensionHostResponse
-        }.value
+        try await JVMSourceRuntime.shared.ping()
     }
 }

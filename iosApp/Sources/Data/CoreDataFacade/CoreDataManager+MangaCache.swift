@@ -68,3 +68,39 @@ extension CoreDataManager {
         return stamp > 0 ? Date(timeIntervalSince1970: stamp) : nil
     }
 }
+
+/// Fields the user has overridden on a title, and the cover they chose.
+///
+/// Android's schema records neither: it has no "edited" bitmask and no user-cover column, because
+/// the Android app does not offer per-title editing. Both live in `UserDefaults` here so the shared
+/// rows stay exactly what both apps expect.
+extension CoreDataManager {
+    private static func editedKeysKey(_ sourceId: String, _ mangaId: String) -> String {
+        "Manga.editedKeys.\(sourceId).\(mangaId)"
+    }
+
+    func hasEditedKey(sourceId: String, mangaId: String, key: EditedKeys, context: Any? = nil) -> Bool {
+        let stored = UserDefaults.standard.integer(forKey: Self.editedKeysKey(sourceId, mangaId))
+        return EditedKeys(rawValue: Int32(stored)).contains(key)
+    }
+
+    /// Sets a title's cover, returning the previous one so the caller can offer to restore it.
+    @discardableResult
+    func setCover(sourceId: String, mangaId: String, coverUrl: String?, original: Bool = false) async -> String? {
+        guard let record = sharedManga(sourceId: sourceId, mangaId: mangaId) else { return nil }
+        let previous = record.thumbnail_url
+        record.thumbnail_url = coverUrl
+        handler.insertManga(manga: record)
+
+        let key = Self.editedKeysKey(sourceId, mangaId)
+        var edited = EditedKeys(rawValue: Int32(UserDefaults.standard.integer(forKey: key)))
+        if original {
+            edited.remove(.cover)
+        } else {
+            edited.insert(.cover)
+        }
+        UserDefaults.standard.set(Int(edited.rawValue), forKey: key)
+
+        return previous
+    }
+}

@@ -138,8 +138,10 @@ extension Track {
     }
 }
 
+
 extension LibraryManga {
-    /// Upstream's library entity wraps a manga; the shared `LibraryManga` *is* the manga row, with
-    /// the unread and last-read columns joined on.
-    var manga: LibraryManga { self }
+    /// The runner-facing model for a library row, which the migration screens work in.
+    func toNewManga() -> ExtensionRunner.Manga {
+        toLegacy().toNew()
+    }
 }
