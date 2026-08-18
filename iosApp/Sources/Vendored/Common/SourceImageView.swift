@@ -25,14 +25,9 @@ enum TransientCoverCache {
         ImagePipeline {
             let configuration = URLSessionConfiguration.default
             configuration.urlCache = nil
-            // Upstream inserted JVMImageURLProtocol here so cover requests were routed back
-            // through the JVM, picking up each source's headers and cookies. That class lives
-            // inside tachiyomiazios's JVM adapter, which this port deliberately did not take --
-            // the host is driven through SourceRuntime instead. Images therefore load directly.
-            //
-            // Consequence worth knowing: sources that gate cover images on a referer or a
-            // Cloudflare cookie will show broken covers until an equivalent protocol is written
-            // against SourceRuntime. Browsing and reading are unaffected; only images are.
+            var protocolClasses = configuration.protocolClasses ?? []
+            protocolClasses.insert(JVMImageURLProtocol.self, at: 0)
+            configuration.protocolClasses = protocolClasses
             let imageCache = ImageCache()
             imageCache.costLimit = 30 * 1024 * 1024
             $0.dataCache = dataCache

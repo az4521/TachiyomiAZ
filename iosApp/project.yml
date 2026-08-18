@@ -51,10 +51,8 @@ targets:
     sources:
       - path: Sources
         excludes:
-          # The vendored tachiyomiazios UI is in-tree but not yet compiled. Migration is partly
-          # done and the remaining work is known; see Sources/Vendored/README.md. Excluding it
-          # keeps the app building while that continues.
-          - "Vendored/**"
+          # Kept for reference, not compiled -- see Sources/Vendored/_excluded/README.md
+          - "Vendored/_excluded/**"
       # The JVM runtime is copied in wholesale. JVMRuntimeConfiguration resolves these by name
       # against the bundle's resource root, so the folder must land flattened rather than nested
       # under a group -- hence "folder" rather than "group".

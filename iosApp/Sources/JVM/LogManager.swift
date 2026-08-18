@@ -15,6 +15,7 @@ enum LogManager {
         func warning(_ message: String) { logger.warning("\(message, privacy: .public)") }
         func info(_ message: String) { logger.info("\(message, privacy: .public)") }
         func debug(_ message: String) { logger.debug("\(message, privacy: .public)") }
+        func log(_ message: String) { logger.log("\(message, privacy: .public)") }
     }
 
     static let logger = Log()

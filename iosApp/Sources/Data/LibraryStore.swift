@@ -52,29 +52,13 @@ final class LibraryStore: ObservableObject {
     @Published private(set) var refreshProgress: (done: Int, total: Int)?
     @Published private(set) var lastError: String?
 
-    private(set) var handler: IosDatabaseHandler?
+    /// Non-optional now that the handle is shared, so the `guard let handler` dance below is gone.
+    var handler: IosDatabaseHandler { Database.handler }
     private let syncPlatform = IOSChapterSyncPlatform()
-
-    /// Application Support is where iOS expects non-user-facing app data.
-    ///
-    /// Returns the *directory*: sqliter rejects a name containing a path separator, and because
-    /// the Kotlin factory is not `@Throws` that failure terminates the process rather than
-    /// surfacing as a Swift error.
-    private static func databaseDirectory() -> String {
-        let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir.path
-    }
 
     func load() async {
         isLoading = true
         defer { isLoading = false }
-
-        let handler = self.handler ?? IosDatabaseHandler.companion.open(
-            name: "tachiyomi.db",
-            directoryPath: Self.databaseDirectory()
-        )
-        self.handler = handler
 
         // A library with no category cannot render tabs, and Android seeds the default on first
         // launch too.
@@ -87,7 +71,6 @@ final class LibraryStore: ObservableObject {
     }
 
     func reload() async {
-        guard let handler else { return await load() }
         categories = handler.getCategories()
         manga = handler.getLibraryMangas()
     }
@@ -95,12 +78,10 @@ final class LibraryStore: ObservableObject {
     // MARK: - Membership
 
     func contains(url: String, sourceId: Int64) -> Bool {
-        guard let handler else { return false }
         return handler.getManga(url: url, sourceId: sourceId)?.favorite == true
     }
 
     func add(manga sourceManga: TachiyomiXManga, source: SourceDescriptor) async {
-        guard let handler else { return }
 
         let existing = handler.getManga(url: sourceManga.url, sourceId: source.id)
         let record = existing ?? MangaImpl()
@@ -130,7 +111,6 @@ final class LibraryStore: ObservableObject {
     /// Both funnel into the same shared insert, so there is one write path regardless of which
     /// model the caller happens to hold.
     func addFromRunner(_ manga: ExtensionRunner.Manga, sourceId: Int64) async {
-        guard let handler else { return }
         let existing = handler.getManga(url: manga.key, sourceId: sourceId)
         let record = existing ?? MangaImpl()
         record.url = manga.key
@@ -153,7 +133,7 @@ final class LibraryStore: ObservableObject {
     }
 
     func remove(url: String, sourceId: Int64) async {
-        guard let handler, let record = handler.getManga(url: url, sourceId: sourceId) else { return }
+        guard let record = handler.getManga(url: url, sourceId: sourceId) else { return }
         record.favorite = false
         handler.updateMangaFavorite(manga: record)
         await reload()
@@ -167,7 +147,7 @@ final class LibraryStore: ObservableObject {
 
     func addCategory(named name: String) async {
         let trimmed = name.trimmingCharacters(in: .whitespaces)
-        guard let handler, !trimmed.isEmpty else { return }
+        guard !trimmed.isEmpty else { return }
         // Category.create is the shared factory; it assigns the next order itself.
         let category = CategoryCompanion.shared.create(name: trimmed)
         category.order = Int32(handler.getCategories().count)
@@ -177,7 +157,7 @@ final class LibraryStore: ObservableObject {
 
     func renameCategory(_ category: MangaCategory, to name: String) async {
         let trimmed = name.trimmingCharacters(in: .whitespaces)
-        guard let handler, !trimmed.isEmpty else { return }
+        guard !trimmed.isEmpty else { return }
         category.name = trimmed
         // insertCategory upserts on the primary key, so this is the rename path too.
         handler.insertCategory(category: category)
@@ -185,7 +165,6 @@ final class LibraryStore: ObservableObject {
     }
 
     func deleteCategory(_ category: MangaCategory) async {
-        guard let handler else { return }
         handler.deleteCategory(category: category)
         await reload()
     }
@@ -202,7 +181,6 @@ final class LibraryStore: ObservableObject {
         runtime: SourceRuntime,
         settings: AppSettings
     ) async {
-        guard let handler else { return }
         lastError = nil
 
         let selection = LibraryUpdateSelectionKt.selectLibraryMangaToUpdate(
@@ -266,7 +244,7 @@ final class LibraryStore: ObservableObject {
     // MARK: - Development helpers
 
     func seedSampleData() async {
-        guard let handler else { return }
+        let handler = self.handler
         let samples = [
             ("Sample: One Piece", "https://example.invalid/one-piece", "Eiichiro Oda"),
             ("Sample: Berserk", "https://example.invalid/berserk", "Kentaro Miura"),
@@ -289,7 +267,7 @@ final class LibraryStore: ObservableObject {
     }
 
     func clearLibrary() async {
-        guard let handler else { return }
+        let handler = self.handler
         handler.inTransaction {
             for m in handler.getFavoriteMangas() {
                 handler.deleteManga(manga: m)

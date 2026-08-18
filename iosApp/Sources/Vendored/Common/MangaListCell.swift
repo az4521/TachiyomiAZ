@@ -281,13 +281,12 @@ extension MangaListCell {
         if !cached {
             if let fileUrl = url.toAidokuFileUrl() {
                 urlRequest = URLRequest(url: fileUrl)
-            } else if identifier?.sourceKey != nil {
-                // Upstream asked the source to rewrite the image request here, which Aidoku's
-                // WASM sources supported. JVM sources expose no equivalent hook, so the request
-                // is used unmodified -- correct for any source not needing referer or cookie
-                // headers on cover images. Loading is still awaited so a cold launch does not
-                // race the source list.
+            } else if let sourceId = identifier?.sourceKey {
+                // ensure sources are loaded so we can get the modified image request
                 await SourceManager.shared.waitForSourcesLoad()
+                if let source = SourceManager.shared.source(for: sourceId) {
+                    urlRequest = await source.getModifiedImageRequest(url: url, context: nil)
+                }
             }
         }
 

@@ -22,4 +22,45 @@ final class AppDelegate {
         }
         return top
     }
+
+    @MainActor
+    func presentAlert(
+        title: String,
+        message: String? = nil,
+        actions: [UIAlertAction] = [],
+        textFieldHandlers: [((UITextField) -> Void)] = [],
+        textFieldDisablesLastActionWhenEmpty: Bool = false,
+        completion: (() -> Void)? = nil
+    ) {
+        let alertController = UIAlertController(title: title, message: message, preferredStyle: .alert)
+
+        for handler in textFieldHandlers {
+            alertController.addTextField { textField in
+                handler(textField)
+
+                if textFieldDisablesLastActionWhenEmpty && textFieldHandlers.count == 1 {
+                    actions.last?.isEnabled = !(textField.text?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+
+                    NotificationCenter.default.addObserver(forName: UITextField.textDidChangeNotification, object: textField, queue: .main) { _ in
+                        Task { @MainActor in
+                            let text = textField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                            actions.last?.isEnabled = !text.isEmpty
+                        }
+                    }
+                }
+            }
+        }
+
+        // if no actions are provided, add a default 'OK' action
+        if actions.isEmpty {
+            let okAction = UIAlertAction(title: NSLocalizedString("OK"), style: .cancel)
+            alertController.addAction(okAction)
+        } else {
+            for action in actions {
+                alertController.addAction(action)
+            }
+        }
+
+        visibleViewController?.present(alertController, animated: true, completion: completion)
+    }
 }

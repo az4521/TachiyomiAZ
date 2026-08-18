@@ -83,7 +83,7 @@ struct UpdatesView: View {
     }
 
     private func load() async {
-        guard let handler = library.handler else { return }
+        let handler = library.handler
         isLoading = true
         defer { isLoading = false }
 

@@ -316,10 +316,200 @@ struct WebView: UIViewRepresentable {
     }
 }
 
-// SourceWebBrowserView was removed when this file was vendored.
-//
-// It took a TachiyomiXSourceRunner -- tachiyomiazios's adapter making the JVM host look like an
-// AidokuRunner source. This port drives the host through SourceRuntime instead and deliberately
-// did not take that adapter, so the view had no type to bind to. The per-source login browser it
-// provided needs re-implementing against SourceRuntime; the WebView above, which the Cloudflare
-// solver uses, is unaffected.
+@MainActor
+struct SourceWebBrowserView: View {
+    private struct Session {
+        let userAgent: String?
+        let cookies: [HTTPCookie]
+    }
+
+    let title: String
+    let url: URL
+    let runner: TachiyomiXSourceRunner?
+
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var session: Session?
+    @State private var cookies: [String: String] = [:]
+    @State private var detailedCookies: [HTTPCookie] = []
+    @State private var userAgent = ""
+    @State private var currentURL: URL?
+    @State private var reloadToggle = false
+    @State private var goBackToggle = false
+    @State private var goForwardToggle = false
+    @State private var canGoBack = false
+    @State private var canGoForward = false
+    @State private var loading = true
+    @State private var saving = false
+    @State private var errorMessage: String?
+    @StateObject private var webViewSession = WebViewSessionHandle()
+
+    var body: some View {
+        PlatformNavigationStack {
+            Group {
+                if let session {
+                    WebView(
+                        url,
+                        cookies: $cookies,
+                        detailedCookies: $detailedCookies,
+                        userAgent: $userAgent,
+                        preferredUserAgent: session.userAgent,
+                        initialCookies: session.cookies,
+                        sessionHandle: webViewSession,
+                        reloadToggle: $reloadToggle,
+                        goBackToggle: $goBackToggle,
+                        goForwardToggle: $goForwardToggle,
+                        canGoBack: $canGoBack,
+                        canGoForward: $canGoForward,
+                        currentURL: $currentURL
+                    )
+                    .edgesIgnoringSafeArea(.bottom)
+                } else if loading {
+                    ProgressView()
+                } else {
+                    VStack(spacing: 12) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.largeTitle)
+                            .foregroundStyle(.secondary)
+                        Text(errorMessage ?? "Unable to open website.")
+                            .multilineTextAlignment(.center)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding()
+                }
+            }
+            .navigationTitle(currentURL?.host ?? title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItemGroup(placement: .topBarLeading) {
+                    Button {
+                        goBackToggle = true
+                    } label: {
+                        Image(systemName: "chevron.backward")
+                    }
+                    .disabled(!canGoBack)
+
+                    Button {
+                        goForwardToggle = true
+                    } label: {
+                        Image(systemName: "chevron.forward")
+                    }
+                    .disabled(!canGoForward)
+
+                    Button {
+                        reloadToggle = true
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                    .disabled(session == nil)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(NSLocalizedString("DONE")) {
+                        closeAndSynchronize()
+                    }
+                    .disabled(saving)
+                }
+            }
+        }
+        .interactiveDismissDisabled()
+        .task { await prepareSession() }
+        .alert(
+            NSLocalizedString("ERROR"),
+            isPresented: Binding(
+                get: { errorMessage != nil && session != nil },
+                set: { if !$0 { errorMessage = nil } }
+            )
+        ) {
+            Button(NSLocalizedString("OK"), role: .cancel) {}
+        } message: {
+            Text(errorMessage ?? "")
+        }
+    }
+
+    private func prepareSession() async {
+        guard session == nil else { return }
+        do {
+            if let runner {
+                async let resolvedUserAgent = runner.webLoginUserAgent()
+                async let resolvedCookies = runner.webLoginCookies(for: url)
+                let values = try await (resolvedUserAgent, resolvedCookies)
+                userAgent = values.0
+                detailedCookies = values.1
+                session = Session(userAgent: values.0, cookies: values.1)
+            } else {
+                let resolvedUserAgent = await UserAgentProvider.shared
+                    .getExtensionNetworkUserAgent()
+                userAgent = resolvedUserAgent
+                session = Session(
+                    userAgent: resolvedUserAgent.isEmpty
+                        ? nil
+                        : resolvedUserAgent,
+                    cookies: []
+                )
+            }
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        loading = false
+    }
+
+    private func closeAndSynchronize() {
+        guard !saving else { return }
+        saving = true
+        Task {
+            defer { saving = false }
+            do {
+                // localStorage-backed challenge tokens are not cookies. Take
+                // an explicit snapshot before the visible WebView is dismissed
+                // so a newly-created extension WebView cannot race WebKit's
+                // cross-process persistence.
+                _ = await webViewSession.captureLocalStorage()
+                if let runner {
+                    let resolvedUserAgent = userAgent.isEmpty
+                        ? (try await runner.webLoginUserAgent())
+                        : userAgent
+                    try await runner.commitWebLogin(
+                        cookies: detailedCookies,
+                        userAgent: resolvedUserAgent
+                    )
+                }
+                dismiss()
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+        }
+    }
+}
+
+@MainActor
+enum SourceWebBrowserPresenter {
+    static func makeViewController(
+        source: ExtensionRunner.Source?,
+        url: URL,
+        title: String
+    ) -> UIViewController {
+        let runner = source?.runner as? TachiyomiXSourceRunner
+        let controller = UIHostingController(
+            rootView: SourceWebBrowserView(
+                title: title,
+                url: url,
+                runner: runner
+            )
+        )
+        controller.modalPresentationStyle = .pageSheet
+        return controller
+    }
+
+    static func present(
+        from viewController: UIViewController,
+        source: ExtensionRunner.Source?,
+        url: URL,
+        title: String
+    ) {
+        guard url.scheme == "http" || url.scheme == "https" else { return }
+        viewController.present(
+            makeViewController(source: source, url: url, title: title),
+            animated: true
+        )
+    }
+}

@@ -13,7 +13,7 @@ Aidoku's logic:
 |---|---|
 | `iOS/New` SwiftUI UI | 134 files, 27.6k loc, **no** AsyncDisplayKit |
 | Files touching `NSManagedObject` directly | 29 |
-| `ExtensionRunner` (was `AidokuRunner`) | 9 files, 1.3k loc, **no** dependencies after dropping vestigial Wasm3 |
+| `ExtensionRunner` (was `ExtensionRunner`) | 9 files, 1.3k loc, **no** dependencies after dropping vestigial Wasm3 |
 
 The rule this migration follows: **take the UI, and nothing else.** Persistence, caching and source
 access go to the KMP modules, so the shared database stays the single source of truth. Adopting
@@ -21,7 +21,7 @@ Aidoku's Core Data layer would give a working app that quietly abandons the poin
 
 ## Done
 
-- `ExtensionRunner` package vendored and renamed from `AidokuRunner` — that name described Aidoku's
+- `ExtensionRunner` package vendored and renamed from `ExtensionRunner` — that name described Aidoku's
   WASM runner, which tachiyomiazios had already replaced with a JVM one, so it named nothing that
   remained. Its vestigial Wasm3 dependency was dropped: `Interpreter` is already a stub and "Wasm3"
   survives only in a comment.

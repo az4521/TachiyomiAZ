@@ -113,7 +113,7 @@ actor CloudflareHandler: NSObject {
 
     func handle(request: URLRequest) async throws -> (Data, URLResponse) {
         _ = try await solve(request: request)
-        // Upstream ran the request through AidokuRunner's per-source rewriting here. This port
+        // Upstream ran the request through ExtensionRunner's per-source rewriting here. This port
         // has no equivalent hook, and the extension has already built the request it wants.
         return try await URLSession.shared.data(for: request)
     }

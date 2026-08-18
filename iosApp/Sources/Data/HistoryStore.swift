@@ -36,7 +36,7 @@ final class HistoryStore: ObservableObject {
     }
 
     func load() async {
-        guard let handler = library.handler else { return }
+        let handler = library.handler
         isLoading = true
         defer { isLoading = false }
 
@@ -68,7 +68,7 @@ final class HistoryStore: ObservableObject {
         chapter: TachiyomiXChapter,
         source: SourceDescriptor
     ) async {
-        guard let handler = library.handler else { return }
+        let handler = library.handler
 
         guard let stored = handler.getManga(url: manga.url, sourceId: source.id) else { return }
 
@@ -91,13 +91,13 @@ final class HistoryStore: ObservableObject {
     }
 
     func clearAll() async {
-        guard let handler = library.handler else { return }
+        let handler = library.handler
         handler.deleteHistory()
         await load()
     }
 
     func remove(_ entry: HistoryEntry) async {
-        guard let handler = library.handler else { return }
+        let handler = library.handler
         if let history = handler.getHistoryByChapterUrl(chapterUrl: entry.chapterUrl) {
             history.last_read = 0
             handler.updateHistoryLastRead(history: history)

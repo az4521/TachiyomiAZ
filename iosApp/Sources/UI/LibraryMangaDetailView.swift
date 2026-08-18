@@ -116,7 +116,7 @@ struct LibraryMangaDetailView: View {
     }
 
     private func loadChapters() {
-        guard let handler = library.handler else { return }
+        let handler = library.handler
         let stored = handler.getChapters(manga: entry)
         // Shared rule: the same ordering and filtering the Android app shows.
         // The manga's own chapter_flags carry its filter and sort settings, so the shared rule
@@ -130,7 +130,7 @@ struct LibraryMangaDetailView: View {
     }
 
     private func toggleRead(_ chapter: Chapter) {
-        guard let handler = library.handler else { return }
+        let handler = library.handler
         chapter.read = !chapter.read
         if chapter.read { chapter.last_page_read = 0 }
         handler.updateChapterProgress(chapter: chapter)

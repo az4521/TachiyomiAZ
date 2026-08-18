@@ -107,7 +107,7 @@ final class TrackingStore: ObservableObject {
 
     /// Existing tracks for a library entry, straight from the shared query.
     func tracks(for manga: Manga) -> [Track] {
-        library.handler?.getTracks(manga: manga) ?? []
+        library.handler.getTracks(manga: manga)
     }
 
     /// Binds a search result to a library entry and writes it through the shared query.
@@ -118,7 +118,8 @@ final class TrackingStore: ObservableObject {
         status: TrackStatus = .reading,
         lastChapterRead: Int = 0
     ) async {
-        guard let handler = library.handler, let mangaId = manga.id?.int64Value else { return }
+        let handler = library.handler
+        guard let mangaId = manga.id?.int64Value else { return }
 
         let track = TrackImpl()
         track.manga_id_ = mangaId
@@ -147,8 +148,8 @@ final class TrackingStore: ObservableObject {
     }
 
     func updateProgress(_ track: Track, manga: Manga, lastChapterRead: Int) async {
-        guard let handler = library.handler,
-              let service = TrackerService(rawValue: track.sync_id) else { return }
+        let handler = library.handler
+        guard let service = TrackerService(rawValue: track.sync_id) else { return }
         track.last_chapter_read = Int32(lastChapterRead)
         handler.insertTrack(track: track)
         do {
@@ -165,8 +166,8 @@ final class TrackingStore: ObservableObject {
     }
 
     func setStatus(_ track: Track, status: TrackStatus) async {
-        guard let handler = library.handler,
-              let service = TrackerService(rawValue: track.sync_id) else { return }
+        let handler = library.handler
+        guard let service = TrackerService(rawValue: track.sync_id) else { return }
         track.status = status.rawValue
         handler.insertTrack(track: track)
         try? await trackers[service]?.update(
@@ -178,7 +179,7 @@ final class TrackingStore: ObservableObject {
     }
 
     func unbind(_ track: Track, from manga: Manga) async {
-        guard let handler = library.handler else { return }
+        let handler = library.handler
         handler.deleteTrackForManga(manga: manga, syncId: Int32(track.sync_id))
     }
 }
