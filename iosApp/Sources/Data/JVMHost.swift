@@ -24,6 +24,11 @@ final class JVMHost: ObservableObject {
 
     private var runtime: JVMRuntime?
 
+    var isRunning: Bool {
+        if case .running = state { return true }
+        return false
+    }
+
     /// Boots the VM. Slow enough to be worth doing off the main actor -- the Zero interpreter has
     /// to map the module image and initialise the boot classpath before it will answer anything.
     func start() async {
@@ -73,6 +78,18 @@ final class JVMHost: ObservableObject {
     func retry() async {
         state = .notStarted
         await start()
+    }
+
+    /// Asks the host to open a JAR and report its metadata. This is what decides whether a
+    /// downloaded file is really a loadable Mihon extension -- the index only claims it is.
+    func inspect(jarPath: String) async throws -> ExtensionHostResponse {
+        guard let runtime else {
+            throw JVMRuntimeError.invalidConfiguration("The JVM has not been started.")
+        }
+        let request = ExtensionHostRequest(operation: "inspectExtension", jarPath: jarPath)
+        return try await Task.detached(priority: .userInitiated) {
+            try runtime.dispatch(request) as ExtensionHostResponse
+        }.value
     }
 
     /// The cheapest possible round trip: proves the VM started, the host JAR is on the classpath,

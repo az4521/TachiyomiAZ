@@ -50,7 +50,19 @@ data class NetworkExtensionStore(
     @Serializable
     data class Resources(
         @ProtoNumber(1) val apkUrl: String,
-        @ProtoNumber(2) val iconUrl: String
+        @ProtoNumber(2) val iconUrl: String,
+        /**
+         * The same extension packaged as a plain JVM JAR rather than an APK.
+         *
+         * Field 501 is **not** in mihonapp/tachiyomix's published index.proto -- it is an
+         * extension the repositories actually serve, and every one of keiyoushi's 1368 entries
+         * carries it. Undeclared protobuf fields are skipped silently, so omitting this does not
+         * fail: it just yields a null and sends you to the APK, which no JVM can load.
+         *
+         * It cannot be derived from [apkUrl] either. The two are published under different
+         * release tags, so string-substituting the extension produces a 404.
+         */
+        @ProtoNumber(501) val jarUrl: String? = null
     )
 
     @Serializable

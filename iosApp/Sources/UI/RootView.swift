@@ -131,10 +131,7 @@ enum Destination: String, Identifiable, CaseIterable {
                 detail: "HistoryQueries is already shared; this screen has not been built yet."
             )
         case .browse:
-            NotYetPortedView(
-                area: "Browse",
-                detail: "Needs a loaded extension to browse. Add a repository under Extensions first."
-            )
+            BrowseView()
         case .extensions:
             ExtensionsView()
         case .more:

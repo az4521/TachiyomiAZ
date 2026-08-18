@@ -23,6 +23,9 @@ final class RepositoryStore: ObservableObject {
 
     @Published private(set) var repositories: [Repository] = []
     @Published private(set) var refreshing: Set<String> = []
+    /// Decoded entries, kept in memory rather than persisted: keiyoushi alone is 1368 of them,
+    /// and a refresh is one request. Persisting them would trade a lot of disk for very little.
+    @Published private(set) var available: [AvailableExtension] = []
 
     private let decoder = ExtensionStoreDecoder.companion.default()
 
@@ -71,6 +74,15 @@ final class RepositoryStore: ObservableObject {
             // Straight to the shared decoder. It sniffs gzip and JSON-vs-protobuf itself, because
             // the file name says nothing about which one a repository chose.
             let store = decoder.decodeStore(bytes: data.kotlinByteArray)
+
+            let repositoryName = store.name.isEmpty ? url : store.name
+            let entries = (store.extensionList?.extensions ?? []).map {
+                AvailableExtension(entry: $0, repositoryName: repositoryName)
+            }
+            available.removeAll { $0.repositoryName == repositoryName }
+            available.append(contentsOf: entries)
+            available.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+
             update(url) {
                 $0.name = store.name.isEmpty ? nil : store.name
                 $0.badgeLabel = store.badgeLabel.isEmpty ? nil : store.badgeLabel
