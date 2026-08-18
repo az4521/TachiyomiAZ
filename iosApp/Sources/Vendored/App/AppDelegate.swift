@@ -13,6 +13,8 @@ import UserNotifications
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
+    var window: UIWindow?
+
     static let isSideloaded = true
 
     private var networkObserverId: UUID?
@@ -100,6 +102,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
+        // Opens the shared database and starts the extension runtime. The SwiftUI App that used to
+        // do this is gone; without it every screen reads an unopened database.
+
+        Task { await AppEnvironment.shared.start() }
+
         UserDefaults.standard.register(
             defaults: [
                 "Flag.isSideloaded": Self.isSideloaded, // for icloud sync setting
@@ -318,7 +325,36 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             object: nil
         )
 
+        buildWindow()
+
         return true
+    }
+
+    /// Builds the window and root tab bar.
+    ///
+    /// Upstream does this in `SceneDelegate`, driven by an Info.plist scene manifest. That never
+    /// connected here -- a UIWindowScene was created, but neither
+    /// `application(_:configurationForConnecting:options:)` nor `scene(_:willConnectTo:)` was ever
+    /// called, so the app launched to an empty black window even though the class resolved by name.
+    /// Owning the window here is the path that works; SceneDelegate is kept for the incognito
+    /// banner and URL handling it also carries, and can take this back if the cause is found.
+    private func buildWindow() {
+        let accentColor = AppAccentColor.uiColor
+        UIView.appearance().tintColor = accentColor
+
+        let window = UIWindow(frame: UIScreen.main.bounds)
+        window.rootViewController = TabBarController()
+        window.tintColor = accentColor
+
+        if UserDefaults.standard.bool(forKey: "General.useSystemAppearance") {
+            window.overrideUserInterfaceStyle = .unspecified
+        } else {
+            window.overrideUserInterfaceStyle =
+                UserDefaults.standard.integer(forKey: "General.appearance") == 0 ? .light : .dark
+        }
+
+        self.window = window
+        window.makeKeyAndVisible()
     }
 
     @objc private func handleLibraryUpdateIntervalChange(_ note: Notification) {
@@ -346,13 +382,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         }
     }
 
-    func application(
-        _ application: UIApplication,
-        configurationForConnecting connectingSceneSession: UISceneSession,
-        options: UIScene.ConnectionOptions
-    ) -> UISceneConfiguration {
-        UISceneConfiguration(name: "Default Configuration", sessionRole: connectingSceneSession.role)
-    }
+    // configurationForConnecting removed: the Info.plist scene manifest drives this.
 
     func applicationWillTerminate(_ application: UIApplication) {
         guard let networkObserverId else { return }

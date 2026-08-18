@@ -7,6 +7,14 @@
 
 import UIKit
 
+/// Kept for the incognito banner and the URL handling it carries.
+///
+/// It does not currently build the window: with the Info.plist scene manifest in place a
+/// UIWindowScene was created but this delegate was never connected -- neither
+/// `application(_:configurationForConnecting:options:)` nor `scene(_:willConnectTo:)` fired, even
+/// though `NSClassFromString("TachiyomiAZ.SceneDelegate")` resolved. `AppDelegate.buildWindow()`
+/// owns the window instead. Restoring the scene lifecycle means finding why the connection never
+/// happened; the code here is upstream's and should work once it does.
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     private static let bannerHeight: CGFloat = 30
 
