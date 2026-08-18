@@ -23,6 +23,26 @@ options:
 packages:
   TachiJVMRunner:
     path: Packages/TachiJVMRunner
+  # The source-facing model layer the vendored UI binds to. Vendored from tachiyomiazios, where
+  # it was called AidokuRunner -- but that project had already replaced Aidoku's WASM runner with
+  # one driving JVM extensions, so the Aidoku name described nothing that remained. Renamed to
+  # match what it actually is.
+  ExtensionRunner:
+    path: Packages/ExtensionRunner
+  # Versions matched to tachiyomiazios so the vendored UI compiles against what it was written
+  # for. Nuke is also the image cache, which is why covers behave the same here as there.
+  Nuke:
+    url: https://github.com/kean/Nuke
+    majorVersion: 13.0.0
+  Gifu:
+    url: https://github.com/kaishin/Gifu.git
+    majorVersion: 3.4.0
+  SwiftUIIntrospect:
+    url: https://github.com/siteline/swiftui-introspect
+    majorVersion: 1.0.0
+  SwiftSoup:
+    url: https://github.com/scinfu/SwiftSoup
+    majorVersion: 2.10.1
 
 targets:
   TachiyomiAZ:
@@ -30,6 +50,11 @@ targets:
     platform: iOS
     sources:
       - path: Sources
+        excludes:
+          # The vendored tachiyomiazios UI is in-tree but not yet compiled. Migration is partly
+          # done and the remaining work is known; see Sources/Vendored/README.md. Excluding it
+          # keeps the app building while that continues.
+          - "Vendored/**"
       # The JVM runtime is copied in wholesale. JVMRuntimeConfiguration resolves these by name
       # against the bundle's resource root, so the folder must land flattened rather than nested
       # under a group -- hence "folder" rather than "group".
@@ -52,6 +77,15 @@ targets:
         embed: false
         link: true
       - package: TachiJVMRunner
+      - package: ExtensionRunner
+        product: ExtensionRunner
+      - package: Nuke
+        product: Nuke
+      - package: Nuke
+        product: NukeUI
+      - package: Gifu
+      - package: SwiftUIIntrospect
+      - package: SwiftSoup
     info:
       path: Sources/Info.plist
       properties:
@@ -74,7 +108,13 @@ targets:
         SWIFT_VERSION: "5.0"
         TARGETED_DEVICE_FAMILY: "1,2"
         ENABLE_USER_SCRIPT_SANDBOXING: NO
-        CODE_SIGN_ENTITLEMENTS: Sources/TachiyomiAZ.entitlements
+        # Simulator only. allow-jit and allow-unsigned-executable-memory are macOS
+        # hardened-runtime entitlements: the Simulator needs them because it runs as a macOS
+        # process, a real device neither needs nor is granted them, and requesting them on a
+        # personal team makes device signing fail outright.
+        "CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]": Sources/TachiyomiAZ.entitlements
+        DEVELOPMENT_TEAM: RRKT2YAH28
+        CODE_SIGN_STYLE: Automatic
         # -lsqlite3 for SQLDelight's native driver; the rest are what the statically linked
         # mobile VM pulls in -- it has no dynamic framework to carry its own dependencies.
         OTHER_LDFLAGS: "-lsqlite3 -lz -liconv -lc++ -framework CoreGraphics -framework CoreText -framework ImageIO -framework JavaScriptCore -framework Security"

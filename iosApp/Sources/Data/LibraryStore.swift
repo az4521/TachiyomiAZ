@@ -1,3 +1,4 @@
+import ExtensionRunner
 import Foundation
 import TachiJVMRunner
 import TachiyomiKit
@@ -5,6 +6,12 @@ import TachiyomiKit
 /// `Category` alone is ambiguous -- the name exists in more than one module in scope -- so the
 /// shared one is aliased once here and used everywhere in the app.
 typealias MangaCategory = TachiyomiKit.Category
+
+/// `Manga` and `Chapter` exist in both TachiyomiKit (the shared database models) and
+/// ExtensionRunner (the vendored UI's view models), so anything naming them has to say which. The
+/// shared ones are the database's; the runner's are what the UI renders.
+typealias DbManga = TachiyomiKit.Manga
+typealias DbChapter = TachiyomiKit.Chapter
 
 /// Supplies the platform work `syncChaptersWithSource` delegates.
 ///
@@ -15,17 +22,17 @@ typealias MangaCategory = TachiyomiKit.Category
 final class IOSChapterSyncPlatform: NSObject, ChapterSyncPlatform {
     func now() -> Int64 { Int64(Date().timeIntervalSince1970 * 1000) }
 
-    func prepareNewChapter(chapter: any SChapter, manga: any Manga) {
+    func prepareNewChapter(chapter: any SChapter, manga: any DbManga) {
         // HttpSource does this on Android to strip the manga title out of chapter names. On iOS
         // the extension has already normalised the name before it crossed the JVM boundary.
     }
 
-    func isChapterDownloaded(chapter: any Chapter, manga: any Manga) -> Bool { false }
+    func isChapterDownloaded(chapter: any DbChapter, manga: any DbManga) -> Bool { false }
 
-    func renameDownloadedChapter(manga: any Manga, from: any Chapter, to: any Chapter) {}
+    func renameDownloadedChapter(manga: any DbManga, from: any DbChapter, to: any DbChapter) {}
 
     /// Only the EH/EXH sources carry progress over, and those are deliberately out of scope.
-    func carriesOverReadingProgress(manga: any Manga) -> Bool { false }
+    func carriesOverReadingProgress(manga: any DbManga) -> Bool { false }
 }
 
 /// The app's view of the shared database.
@@ -106,6 +113,34 @@ final class LibraryStore: ObservableObject {
         record.description_ = sourceManga.description
         record.genre = sourceManga.genre
         record.status = Int32(sourceManga.status)
+        record.favorite = true
+        record.initialized = true
+        if existing == nil {
+            record.date_added = Int64(Date().timeIntervalSince1970 * 1000)
+            handler.insertManga(manga: record)
+        } else {
+            handler.updateMangaFavorite(manga: record)
+        }
+        await reload()
+    }
+
+    /// Adds a manga described by the vendored UI's model type.
+    ///
+    /// Separate from `add(manga:source:)` because that one takes the JVM client's TachiyomiXManga.
+    /// Both funnel into the same shared insert, so there is one write path regardless of which
+    /// model the caller happens to hold.
+    func addFromRunner(_ manga: ExtensionRunner.Manga, sourceId: Int64) async {
+        guard let handler else { return }
+        let existing = handler.getManga(url: manga.key, sourceId: sourceId)
+        let record = existing ?? MangaImpl()
+        record.url = manga.key
+        record.title = manga.title
+        record.source = sourceId
+        record.thumbnail_url = manga.cover
+        record.author = manga.authors?.joined(separator: ", ")
+        record.artist = manga.artists?.joined(separator: ", ")
+        record.description_ = manga.description
+        record.genre = manga.tags?.joined(separator: ", ")
         record.favorite = true
         record.initialized = true
         if existing == nil {
