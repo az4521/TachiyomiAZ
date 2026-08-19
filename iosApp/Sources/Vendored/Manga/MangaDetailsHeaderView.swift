@@ -505,13 +505,6 @@ struct MangaDetailsHeaderView: View {
                     title = NSLocalizedString("CONTINUE_READING", comment: "")
                 }
                 switch chapterTitleDisplayMode {
-                    case .volume:
-                        if let volumeNum = chapter.volumeNumber {
-                            title += " " + String(format: NSLocalizedString("VOL_X"), volumeNum)
-                        } else if let chapterNum = chapter.chapterNumber {
-                            // Force display as volume if no volume number
-                            title += " " + String(format: NSLocalizedString("VOL_X"), chapterNum)
-                        }
                     case .chapter:
                         if let chapterNum = chapter.chapterNumber {
                             title += " " + String(format: NSLocalizedString("CH_X"), chapterNum)

@@ -184,12 +184,6 @@ struct ChapterListHeaderView: View {
                 ForEach(ChapterTitleDisplayMode.allCases, id: \.rawValue) { mode in
                     Button {
                         displayMode = mode
-                        let key = "Manga.chapterDisplayMode.\(mangaUniqueKey)"
-                        if mode == .default {
-                            UserDefaults.standard.removeObject(forKey: key)
-                        } else {
-                            UserDefaults.standard.set(mode.rawValue, forKey: key)
-                        }
                     } label: {
                         Label {
                             Text(mode.localizedTitle)

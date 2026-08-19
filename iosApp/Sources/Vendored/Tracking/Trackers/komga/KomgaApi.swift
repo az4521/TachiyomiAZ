@@ -8,18 +8,21 @@
 import Foundation
 
 actor KomgaApi {
+    /// Whether progress against this title is counted in chapters rather than volumes.
+    ///
+    /// The display mode is read from `chapter_flags` now rather than UserDefaults. It used to have
+    /// a third value, volume, which answered this false; with that gone the source's own
+    /// `useChapters` setting decides whenever the title is not explicitly showing chapter numbers,
+    /// which is what it already did for the default mode.
     func shouldUseChapters(sourceKey: String, mangaKey: String) -> Bool {
-        let uniqueKey = "\(sourceKey).\(mangaKey)"
-        let key = "Manga.chapterDisplayMode.\(uniqueKey)"
-        let displayMode = ChapterTitleDisplayMode(rawValue: UserDefaults.standard.integer(forKey: key)) ?? .default
-
-        if displayMode == .chapter {
+        let flags = CoreDataManager.shared.getMangaChapterFilters(
+            sourceId: sourceKey,
+            mangaId: mangaKey
+        ).flags
+        if ChapterTitleDisplayMode(flags: flags) == .chapter {
             return true
-        } else if displayMode == .volume {
-            return false
-        } else {
-            return UserDefaults.standard.bool(forKey: "\(sourceKey).useChapters")
         }
+        return UserDefaults.standard.bool(forKey: "\(sourceKey).useChapters")
     }
 
     func getState(sourceKey: String, seriesId: String) async throws -> TrackState? {

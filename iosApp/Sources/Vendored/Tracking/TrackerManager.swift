@@ -82,8 +82,12 @@ actor TrackerManager {
         guard chapterNum != nil || volumeNum != nil else { return }
 
         let uniqueKey = "\(chapter.sourceId).\(chapter.mangaId)"
-        let key = "Manga.chapterDisplayMode.\(uniqueKey)"
-        let displayMode = ChapterTitleDisplayMode(rawValue: UserDefaults.standard.integer(forKey: key)) ?? .default
+        let displayMode = ChapterTitleDisplayMode(
+            flags: CoreDataManager.shared.getMangaChapterFilters(
+                sourceId: chapter.sourceId,
+                mangaId: chapter.mangaId
+            ).flags
+        )
 
         let sourceId = chapter.sourceId
         let mangaId = chapter.mangaId
@@ -119,11 +123,6 @@ actor TrackerManager {
                 let hasChapterProgress = chapterNum != nil && (state.lastReadChapter ?? 0) < chapterNum!
                 let hasVolumeProgress = volumeNum != nil && (state.lastReadChapter ?? 0) < Float(volumeNum!)
                 shouldUpdate = hasChapterProgress || hasVolumeProgress
-            } else if displayMode == .volume {
-                // Volume mode: check volume progress, or chapter progress if no volume
-                let hasChapterProgress = chapterNum != nil && (state.lastReadVolume ?? 0) < Int(floor(chapterNum!))
-                let hasVolumeProgress = volumeNum != nil && (state.lastReadVolume ?? 0) < volumeNum!
-                shouldUpdate = hasChapterProgress || hasVolumeProgress
             } else {
                 // Default mode: check both chapter and volume progress
                 let hasChapterProgress = chapterNum != nil && (state.lastReadChapter ?? 0) < chapterNum!
@@ -157,17 +156,6 @@ actor TrackerManager {
                         update.lastReadChapter = chapterFromVolume
                     }
                 }
-            } else if displayMode == .volume {
-                // volume mode: only update volume, don't update chapter
-                if let volumeNum, volumeNum > 0 && state.lastReadVolume ?? 0 < volumeNum {
-                    update.lastReadVolume = volumeNum
-                } else if let chapterNum {
-                    // no volume metadata, use chapter number as volume
-                    let volumeFromChapter = Int(floor(chapterNum))
-                    if volumeFromChapter > state.lastReadVolume ?? 0 {
-                        update.lastReadVolume = volumeFromChapter
-                    }
-                }
             } else {
                 // default mode: update both chapter and volume if available
                 if let chapterNum, chapterNum > 0 {
@@ -192,7 +180,7 @@ actor TrackerManager {
                 let lastReadChapter = state.lastReadChapter
             {
                 totalChapters == Int(floor(lastReadChapter))
-            } else if (chapterNum == nil || displayMode == .volume) && update.lastReadVolume != nil {
+            } else if chapterNum == nil && update.lastReadVolume != nil {
                 update.lastReadVolume == state.totalVolumes
             } else {
                 false
@@ -647,8 +635,12 @@ extension TrackerManager {
         }
 
         // Check for display mode
-        let key = "Manga.chapterDisplayMode.\(manga.uniqueKey)"
-        let displayMode = ChapterTitleDisplayMode(rawValue: UserDefaults.standard.integer(forKey: key)) ?? .default
+        let displayMode = ChapterTitleDisplayMode(
+            flags: CoreDataManager.shared.getMangaChapterFilters(
+                sourceId: manga.sourceKey,
+                mangaId: manga.key
+            ).flags
+        )
 
         var chaptersToMark: [ExtensionRunner.Chapter] = []
 
@@ -664,11 +656,6 @@ extension TrackerManager {
                 if offsetTrackerLastReadChapter > currentHighestRead {
                     chaptersToMark = chapters.filter { ($0.chapterNumber ?? $0.volumeNumber ?? 0) <= offsetTrackerLastReadChapter }
                 }
-            }
-        } else if displayMode == .volume {
-            // Forced volume mode: sync volume progress
-            if let trackerLastReadVolume, trackerLastReadVolume > 0 && Float(trackerLastReadVolume) > currentHighestRead {
-                chaptersToMark = chapters.filter { ($0.volumeNumber ?? $0.chapterNumber ?? 0) <= Float(trackerLastReadVolume) }
             }
         } else {
             // Default mode: sync both chapter and volume progress

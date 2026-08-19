@@ -48,7 +48,12 @@ extension MangaView {
             didSet { refilterChapters() }
         }
 
-        @Published var chapterTitleDisplayMode: ChapterTitleDisplayMode
+        @Published var chapterTitleDisplayMode: ChapterTitleDisplayMode {
+            didSet {
+                guard bookmarked, oldValue != chapterTitleDisplayMode else { return }
+                Task { await saveFilters() }
+            }
+        }
 
         @Published var error: Error?
 
@@ -60,8 +65,12 @@ extension MangaView {
             self.source = source
             self.manga = manga
 
-            let key = "Manga.chapterDisplayMode.\(manga.uniqueKey)"
-            self.chapterTitleDisplayMode = .init(rawValue: UserDefaults.standard.integer(forKey: key)) ?? .default
+            self.chapterTitleDisplayMode = .init(
+                flags: CoreDataManager.shared.getMangaChapterFilters(
+                    sourceId: manga.sourceKey,
+                    mangaId: manga.key
+                ).flags
+            )
 
             setupNotifications()
         }
@@ -917,6 +926,7 @@ extension MangaView.ViewModel {
         flags = ChapterFlagMask.withSortAscending(flags, chapterSortAscending)
         flags = chapterSortOption.apply(to: flags)
         flags = ChapterFilterOption.apply(chapterFilters, to: flags)
+        flags = chapterTitleDisplayMode.apply(to: flags)
         return flags
     }
 

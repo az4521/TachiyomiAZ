@@ -26,6 +26,22 @@ enum class ChapterFilter {
     EXCLUDE
 }
 
+/**
+ * What a chapter row is titled with.
+ *
+ * Two values, because that is what the column holds. The iOS app also offered "volume", which the
+ * shared column has no bit for and Android has no concept of -- and which drove volume-based
+ * tracker progress that `Track` cannot store either, since it has `last_chapter_read` and nothing
+ * for volumes. It was a mode whose effects stopped at the edge of that app.
+ */
+enum class ChapterDisplayMode {
+    /** The name the source gave the chapter. */
+    NAME,
+
+    /** "Chapter 12", from its number. */
+    NUMBER
+}
+
 enum class ChapterSort {
     /** The order the source listed them in. */
     SOURCE,
@@ -66,6 +82,12 @@ object ChapterFlags {
 
     /** Whether the list runs oldest-first. */
     fun ascending(flags: Int): Boolean = flags and Manga.SORT_MASK == Manga.SORT_ASC
+
+    fun displayMode(flags: Int): ChapterDisplayMode =
+        when (flags and Manga.DISPLAY_MASK) {
+            Manga.DISPLAY_NUMBER -> ChapterDisplayMode.NUMBER
+            else -> ChapterDisplayMode.NAME
+        }
 
     // MARK: writing
 
@@ -115,6 +137,16 @@ object ChapterFlags {
 
     fun withAscending(flags: Int, ascending: Boolean): Int =
         replace(flags, Manga.SORT_MASK, if (ascending) Manga.SORT_ASC else Manga.SORT_DESC)
+
+    fun withDisplayMode(flags: Int, mode: ChapterDisplayMode): Int =
+        replace(
+            flags,
+            Manga.DISPLAY_MASK,
+            when (mode) {
+                ChapterDisplayMode.NUMBER -> Manga.DISPLAY_NUMBER
+                ChapterDisplayMode.NAME -> Manga.DISPLAY_NAME
+            }
+        )
 
     /** Clears the bits [mask] covers, then sets [value]. */
     private fun replace(flags: Int, mask: Int, value: Int): Int = flags and mask.inv() or value

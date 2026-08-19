@@ -60,4 +60,20 @@ class ChapterFlagsTest {
         val aidokuUnreadFilter = 1 shl 6
         assertEquals(ChapterFilter.EXCLUDE, ChapterFlags.bookmarkedFilter(aidokuUnreadFilter))
     }
+
+    @Test
+    fun `display mode round-trips and sits clear of the filters`() {
+        for (mode in ChapterDisplayMode.entries) {
+            assertEquals(mode, ChapterFlags.displayMode(ChapterFlags.withDisplayMode(0, mode)))
+        }
+        assertEquals(Manga.DISPLAY_NUMBER, ChapterFlags.withDisplayMode(0, ChapterDisplayMode.NUMBER))
+
+        // It lives at bit 20, well clear of everything else in the column.
+        var flags = ChapterFlags.withReadFilter(0, ChapterFilter.INCLUDE)
+        flags = ChapterFlags.withSort(flags, ChapterSort.NUMBER)
+        flags = ChapterFlags.withDisplayMode(flags, ChapterDisplayMode.NUMBER)
+        assertEquals(ChapterFilter.INCLUDE, ChapterFlags.readFilter(flags))
+        assertEquals(ChapterSort.NUMBER, ChapterFlags.sort(flags))
+        assertEquals(ChapterDisplayMode.NUMBER, ChapterFlags.displayMode(flags))
+    }
 }
