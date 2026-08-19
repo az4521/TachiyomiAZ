@@ -421,7 +421,7 @@ extension HistoryView.ViewModel {
                         sourceId: obj.sourceId,
                         mangaId: obj.mangaId,
                         context: context
-                    )?.toNewManga(),
+                    ),
                     CoreDataManager.shared.getChapter(
                         sourceId: obj.sourceId,
                         mangaId: obj.mangaId,

@@ -316,7 +316,7 @@ extension MangaView.ViewModel {
         await CoreDataManager.shared.cacheMangaSummaries([manga])
 
         if let cachedManga = CoreDataManager.shared.getManga(sourceId: self.manga.sourceKey, mangaId: self.manga.key) {
-            self.manga = self.manga.copy(from: cachedManga.toNewManga())
+            self.manga = self.manga.copy(from: cachedManga)
         }
 
         let filters = CoreDataManager.shared.getMangaChapterFilters(
@@ -931,10 +931,11 @@ extension MangaView.ViewModel {
     }
 
     private func saveFilters() async {
-        let manga = manga.toOld()
-        manga.chapterFlags = generateChapterFlags()
-        manga.langFilter = chapterLangFilter
-        manga.scanlatorFilter = chapterScanlatorFilter
-        await CoreDataManager.shared.updateMangaDetails(manga: manga)
+        // The language and scanlator filters have no column, so only the flags are persisted --
+        // which is what the facade wrote even when a whole model was handed to it.
+        await CoreDataManager.shared.updateMangaDetails(
+            manga: manga,
+            chapterFlags: generateChapterFlags()
+        )
     }
 }

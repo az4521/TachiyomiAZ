@@ -1,4 +1,5 @@
 import Foundation
+import ExtensionRunner
 import TachiyomiKit
 
 /// Manga rows, over the shared `mangas` table.
@@ -16,12 +17,12 @@ extension CoreDataManager {
         return handler.getManga(url: mangaId, sourceId: source)
     }
 
-    func getManga(sourceId: String, mangaId: String, context: Any? = nil) -> Manga? {
-        sharedManga(sourceId: sourceId, mangaId: mangaId)?.toLegacy()
+    func getManga(sourceId: String, mangaId: String, context: Any? = nil) -> ExtensionRunner.Manga? {
+        sharedManga(sourceId: sourceId, mangaId: mangaId)?.toNewManga()
     }
 
-    func getManga(context: Any? = nil) -> [Manga] {
-        handler.getMangas().map { $0.toLegacy() }
+    func getManga(context: Any? = nil) -> [ExtensionRunner.Manga] {
+        handler.getMangas().map { $0.toNewManga() }
     }
 
     func hasManga(sourceId: String, mangaId: String, context: Any? = nil) -> Bool {
@@ -53,11 +54,11 @@ extension CoreDataManager {
     /// flags. Android packs those into `chapter_flags`; the language and scanlator filters upstream
     /// also stores have no column there, so they are not persisted.
     @discardableResult
-    func updateMangaDetails(manga: Manga, override: Bool = false) async -> Manga? {
-        guard let record = sharedManga(sourceId: manga.sourceId, mangaId: manga.id) else { return nil }
-        record.chapter_flags = Int32(manga.chapterFlags)
+    func updateMangaDetails(manga: ExtensionRunner.Manga, chapterFlags: Int, override: Bool = false) async -> ExtensionRunner.Manga? {
+        guard let record = sharedManga(sourceId: manga.sourceKey, mangaId: manga.key) else { return nil }
+        record.chapter_flags = Int32(chapterFlags)
         handler.updateFlags(manga: record)
-        return record.toLegacy()
+        return record.toNewManga()
     }
 }
 

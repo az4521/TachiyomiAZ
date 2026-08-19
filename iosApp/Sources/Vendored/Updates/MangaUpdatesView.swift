@@ -163,7 +163,7 @@ extension MangaUpdatesView {
                             chapterKey: $0.chapterId ?? ""
                         ),
                         date: $0.date ?? Date(),
-                        manga: mangaObj.toNewManga(),
+                        manga: mangaObj,
                         chapter: $0.chapter?.toNewChapter(),
                         viewed: $0.viewed
                     )

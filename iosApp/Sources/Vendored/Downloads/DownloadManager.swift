@@ -536,10 +536,10 @@ extension DownloadManager {
                             // If not found, try to find a manga whose sanitized ID matches the directory name
                             if mangaObject == nil {
                                 let allMangaForSource = CoreDataManager.shared.getManga(context: context)
-                                    .filter { $0.sourceId == sourceId }
+                                    .filter { $0.sourceKey == sourceId }
 
                                 for candidateManga in allMangaForSource {
-                                    let candidateId = candidateManga.id
+                                    let candidateId = candidateManga.key
                                     if candidateId.directoryName == mangaId {
                                         mangaObject = candidateManga
                                         isInLibrary = CoreDataManager.shared.hasLibraryManga(
@@ -556,7 +556,7 @@ extension DownloadManager {
                                 title: mangaObject?.title,
                                 coverUrl: mangaObject?.cover,
                                 isInLibrary: isInLibrary,
-                                actualMangaId: mangaObject?.id ?? mangaId
+                                actualMangaId: mangaObject?.key ?? mangaId
                             )
                             continuation.resume(returning: result)
                         }
