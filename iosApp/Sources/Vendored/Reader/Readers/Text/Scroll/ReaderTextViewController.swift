@@ -164,8 +164,8 @@ class ReaderTextViewController: BaseViewController {
     ) -> ReaderInfoPageView {
         let tv = ReaderInfoPageView(type: .next)
         tv.translatesAutoresizingMaskIntoConstraints = false
-        tv.currentChapter = finishedChapter.toOld(sourceId: sourceId, mangaId: mangaId)
-        tv.nextChapter = nextChapter?.toOld(sourceId: sourceId, mangaId: mangaId)
+        tv.currentChapter = finishedChapter
+        tv.nextChapter = nextChapter
         return tv
     }
 
@@ -394,9 +394,9 @@ extension ReaderTextViewController {
 
         // Previous transition (top) — shows info about the chapter before sections[0]
         if let prevView = previousTransitionView, let firstSection = sections.first {
-            let currentOld = firstSection.chapter.toOld(sourceId: sourceId, mangaId: mangaId)
+            let currentOld = firstSection.chapter
             prevView.currentChapter = currentOld
-            prevView.previousChapter = previousChapter?.toOld(sourceId: sourceId, mangaId: mangaId)
+            prevView.previousChapter = previousChapter
             prevView.isHidden = false
             showsPreviousTransition = true
             prevHeightConstraint?.constant = screenHeight
@@ -404,9 +404,9 @@ extension ReaderTextViewController {
 
         // Next transition (bottom) — shows info about the chapter after sections.last
         if let nextView = nextTransitionView, let lastSection = sections.last {
-            let currentOld = lastSection.chapter.toOld(sourceId: sourceId, mangaId: mangaId)
+            let currentOld = lastSection.chapter
             nextView.currentChapter = currentOld
-            nextView.nextChapter = nextChapter?.toOld(sourceId: sourceId, mangaId: mangaId)
+            nextView.nextChapter = nextChapter
             nextView.isHidden = false
             showsNextTransition = true
             nextHeightConstraint?.constant = screenHeight

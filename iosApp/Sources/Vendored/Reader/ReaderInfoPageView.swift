@@ -5,6 +5,7 @@
 //  Created by Skitty on 1/22/22.
 //
 
+import ExtensionRunner
 import UIKit
 
 enum ReaderInfoPageType {
@@ -15,17 +16,17 @@ enum ReaderInfoPageType {
 class ReaderInfoPageView: UIView {
     var type: ReaderInfoPageType
 
-    var currentChapter: Chapter? {
+    var currentChapter: ExtensionRunner.Chapter? {
         didSet {
             updateLabelText()
         }
     }
-    var previousChapter: Chapter? {
+    var previousChapter: ExtensionRunner.Chapter? {
         didSet {
             updateLabelText()
         }
     }
-    var nextChapter: Chapter? {
+    var nextChapter: ExtensionRunner.Chapter? {
         didSet {
             updateLabelText()
         }
@@ -41,7 +42,7 @@ class ReaderInfoPageView: UIView {
     let bottomChapterLabel = UILabel()
     let bottomChapterTitleLabel = UILabel()
 
-    init(type: ReaderInfoPageType, currentChapter: Chapter? = nil) {
+    init(type: ReaderInfoPageType, currentChapter: ExtensionRunner.Chapter? = nil) {
         self.type = type
         self.currentChapter = currentChapter
 
@@ -124,20 +125,20 @@ class ReaderInfoPageView: UIView {
         Int(floor(higherChapterNumber) - floor(lowerChapterNumber))
     }
 
-    func title(for chapter: Chapter) -> String {
-        switch (chapter.volumeNum, chapter.chapterNum, chapter.title) {
-            case (.some(let volumeNum), nil, nil):
-                return String(format: NSLocalizedString("VOLUME_X", comment: ""), volumeNum)
-            case (nil, .some(let chapterNum), nil):
-                return String(format: NSLocalizedString("CHAPTER_X", comment: ""), chapterNum)
+    func title(for chapter: ExtensionRunner.Chapter) -> String {
+        switch (chapter.volumeNumber, chapter.chapterNumber, chapter.title) {
+            case (.some(let volumeNumber), nil, nil):
+                return String(format: NSLocalizedString("VOLUME_X", comment: ""), volumeNumber)
+            case (nil, .some(let chapterNumber), nil):
+                return String(format: NSLocalizedString("CHAPTER_X", comment: ""), chapterNumber)
             case (nil, nil, .some(let chapterTitle)): return chapterTitle
             default:
                 var arr = [String]()
-                if let volumeNum = chapter.volumeNum {
-                    arr.append(String(format: NSLocalizedString("VOL_X", comment: ""), volumeNum))
+                if let volumeNumber = chapter.volumeNumber {
+                    arr.append(String(format: NSLocalizedString("VOL_X", comment: ""), volumeNumber))
                 }
-                if let chapterNum = chapter.chapterNum {
-                    arr.append(String(format: NSLocalizedString("CH_X", comment: ""), chapterNum))
+                if let chapterNumber = chapter.chapterNumber {
+                    arr.append(String(format: NSLocalizedString("CH_X", comment: ""), chapterNumber))
                 }
                 if let chapterTitle = chapter.title {
                     arr.append("-")
@@ -154,8 +155,8 @@ class ReaderInfoPageView: UIView {
             topChapterTitleLabel.text = title(for: previousChapter)
             bottomChapterLabel.text = NSLocalizedString("CURRENT_COLON", comment: "")
             bottomChapterTitleLabel.text = title(for: currentChapter)
-            if let currChapterNum = currentChapter.chapterNum,
-               let prevChapterNum = previousChapter.chapterNum {
+            if let currChapterNum = currentChapter.chapterNumber,
+               let prevChapterNum = previousChapter.chapterNumber {
                 let chapterDifference = chapterDifference(higherChapterNumber: currChapterNum, lowerChapterNumber: prevChapterNum)
                 let shouldSkipChapters = chapterDifference > 1
                 skippingChaptersView.isHidden = !shouldSkipChapters
@@ -172,8 +173,8 @@ class ReaderInfoPageView: UIView {
             topChapterTitleLabel.text = title(for: currentChapter)
             bottomChapterLabel.text = NSLocalizedString("NEXT_COLON", comment: "")
             bottomChapterTitleLabel.text = title(for: nextChapter)
-            if let currChapterNum = currentChapter.chapterNum,
-               let nextChapterNum = nextChapter.chapterNum {
+            if let currChapterNum = currentChapter.chapterNumber,
+               let nextChapterNum = nextChapter.chapterNumber {
                 let chapterDifference = chapterDifference(higherChapterNumber: nextChapterNum, lowerChapterNumber: currChapterNum)
                 let shouldSkipChapters = chapterDifference > 1
                 skippingChaptersView.isHidden = !shouldSkipChapters

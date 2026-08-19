@@ -5,6 +5,7 @@
 //  Created by Skitty on 3/22/23.
 //
 
+import ExtensionRunner
 import AsyncDisplayKit
 
 struct Transition {
@@ -13,8 +14,8 @@ struct Transition {
     }
 
     var type: TransitionType
-    var from: Chapter
-    var to: Chapter?
+    var from: ExtensionRunner.Chapter
+    var to: ExtensionRunner.Chapter?
 }
 
 class ReaderTransitionNode: ASDisplayNode {
@@ -25,20 +26,20 @@ class ReaderTransitionNode: ASDisplayNode {
     private lazy var fontSize = Self.defaultFontSize
     private var lastWidth: CGFloat = 0
 
-    func title(for chapter: Chapter) -> String {
-        switch (chapter.volumeNum, chapter.chapterNum, chapter.title) {
-            case (.some(let volumeNum), nil, nil):
-                return String(format: NSLocalizedString("VOLUME_X", comment: ""), volumeNum)
-            case (nil, .some(let chapterNum), nil):
-                return String(format: NSLocalizedString("CHAPTER_X", comment: ""), chapterNum)
+    func title(for chapter: ExtensionRunner.Chapter) -> String {
+        switch (chapter.volumeNumber, chapter.chapterNumber, chapter.title) {
+            case (.some(let volumeNumber), nil, nil):
+                return String(format: NSLocalizedString("VOLUME_X", comment: ""), volumeNumber)
+            case (nil, .some(let chapterNumber), nil):
+                return String(format: NSLocalizedString("CHAPTER_X", comment: ""), chapterNumber)
             case (nil, nil, .some(let chapterTitle)): return chapterTitle
             default:
                 var arr = [String]()
-                if let volumeNum = chapter.volumeNum {
-                    arr.append(String(format: NSLocalizedString("VOL_X", comment: ""), volumeNum))
+                if let volumeNumber = chapter.volumeNumber {
+                    arr.append(String(format: NSLocalizedString("VOL_X", comment: ""), volumeNumber))
                 }
-                if let chapterNum = chapter.chapterNum {
-                    arr.append(String(format: NSLocalizedString("CH_X", comment: ""), chapterNum))
+                if let chapterNumber = chapter.chapterNumber {
+                    arr.append(String(format: NSLocalizedString("CH_X", comment: ""), chapterNumber))
                 }
                 if let chapterTitle = chapter.title {
                     arr.append("-")
