@@ -92,15 +92,33 @@ final class SourceRuntime: ObservableObject {
             }
         }
 
+        // Which extension provides each source, straight from the runtime that loaded them.
+        //
+        // This used to be looked up as `catalog.installed.first { $0.packageName == source.id }`,
+        // and `Source.id` is the source *key* -- "mihon.<sourceId>" -- never a package name. The
+        // match could not succeed, so `extensionId` always took the fallback and every descriptor
+        // carried a source key where the host expects an extension id. Browsing never noticed,
+        // because it goes through the runner attached to the source; a library refresh did, and
+        // failed every title with "extension is not loaded mihon.<sourceId>".
+        let extensionIds = await JVMSourceRuntime.shared.extensionIdsBySourceKey
+
         // This app's own screens still work in SourceDescriptor, derived from the same list so the
         // two views of a source cannot disagree.
         sources = loaded
             .compactMap { source -> SourceDescriptor? in
                 guard let id = SourceIdentity.numericId(source.key) else { return nil }
-                let installed = catalog.installed.first { $0.packageName == source.id }
+                guard let extensionId = extensionIds[source.key] else {
+                    // Skipped rather than given a guessed id: a descriptor carrying the wrong
+                    // extension is exactly the failure above, and it fails silently at use.
+                    LogManager.logger.error(
+                        "No extension id for source \(source.key); it will not be listed."
+                    )
+                    return nil
+                }
+                let installed = catalog.installed.first { $0.packageName == extensionId }
                 return SourceDescriptor(
                     id: id,
-                    extensionId: installed?.packageName ?? source.id,
+                    extensionId: extensionId,
                     extensionName: installed?.name ?? source.name,
                     name: source.name,
                     lang: source.languages.first ?? "en",

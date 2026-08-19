@@ -357,17 +357,32 @@ actor JVMSourceRuntime {
         }
     }
 
+    /// Which extension provides each source, keyed by source key.
+    ///
+    /// The host addresses everything by extension id, while the rest of the app addresses sources
+    /// by `mihon.<sourceId>`. Only this function sees both at once -- it has the manifest and the
+    /// descriptors it produced -- so the pairing is recorded here rather than guessed at later.
+    private(set) var extensionIdsBySourceKey: [String: String] = [:]
+
+    func extensionId(forSourceKey key: String) -> String? {
+        extensionIdsBySourceKey[key]
+    }
+
     func installedAidokuSources() async -> [ExtensionRunner.Source] {
         guard let manifests = try? installedManifests() else {
             return []
         }
         var result: [ExtensionRunner.Source] = []
+        var extensionIds: [String: String] = [:]
         for manifest in manifests {
             do {
                 try await loadInstalled(manifest)
                 let descriptors = try await sources(
                     extensionId: manifest.id
                 )
+                for descriptor in descriptors {
+                    extensionIds[TachiyomiXSourceRunner.key(for: descriptor.id)] = manifest.id
+                }
                 result.append(contentsOf: descriptors.map {
                     .tachiyomix(
                         manifest: manifest,
@@ -380,6 +395,7 @@ actor JVMSourceRuntime {
                 )
             }
         }
+        extensionIdsBySourceKey = extensionIds
         return result
     }
 
