@@ -421,7 +421,7 @@ class ReaderViewController: BaseObservingViewController {
         }
 
         await HistoryManager.shared.setProgress(
-            chapter: chapter.toOld(sourceId: sourceId, mangaId: mangaId),
+            chapter: ChapterIdentifier(sourceKey: sourceId, mangaKey: mangaId, chapterKey: chapter.key),
             progress: currentPage,
             totalPages: totalPages,
             scrollPosition: currentPosition,

@@ -27,8 +27,11 @@ final class HistoryManager {
         let pagesRead: Int
     }
 
+    /// - Parameter chapter: identified rather than passed as a model. Recording progress needs the
+    ///   three keys and nothing else, and taking a whole chapter meant the reader built one in the
+    ///   shape the vendored UI kept.
     func setProgress(
-        chapter: Chapter,
+        chapter: ChapterIdentifier,
         progress: Int,
         totalPages: Int? = nil,
         scrollPosition: Double? = nil,
@@ -36,25 +39,15 @@ final class HistoryManager {
     ) async {
         CoreDataManager.shared.setProgress(
             progress,
-            sourceId: chapter.sourceId,
-            mangaId: chapter.mangaId,
-            chapterId: chapter.id,
+            sourceId: chapter.sourceKey,
+            mangaId: chapter.mangaKey,
+            chapterId: chapter.chapterKey,
             totalPages: totalPages,
             scrollPosition: scrollPosition,
             completed: completed
         )
         // The library's "started" filter and its last-read sort watch for this.
-        NotificationCenter.default.post(
-            name: .historySet,
-            object: (
-                ChapterIdentifier(
-                    sourceKey: chapter.sourceId,
-                    mangaKey: chapter.mangaId,
-                    chapterKey: chapter.id
-                ),
-                progress
-            )
-        )
+        NotificationCenter.default.post(name: .historySet, object: (chapter, progress))
     }
 
     /// Adds a finished session's duration to the chapter's accumulated read time.
@@ -119,7 +112,8 @@ final class HistoryManager {
                 // sending each of a batch in turn would be several requests saying less.
                 if let maxChapter = chapters.max(by: { $0.chapterNumber ?? 0 < $1.chapterNumber ?? 0 }) {
                     await TrackerManager.shared.setCompleted(
-                        chapter: maxChapter.toOld(sourceId: sourceId, mangaId: mangaId),
+                        chapter: maxChapter,
+                        manga: MangaIdentifier(sourceKey: sourceId, mangaKey: mangaId),
                         skipTracker: skipTracker
                     )
                 }

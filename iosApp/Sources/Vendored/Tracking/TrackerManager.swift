@@ -76,21 +76,26 @@ actor TrackerManager {
     }
 
     /// Send chapter read update to logged in trackers.
-    func setCompleted(chapter: Chapter, skipTracker: Tracker? = nil) async {
-        let chapterNum = chapter.chapterNum
-        let volumeNum = chapter.volumeNum.flatMap { Int(floor($0)) }
+    /// - Parameter manga: which title the chapter belongs to. The runner model does not carry its
+    ///   manga the way the Aidoku-shaped one did, so the caller passes it.
+    func setCompleted(
+        chapter: ExtensionRunner.Chapter,
+        manga: MangaIdentifier,
+        skipTracker: Tracker? = nil
+    ) async {
+        let chapterNum = chapter.chapterNumber
+        let volumeNum = chapter.volumeNumber.flatMap { Int(floor($0)) }
         guard chapterNum != nil || volumeNum != nil else { return }
 
-        let uniqueKey = "\(chapter.sourceId).\(chapter.mangaId)"
+        let sourceId = manga.sourceKey
+        let mangaId = manga.mangaKey
+        let uniqueKey = "\(sourceId).\(mangaId)"
         let displayMode = ChapterTitleDisplayMode(
             flags: CoreDataManager.shared.getMangaChapterFilters(
-                sourceId: chapter.sourceId,
-                mangaId: chapter.mangaId
+                sourceId: sourceId,
+                mangaId: mangaId
             ).flags
         )
-
-        let sourceId = chapter.sourceId
-        let mangaId = chapter.mangaId
         let trackItems: [TrackItem] = await CoreDataManager.shared.container.performBackgroundTask { @Sendable context in
             CoreDataManager.shared.getTracks(
                 sourceId: sourceId,
