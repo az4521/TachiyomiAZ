@@ -62,12 +62,22 @@ interface ChapterQueries : DbProvider {
     fun getChapters(url: String): List<Chapter> =
         sqlDatabase.chaptersQueries.getChaptersByUrl(url, ::mapChapter).executeAsList()
 
+    /**
+     * A chapter with no manga is dropped rather than force-unwrapped.
+     *
+     * `manga_id` is NOT NULL in the schema, so a null here is a caller that failed to attach the
+     * chapter to anything -- nothing worth writing either way. The difference is what happens on
+     * iOS: an exception raised here does not become a Swift error, it terminates the process, so
+     * the force-unwrap turned a caller's mistake into an app-wide crash during batch writes like a
+     * backup restore or a library refresh.
+     */
     fun insertChapter(chapter: Chapter) {
+        val mangaId = chapter.manga_id ?: return
         sqlDatabase.chaptersQueries.transaction {
             val id = chapter.id
             if (id == null) {
                 sqlDatabase.chaptersQueries.insertChapter(
-                    chapter.manga_id!!,
+                    mangaId,
                     chapter.url,
                     chapter.name,
                     chapter.scanlator,
@@ -83,7 +93,7 @@ interface ChapterQueries : DbProvider {
                 chapter.id = sqlDatabase.chaptersQueries.lastInsertRowId().executeAsOne()
             } else {
                 sqlDatabase.chaptersQueries.updateChapter(
-                    chapter.manga_id!!,
+                    mangaId,
                     chapter.url,
                     chapter.name,
                     chapter.scanlator,

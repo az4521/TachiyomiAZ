@@ -52,7 +52,17 @@ interface ChapterSyncPlatform {
  *
  * @return the chapters added and the chapters deleted. Chapters that were deleted and immediately
  *  re-added under a new url are reported as neither, since nothing actually changed for the reader.
+ * @throws NoChaptersException if the source returned nothing.
+ *
+ * Annotated `Exception` rather than just [NoChaptersException], and deliberately so. A
+ * Kotlin/Native function that throws a type outside its `@Throws` list terminates the process, and
+ * no `catch` on the caller's side can prevent it -- a library refresh meeting one dead source took
+ * the whole app down that way. Listing only the expected type would leave the same trap open for
+ * every unexpected one: this parses untrusted source output and writes to the database, so a
+ * malformed chapter list or a SQLite failure are both reachable, and neither should be fatal
+ * halfway through a several-hundred-title refresh.
  */
+@Throws(Exception::class)
 fun syncChaptersWithSource(
     db: DatabaseHandler,
     rawSourceChapters: List<SChapter>,
