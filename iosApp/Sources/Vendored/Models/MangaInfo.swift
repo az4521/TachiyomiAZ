@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import ExtensionRunner
 
 struct MangaInfo: Hashable, Sendable {
     var identifier: MangaIdentifier { .init(sourceKey: sourceId, mangaKey: mangaId) }
@@ -23,15 +24,27 @@ struct MangaInfo: Hashable, Sendable {
     var unread: Int = 0
     var downloads: Int = 0
 
-    func toManga() -> Manga {
-        Manga(
-            sourceId: sourceId,
-            id: mangaId,
-            title: title,
-            author: author,
+    /// The library row as a source result.
+    ///
+    /// A library cell carries only what it draws, so the rest comes back empty rather than
+    /// invented -- this exists to hand a title to something that wants a manga, not to be one.
+    func toManga() -> ExtensionRunner.Manga {
+        ExtensionRunner.Manga(
+            sourceKey: sourceId,
+            key: mangaId,
+            title: title ?? "",
+            cover: coverUrl?.absoluteString,
+            artists: nil,
+            authors: author.map { [$0] },
+            description: nil,
+            url: url,
             tags: tags,
-            coverUrl: coverUrl,
-            url: url
+            status: .unknown,
+            contentRating: .safe,
+            viewer: .unknown,
+            updateStrategy: .always,
+            nextUpdateTime: nil,
+            chapters: nil
         )
     }
 }

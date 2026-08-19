@@ -125,11 +125,3 @@ enum MangaViewer: Int, Codable {
     }
 }
 
-struct MangaPageResult {
-    let manga: [Manga]
-    let hasNextPage: Bool
-
-    func toNew() -> ExtensionRunner.MangaPageResult {
-        ExtensionRunner.MangaPageResult(entries: manga.map { $0.toNew() }, hasNextPage: hasNextPage)
-    }
-}

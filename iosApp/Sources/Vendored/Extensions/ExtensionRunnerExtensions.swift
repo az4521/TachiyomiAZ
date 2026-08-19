@@ -102,48 +102,6 @@ extension ExtensionRunner.Source {
 }
 
 extension ExtensionRunner.Manga {
-    func toOld() -> Manga {
-        Manga(
-            sourceId: sourceKey,
-            id: key,
-            title: title,
-            author: authors.flatMap { $0.isEmpty ? nil : $0.joined(separator: ", ") },
-            artist: artists.flatMap { $0.isEmpty ? nil : $0.joined(separator: ", ") },
-            description: description,
-            tags: tags,
-            coverUrl: cover.flatMap({ URL(string: $0) }),
-            url: url,
-            status: {
-                switch status {
-                    case .unknown: .unknown
-                    case .ongoing: .ongoing
-                    case .completed: .completed
-                    case .cancelled: .cancelled
-                    case .hiatus: .hiatus
-                }
-            }(),
-            nsfw: {
-                switch contentRating {
-                    case .unknown: .safe
-                    case .safe: .safe
-                    case .suggestive: .suggestive
-                    case .nsfw: .nsfw
-                }
-            }(),
-            viewer: {
-                switch viewer {
-                    case .unknown: .defaultViewer
-                    case .rightToLeft: .rtl
-                    case .leftToRight: .ltr
-                    case .vertical: .vertical
-                    case .webtoon: .scroll
-                }
-            }(),
-            updateStrategy: updateStrategy,
-            nextUpdateTime: nextUpdateTime.flatMap { Date(timeIntervalSince1970: TimeInterval($0)) },
-        )
-    }
-
     /// Local file sources are not built yet -- see Vendored/_excluded/Local -- so nothing is local.
     /// The key is still compared against upstream's so this starts reporting correctly the moment
     /// that source is restored.
@@ -328,28 +286,6 @@ extension ExtensionRunner.Chapter {
         } else {
             return DateFormatter.localizedString(from: date, dateStyle: .medium, timeStyle: .none)
         }
-    }
-
-    func toOld(
-        sourceId: String,
-        mangaId: String,
-        sourceOrder: Int? = nil
-    ) -> Chapter {
-        Chapter(
-            sourceId: sourceId,
-            id: key,
-            mangaId: mangaId,
-            title: title,
-            scanlator: scanlators.flatMap { $0.isEmpty ? nil : $0.joined(separator: ", ") },
-            url: url?.absoluteString,
-            lang: language ?? "en",
-            chapterNum: chapterNumber,
-            volumeNum: volumeNumber,
-            dateUploaded: dateUploaded,
-            thumbnail: thumbnail,
-            locked: locked,
-            sourceOrder: sourceOrder ?? 0
-        )
     }
 }
 

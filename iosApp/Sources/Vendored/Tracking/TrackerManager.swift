@@ -522,13 +522,7 @@ actor TrackerManager {
             NotificationCenter.default.post(
                 name: .historyAdded,
                 object: completed.map {
-                    Chapter(
-                        sourceId: manga.sourceKey,
-                        id: $0,
-                        mangaId: manga.key,
-                        title: "",
-                        sourceOrder: -1
-                    )
+                    ChapterIdentifier(sourceKey: manga.sourceKey, mangaKey: manga.key, chapterKey: $0)
                 }
             )
         }
@@ -536,13 +530,7 @@ actor TrackerManager {
             NotificationCenter.default.post(
                 name: .historySet,
                 object: (
-                    Chapter(
-                        sourceId: manga.sourceKey,
-                        id: chapterKey,
-                        mangaId: manga.key,
-                        title: "",
-                        sourceOrder: -1
-                    ),
+                    ChapterIdentifier(sourceKey: manga.sourceKey, mangaKey: manga.key, chapterKey: chapterKey),
                     page
                 )
             )

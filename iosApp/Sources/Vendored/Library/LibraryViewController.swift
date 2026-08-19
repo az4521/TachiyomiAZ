@@ -1574,7 +1574,7 @@ extension LibraryViewController {
                     self.present(
                         UINavigationController(
                             rootViewController: CategorySelectViewController(
-                                manga: manga.toNew()
+                                manga: manga
                             )
                         ),
                         animated: true
@@ -1586,7 +1586,7 @@ extension LibraryViewController {
                 title: NSLocalizedString("MIGRATE"),
                 image: UIImage(systemName: "arrow.left.arrow.right")
             ) { _ in
-                let manga = mangaInfo.map { $0.toManga().toNew() }
+                let manga = mangaInfo.map { $0.toManga() }
                 let migrateView = MigrateSelectDestinationView(
                     selectedSeries: manga,
                     selectedSources: manga.count == 1
@@ -1607,11 +1607,11 @@ extension LibraryViewController {
                     Task {
                         for manga in mangaInfo {
                             let manga = manga.toManga()
-                            let chapters = await CoreDataManager.shared.getChapters(sourceId: manga.sourceId, mangaId: manga.id)
+                            let chapters = await CoreDataManager.shared.getChapters(sourceId: manga.sourceKey, mangaId: manga.key)
 
                             await HistoryManager.shared.addHistory(
-                                sourceId: manga.sourceId,
-                                mangaId: manga.id,
+                                sourceId: manga.sourceKey,
+                                mangaId: manga.key,
                                 chapters: chapters
                             )
                         }
@@ -1626,12 +1626,12 @@ extension LibraryViewController {
                     Task {
                         for manga in mangaInfo {
                             let manga = manga.toManga()
-                            let chapters = await CoreDataManager.shared.getChapters(sourceId: manga.sourceId, mangaId: manga.id)
+                            let chapters = await CoreDataManager.shared.getChapters(sourceId: manga.sourceKey, mangaId: manga.key)
 
                             await HistoryManager.shared.removeHistory(
-                                sourceId: manga.sourceId,
-                                mangaId: manga.id,
-                                chapterIds: chapters.map { $0.id }
+                                sourceId: manga.sourceKey,
+                                mangaId: manga.key,
+                                chapterIds: chapters.map { $0.key }
                             )
                         }
 
@@ -1646,7 +1646,7 @@ extension LibraryViewController {
                     !UserDefaults.standard.bool(forKey: "Library.downloadOnlyOnWifi") {
                     Task {
                         for mangaInfo in mangaInfo {
-                            await DownloadManager.shared.downloadAll(manga: mangaInfo.toManga().toNew())
+                            await DownloadManager.shared.downloadAll(manga: mangaInfo.toManga())
                         }
                     }
                 } else {
@@ -1663,7 +1663,7 @@ extension LibraryViewController {
                     !UserDefaults.standard.bool(forKey: "Library.downloadOnlyOnWifi") {
                     Task {
                         for manga in mangaInfo {
-                            await DownloadManager.shared.downloadUnread(manga: manga.toManga().toNew())
+                            await DownloadManager.shared.downloadUnread(manga: manga.toManga())
                         }
                     }
                 } else {

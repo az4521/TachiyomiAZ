@@ -21,7 +21,7 @@ class MangaViewController: UIHostingController<MangaView> {
     ) {
         self.init(
             source: source,
-            manga: manga.toManga().toNew(),
+            manga: manga.toManga(),
             parent: parent,
             chapterKey: chapterKey,
             openAction: openAction,
