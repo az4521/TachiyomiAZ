@@ -598,7 +598,7 @@
 "MISSING_SOURCES" = "Missing Sources";
 "MISSING_SOURCES_TEXT" = "The restored backup may contain data from the following sources, which are not currently installed:";
 "RESTORE_BACKUP" = "Restore to this backup?";
-"RESTORE_BACKUP_TEXT" = "All current data will be removed and replaced by the data from this backup.";
+"RESTORE_BACKUP_TEXT" = "This backup will be merged into your library. Nothing is removed, and chapters you have already read stay read.";
 "BACKUP_IMPORT_SUCCESS" = "Backup Imported";
 "BACKUP_IMPORT_SUCCESS_TEXT" = "To restore to this backup, find it in the backups page in settings.";
 "IMPORT_FAIL" = "Import Failed";
@@ -775,6 +775,7 @@
 "%@_TRACKER_LOGIN_NEEDED" = "%@ Login Needed";
 "%@_TRACKER_LOGIN_NEEDED_TEXT" = "Your %@ token has expired, so the associated tracker will stop working until you re-login in settings.";
 "BACKUP_ERROR" = "Backup Restore Error";
+"BACKUP_NO_RESTORABLE_ENTRIES" = "none of its titles name a source this app can read";
 "BACKUP_ERROR_TEXT" = "An error was encountering while restoring: %@. The backup may be invalid.";
 "BACKUP_RESTORE_COMPLETE" = "Backup Restored";
 "BACKUP_RESTORE_COMPLETE_TEXT" = "The backup was restored successfully.";

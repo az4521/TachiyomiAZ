@@ -312,13 +312,12 @@ enum MihonBackupImporter {
         return Int(clamping: mihonLastPageRead + 1)
     }
 
+    /// The tracker a `sync_id` names.
+    ///
+    /// The inverse of the codec's `mihonTrackerId`, and for the same reason it reads from
+    /// `TrackerSyncId`: this was a four-entry list that quietly discarded any tracked title from a
+    /// service outside it while importing.
     private static func aidokuTrackerId(mihonId: Int) -> String? {
-        switch mihonId {
-            case 1: "myanimelist"
-            case 2: "anilist"
-            case 4: "shikimori"
-            case 5: "bangumi"
-            default: nil
-        }
+        TrackerSyncId.trackerId(for: Int32(mihonId))
     }
 }

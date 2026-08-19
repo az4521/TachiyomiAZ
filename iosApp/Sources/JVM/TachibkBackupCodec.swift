@@ -508,14 +508,14 @@ enum TachibkBackupCodec {
         }
     }
 
+    /// The `sync_id` Android files a tracker under.
+    ///
+    /// This was its own four-entry list, written when only those four trackers existed here. It
+    /// silently dropped every other service from an exported backup -- a title tracked on Kitsu or
+    /// MangaUpdates simply was not in the file. `TrackerSyncId` is the same vocabulary the database
+    /// is written with, so there is one list rather than two that disagree.
     private static func mihonTrackerId(_ tracker: String) -> Int? {
-        switch tracker {
-            case "myanimelist": 1
-            case "anilist": 2
-            case "shikimori": 4
-            case "bangumi": 5
-            default: nil
-        }
+        TrackerSyncId.syncId(for: tracker).map(Int.init)
     }
 }
 
