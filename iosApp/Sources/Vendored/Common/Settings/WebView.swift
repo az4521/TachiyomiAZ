@@ -24,14 +24,23 @@ enum PersistentWebViewSession {
           }
           return 1;
         };
-        try { window[name] = resolve(); } catch (_) {}
-        if (Number(window[name]) > 0) return;
+        // Defined on the prototype, where a browser has it.
+        //
+        // These are 0 until the view is in a window, so at document start the fallback always
+        // runs -- and defining it on `window` left an own property where every real browser has
+        // an inherited accessor. `Object.getOwnPropertyDescriptor(window, 'outerWidth')` returning
+        // something is a seam a browser check can see, and this app reported `own-getter` where
+        // Safari reports nothing at all.
+        const target = Object.getPrototypeOf(window) || window;
         try {
-          Object.defineProperty(window, name, {
+          Object.defineProperty(target, name, {
             configurable: true,
+            enumerable: false,
             get: resolve,
           });
+          if (Number(window[name]) > 0) return;
         } catch (_) {}
+        try { window[name] = resolve(); } catch (_) {}
       };
       installDimensionFallback('outerWidth', () => [
         window.innerWidth,
@@ -129,8 +138,19 @@ struct WebView: UIViewRepresentable {
     let initialCookies: [HTTPCookie]
     let sessionHandle: WebViewSessionHandle?
 
+    /// Sized to the screen rather than `.zero`.
+    ///
+    /// SwiftUI lays this out a moment after it is made, but scripts injected at document start run
+    /// against whatever it is then -- and against a zero frame `window.outerWidth` is 0. That is
+    /// what makes `browserCompatibilityScript` define `outerWidth` and `outerHeight` on `window`,
+    /// which leaves them as own properties where a real browser has them on the prototype.
+    ///
+    /// Sites that gate on a browser check look for exactly that kind of seam. SchaleNetwork probes
+    /// the console the same way -- logging `%c%d` with transparent styling and an object whose
+    /// getters fire if anything reads them. Giving the view a real size from the start means the
+    /// dimensions are genuine and the shim leaves `window` alone.
     private let webView = WKWebView(
-        frame: .zero,
+        frame: CGRect(origin: .zero, size: UIScreen.main.bounds.size),
         configuration: PersistentWebViewSession.configuration()
     )
 
@@ -173,6 +193,7 @@ struct WebView: UIViewRepresentable {
         webView.customUserAgent = preferredUserAgent
         context.coordinator.webView = webView
         sessionHandle?.webView = webView
+        context.coordinator.installDiagnostics(on: webView)
         Task { @MainActor in
             let store = webView.configuration.websiteDataStore.httpCookieStore
             for cookie in initialCookies {
@@ -214,7 +235,7 @@ struct WebView: UIViewRepresentable {
         .init(parent: self)
     }
 
-    class Coordinator: NSObject, WKNavigationDelegate, WKHTTPCookieStoreObserver {
+    class Coordinator: NSObject, WKNavigationDelegate, WKHTTPCookieStoreObserver, WKScriptMessageHandler {
         var parent: WebView
         weak var webView: WKWebView?
         private var visitedHosts: Set<String>
@@ -226,6 +247,112 @@ struct WebView: UIViewRepresentable {
             )
             super.init()
             WKWebsiteDataStore.default().httpCookieStore.add(self)
+        }
+
+        /// The name the page posts diagnostics under.
+        private static let diagnosticsHandler = "tachiyomiaz_browser_diagnostics"
+
+        /// Reports what the page's own scripts say to the app log.
+        ///
+        /// The extension-created WebViews have forwarded console output since they were written;
+        /// this one never has, so a site whose scripts throw or hang looked identical from here to
+        /// one that simply had not finished. A site that gates itself on a browser check --
+        /// SchaleNetwork runs one after the Cloudflare challenge, and shows a spinner instead of
+        /// its buttons until it passes -- gives no other outward sign of what went wrong.
+        func installDiagnostics(on webView: WKWebView) {
+            let controller = webView.configuration.userContentController
+            controller.removeScriptMessageHandler(forName: Self.diagnosticsHandler)
+            controller.add(self, name: Self.diagnosticsHandler)
+            controller.addUserScript(WKUserScript(
+                source: """
+                (() => {
+                  if (window.__tachiyomiazBrowserDiagnostics) return;
+                  window.__tachiyomiazBrowserDiagnostics = true;
+                  const post = (text) => {
+                    try {
+                      window.webkit.messageHandlers.\(Self.diagnosticsHandler)
+                        .postMessage(String(text));
+                    } catch (_) {}
+                  };
+                  // Errors only, and read passively.
+                  //
+                  // This used to wrap console.error and console.warn and serialise their
+                  // arguments. That is precisely what the sites worth debugging are watching for:
+                  // SchaleNetwork logs `%c%d` with transparent styling and an object whose getters
+                  // fire if anything renders or serialises it, which is how a page tells a hooked
+                  // console from a real one. Reading the arguments made this app look like the
+                  // thing the check is looking for.
+                  window.addEventListener('error', event => {
+                    post(
+                      'uncaught: ' + event.message + ' @ ' +
+                      (event.filename || '?') + ':' + (event.lineno || 0)
+                    );
+                  });
+                  window.addEventListener('unhandledrejection', event => {
+                    let described = 'unknown';
+                    try {
+                      const reason = event.reason;
+                      described = reason instanceof Error
+                        ? reason.name + ' ' + reason.message
+                        : String(reason);
+                    } catch (_) {}
+                    post('unhandled-rejection: ' + described);
+                  });
+
+                  // What this browser looks like from the page's side.
+                  //
+                  // Reported once per load so it can be compared against Safari on the same
+                  // device: a site that gates on a browser check is comparing these, and the
+                  // difference is easier to find by reading both than by guessing which one it
+                  // dislikes. Read only -- nothing here defines, wraps or overrides anything.
+                  window.addEventListener('load', () => {
+                    try {
+                      const own = (name) => {
+                        const descriptor = Object.getOwnPropertyDescriptor(window, name);
+                        if (!descriptor) return 'proto';
+                        return descriptor.get ? 'own-getter' : 'own-value';
+                      };
+                      post('fingerprint: ' + JSON.stringify({
+                        ua: navigator.userAgent,
+                        platform: navigator.platform,
+                        touch: navigator.maxTouchPoints,
+                        webdriver: navigator.webdriver,
+                        langs: (navigator.languages || []).join(','),
+                        inner: window.innerWidth + 'x' + window.innerHeight,
+                        outer: window.outerWidth + 'x' + window.outerHeight,
+                        screen: window.screen.width + 'x' + window.screen.height,
+                        dpr: window.devicePixelRatio,
+                        outerWidthProp: own('outerWidth'),
+                        outerHeightProp: own('outerHeight'),
+                        cookieEnabled: navigator.cookieEnabled,
+                        storage: (() => {
+                          try {
+                            window.localStorage.setItem('__t', '1');
+                            window.localStorage.removeItem('__t');
+                            return 'ok';
+                          } catch (error) { return String(error); }
+                        })(),
+                      }));
+                    } catch (error) {
+                      post('fingerprint failed: ' + error);
+                    }
+                  });
+                })();
+                """,
+                injectionTime: .atDocumentStart,
+                forMainFrameOnly: false
+            ))
+        }
+
+        nonisolated func userContentController(
+            _ controller: WKUserContentController,
+            didReceive message: WKScriptMessage
+        ) {
+            guard
+                message.name == Self.diagnosticsHandler,
+                let text = message.body as? String
+            else { return }
+            LogManager.logger.info("[browser] \(text)")
         }
 
         deinit {

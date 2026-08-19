@@ -28,13 +28,47 @@ class UserAgentProvider {
     private func fetchUserAgent() async -> String? {
         let webView = WKWebView()
         do {
-            let userAgent = try await webView.evaluateJavaScript("navigator.userAgent") as? String
+            let reported = try await webView.evaluateJavaScript("navigator.userAgent") as? String
+            let userAgent = reported.map(Self.completedSafariUserAgent)
             self.userAgent = userAgent
             return userAgent
         } catch {
             LogManager.logger.error("Error getting user agent: \(error)")
             return nil
         }
+    }
+
+    /// A WKWebView's user agent, completed into the one Safari would send.
+    ///
+    /// WKWebView leaves out two tokens that Safari includes: `Version/<n>` and the trailing
+    /// `Safari/604.1`. What it reports here is
+    ///
+    ///     ...(KHTML, like Gecko) Mobile/15E148
+    ///
+    /// where Safari sends
+    ///
+    ///     ...(KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+    ///
+    /// so `/Safari\//.test(navigator.userAgent)` -- the most common "is this a real browser" test
+    /// there is -- is false for every page this app opens. A source that gates itself on a browser
+    /// check sees a string no shipping browser sends. Restoring the two tokens makes the value
+    /// honest about the engine actually rendering the page, which is WebKit either way.
+    ///
+    /// Left alone if the tokens are already there, so a user-supplied agent is never rewritten.
+    static func completedSafariUserAgent(_ reported: String) -> String {
+        guard !reported.contains("Safari/") else { return reported }
+
+        var value = reported
+        if !value.contains("Version/") {
+            let version = ProcessInfo.processInfo.operatingSystemVersion
+            let marketing = "\(version.majorVersion).\(version.minorVersion)"
+            if let range = value.range(of: "Mobile/") {
+                value.replaceSubrange(range, with: "Version/\(marketing) Mobile/")
+            } else {
+                value += " Version/\(marketing)"
+            }
+        }
+        return value + " Safari/604.1"
     }
 
     /// A desktop Safari string, used when the WebView cannot be asked.
