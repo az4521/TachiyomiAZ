@@ -266,6 +266,19 @@ extension LibraryViewModel {
         // here rather than per entry. Computed only when the filter is on, because it runs the
         // whole selection rule. Deliberately not scoped to the current category: the filter means
         // "a refresh would fetch this", and the category tab already narrows what is on screen.
+        // A title's content rating comes from the source that provides it.
+        //
+        // Aidoku rates each manga and stores it on the row; Android's schema has no such column,
+        // because a Tachiyomi extension declares NSFW for the whole source rather than per title.
+        // So `nsfw` on a row here is always 0 -- which meant the filter sheet offered a content
+        // rating filter that matched everything under "Safe" and nothing under either NSFW option,
+        // emptying the library. Answered from the source's own rating instead, which is the
+        // granularity the data actually has.
+        let ratingsBySource = Dictionary(
+            SourceManager.shared.sources.map { ($0.key, Int16($0.contentRating.rawValue)) },
+            uniquingKeysWith: { first, _ in first }
+        )
+
         let refreshEligible: Set<MangaIdentifier>? = filters.contains { $0.type == .willRefresh }
             ? Set(
                 MangaManager.shared.library?
@@ -387,7 +400,7 @@ extension LibraryViewModel {
                         case .contentRating:
                             guard let contentRating = filter.value.flatMap(MangaContentRating.init) else { continue }
                             if filter.exclude {
-                                condition = mangaObject.nsfw == contentRating.rawValue
+                                condition = (ratingsBySource[info.sourceId] ?? 0) == contentRating.rawValue
                             } else {
                                 // handle included content rating filters as OR
                                 filteredContentRatings.insert(Int16(contentRating.rawValue))
@@ -412,7 +425,7 @@ extension LibraryViewModel {
                 if !filteredSourceKeys.isEmpty && !filteredSourceKeys.contains(info.sourceId) {
                     continue main
                 }
-                if !filteredContentRatings.isEmpty && !filteredContentRatings.contains(mangaObject.nsfw) {
+                if !filteredContentRatings.isEmpty && !filteredContentRatings.contains(ratingsBySource[info.sourceId] ?? 0) {
                     continue main
                 }
                 if !filteredCategories.isEmpty && !filteredCategories.contains(where: { categories.contains($0) }) {
