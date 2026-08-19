@@ -256,6 +256,7 @@ final class LibraryStore: ObservableObject {
         // they are all source 2499283573021220255 says what.
         var missingSourceIds = Set<Int64>()
         var newChapters: [NotificationManager.NewChaptersSummary] = []
+        var newlyDownloadable: [(manga: LibraryManga, chapters: [DbChapter])] = []
 
         // One lookup for the whole run. `sources.first(where:)` inside the loop is a linear scan
         // per entry, which on a thousand-title library is a scan per title.
@@ -315,6 +316,19 @@ final class LibraryStore: ObservableObject {
                 // notification should count. A chapter the source renamed, or deleted and re-added
                 // under another url, is not in here -- nothing changed for the reader.
                 let added = (result.first as? [DbChapter]) ?? []
+
+                // Whether these should download is the shared rule's answer, not this app's: it
+                // weighs the library membership, the setting and the chosen categories the same
+                // way the Android app does. This app asked nobody and downloaded nothing.
+                if !added.isEmpty,
+                   MangaExtensionsKt.shouldDownloadNewChapters(
+                       entry,
+                       db: handler,
+                       prefs: DownloadPreferencesBridge.shared
+                   ) {
+                    newlyDownloadable.append((entry, added))
+                }
+
                 if !added.isEmpty {
                     newChapters.append(
                         NotificationManager.NewChaptersSummary(
@@ -348,6 +362,15 @@ final class LibraryStore: ObservableObject {
         )
         lastSummary = summary
         lastError = summary.isComplete ? nil : summary.description
+
+        // Queued after the loop rather than inside it, so a refresh is not interleaving network
+        // requests for pages with the ones it is still making for chapter lists.
+        for entry in newlyDownloadable {
+            await DownloadManager.shared.download(
+                manga: entry.manga.toLegacy().toNew(),
+                chapters: entry.chapters.map { $0.toNewChapter() }
+            )
+        }
 
         // Always logged, so Settings -> Logs has a record even when the run looked fine. A refresh
         // that skips everything takes about as long as one that has nothing to do, and the two are

@@ -701,6 +701,24 @@ extension Settings {
                 value: .toggle(.init())
             ),
             .init(
+                key: "Downloads.downloadNewChapters",
+                title: NSLocalizedString(
+                    "DOWNLOAD_NEW_CHAPTERS",
+                    value: "Download new chapters",
+                    comment: "Automatically download chapters found by a library refresh"
+                ),
+                value: .toggle(.init())
+            ),
+            .init(
+                key: "Downloads.downloadNewCategories",
+                title: NSLocalizedString(
+                    "DOWNLOAD_NEW_CATEGORIES",
+                    value: "Categories to download",
+                    comment: "Which categories auto-download is limited to"
+                ),
+                value: .custom
+            ),
+            .init(
                 key: "Downloads.parallel",
                 title: NSLocalizedString("PARALLEL_DOWNLOADS"),
                 value: .toggle(.init())
