@@ -1,6 +1,17 @@
 import Foundation
 import TachiJVMRunner
+import TachiyomiKit
 
+/// Reads and writes `.tachibk` backups.
+///
+/// The protobuf itself is not handled here. `:core-domain` owns the models, their field numbers
+/// and the codec, and the Android app encodes through the same ones -- so "both apps agree on the
+/// format" is structural rather than something kept true by hand. This file used to carry its own
+/// protobuf reader and writer, transcribed field by field from those models; that was two
+/// implementations of one format, and the only thing keeping them aligned was care.
+///
+/// What is left is the part that genuinely differs: gzip, and translating between the shared
+/// backup model and the Aidoku-shaped one the vendored UI works in.
 enum TachibkBackupCodec {
     enum CodecError: LocalizedError {
         case invalidBackup
@@ -8,28 +19,19 @@ enum TachibkBackupCodec {
         var errorDescription: String? {
             switch self {
                 case .invalidBackup:
-                    "The file is not a valid .tachibk backup."
+                    NSLocalizedString("BACKUP_ERROR")
             }
         }
     }
 
-    // Unknown fields are retained as opaque data by protobuf readers. Mihon
-    // ignores this field, while TachiyomiAZ iOS uses it to round-trip state
-    // that has no Android backup equivalent (settings, updates, and sessions).
-    private static let nativeBackupField = 1_000
+    // MARK: - Writing
 
     static func encode(_ backup: Backup) throws -> Data {
-        var root = ProtobufWriter()
         let library = Dictionary(
             (backup.library ?? []).map { ($0.identifier, $0) },
             uniquingKeysWith: { first, _ in first }
         )
-        let favoriteIdentifiers = Set(library.keys)
-        let manga = (backup.manga ?? []).filter {
-            favoriteIdentifiers.contains(
-                MangaIdentifier(sourceKey: $0.sourceId, mangaKey: $0.id)
-            ) && numericSourceId($0.sourceId) != nil
-        }
+        let favourites = Set(library.keys)
         let chapters = Dictionary(grouping: backup.chapters ?? []) {
             MangaIdentifier(sourceKey: $0.sourceId, mangaKey: $0.mangaId)
         }
@@ -39,164 +41,167 @@ enum TachibkBackupCodec {
         let trackers = Dictionary(grouping: backup.trackItems ?? []) {
             MangaIdentifier(sourceKey: $0.sourceId, mangaKey: $0.mangaId)
         }
-        let durations = Dictionary(grouping: backup.readingSessions ?? []) {
-            $0.identifier
-        }.mapValues {
-            $0.reduce(Int64(0)) { total, session in
-                total + max(
-                    0,
-                    Int64(session.endDate.timeIntervalSince(session.startDate) * 1_000)
-                )
+        // Time spent reading is per-session here and per-chapter in the shared format, so the
+        // sessions for a chapter are summed into its history entry.
+        let durations = Dictionary(grouping: backup.readingSessions ?? []) { $0.identifier }
+            .mapValues { sessions in
+                sessions.reduce(Int64(0)) { total, session in
+                    total + max(0, Int64(session.endDate.timeIntervalSince(session.startDate) * 1000))
+                }
             }
-        }
 
+        // Category membership is by name here and by index there, so the order fixes the ids.
         let categories = (backup.categories ?? []).sorted {
             ($0.sort ?? 0, $0.title ?? "") < ($1.sort ?? 0, $1.title ?? "")
         }
         let categoryIds = Dictionary(
-            categories.enumerated().compactMap {
-                index, category in category.title.map { ($0, Int64(index)) }
+            categories.enumerated().compactMap { index, category in
+                category.title.map { ($0, Int32(index)) }
             },
             uniquingKeysWith: { first, _ in first }
         )
 
-        for item in manga {
-            let identifier = MangaIdentifier(
-                sourceKey: item.sourceId,
-                mangaKey: item.id
+        let backupManga: [TachiyomiKit.BackupManga] = (backup.manga ?? []).compactMap { item -> TachiyomiKit.BackupManga? in
+            let identifier = MangaIdentifier(sourceKey: item.sourceId, mangaKey: item.id)
+            guard
+                favourites.contains(identifier),
+                let source = SourceIdentity.numericId(item.sourceId)
+            else { return nil }
+
+            let itemChapters = chapters[identifier] ?? []
+            let itemHistory = histories[identifier] ?? []
+            let progressByChapter = Dictionary(
+                itemHistory.map { ($0.chapterId, $0) },
+                uniquingKeysWith: { first, _ in first }
             )
-            guard let source = numericSourceId(item.sourceId) else { continue }
-            let libraryItem = library[identifier]
-            root.message(1) { value in
-                value.int64(1, source)
-                value.string(2, item.url ?? item.id)
-                value.string(3, item.title)
-                value.optionalString(4, item.artist)
-                value.optionalString(5, item.author)
-                value.optionalString(6, item.desc)
-                for genre in item.tags ?? [] { value.string(7, genre) }
-                value.int(8, mihonStatus(item.status))
-                value.optionalString(9, item.cover)
-                value.int64(13, milliseconds(libraryItem?.dateAdded))
 
-                let itemHistory = histories[identifier] ?? []
-                let historyByChapter = Dictionary(
-                    itemHistory.map { ($0.chapterId, $0) },
-                    uniquingKeysWith: { first, _ in first }
-                )
-                for chapter in chapters[identifier] ?? [] {
-                    let history = historyByChapter[chapter.id]
-                    value.message(16) { chapterValue in
-                        chapterValue.string(1, chapter.url ?? chapter.id)
-                        chapterValue.string(2, chapter.title ?? "")
-                        chapterValue.optionalString(3, chapter.scanlator)
-                        chapterValue.bool(4, history?.completed ?? false)
-                        chapterValue.bool(5, chapter.bookmarked ?? false)
-                        chapterValue.int64(
-                            6,
-                            Int64(max(0, (history?.progress ?? 0) - 1))
-                        )
-                        chapterValue.int64(8, milliseconds(chapter.dateUploaded))
-                        chapterValue.float(9, chapter.chapter ?? -1)
-                        chapterValue.int64(10, Int64(chapter.sourceOrder))
-                    }
-                }
-
-                let memberships = (libraryItem?.categories ?? []).compactMap {
-                    categoryIds[$0]
-                }
-                value.packedInt64(17, memberships)
-                for tracker in trackers[identifier] ?? [] {
+            let shared = TachiyomiKit.BackupManga(
+                source: source,
+                url: item.url ?? item.id,
+                title: item.title,
+                artist: item.artist,
+                author: item.author,
+                description: item.desc,
+                genre: item.tags ?? [],
+                status: Int32(mihonStatus(item.status)),
+                thumbnailUrl: item.cover,
+                dateAdded: milliseconds(library[identifier]?.dateAdded),
+                viewer: Int32(mihonViewer(item.viewer)),
+                chapters: itemChapters.map { chapter in
+                    let progress = progressByChapter[chapter.id]
+                    return TachiyomiKit.BackupChapter(
+                        url: chapter.url ?? chapter.id,
+                        name: chapter.title ?? chapter.id,
+                        scanlator: chapter.scanlator,
+                        read: progress?.completed ?? false,
+                        bookmark: chapter.bookmarked ?? false,
+                        // Stored one-based here and as a resume index there.
+                        lastPageRead: Int32(max(0, (progress?.progress ?? 0) - 1)),
+                        dateFetch: milliseconds(chapter.dateUploaded),
+                        dateUpload: milliseconds(chapter.dateUploaded),
+                        chapterNumber: chapter.chapter ?? -1,
+                        sourceOrder: Int32(chapter.sourceOrder),
+                        memo: Data("{}".utf8).kotlinByteArray
+                    )
+                },
+                categories: (library[identifier]?.categories ?? [])
+                    .compactMap { categoryIds[$0] }
+                    .map { KotlinInt(int: $0) },
+                tracking: (trackers[identifier] ?? []).compactMap { tracker -> TachiyomiKit.BackupTracking? in
                     guard
-                        let syncId = mihonTrackerId(tracker.trackerId),
+                        let sync = TrackerSyncId.syncId(for: tracker.trackerId),
                         let mediaId = Int64(tracker.id)
-                    else { continue }
-                    value.message(18) { trackerValue in
-                        trackerValue.int(1, syncId)
-                        trackerValue.int64(2, 0)
-                        if let legacyId = Int32(exactly: mediaId) {
-                            trackerValue.int(3, Int(legacyId))
-                        }
-                        trackerValue.optionalString(5, tracker.title)
-                        trackerValue.int64(100, mediaId)
-                    }
-                }
-                value.bool(100, true)
-                value.int(101, item.chapterFlags ?? 0)
-                value.int(103, mihonViewer(item.viewer))
-                for history in itemHistory {
-                    let chapter = (chapters[identifier] ?? []).first {
-                        $0.id == history.chapterId
-                    }
-                    value.message(104) { historyValue in
-                        historyValue.string(1, chapter?.url ?? history.chapterId)
-                        historyValue.int64(2, milliseconds(history.dateRead))
-                        historyValue.int64(
-                            3,
-                            durations[
-                                ChapterIdentifier(
-                                    sourceKey: history.sourceId,
-                                    mangaKey: history.mangaId,
-                                    chapterKey: history.chapterId
-                                )
-                            ] ?? 0
-                        )
-                    }
-                }
-                value.int(105, item.neverUpdate == true ? 1 : 0)
-                for scanlator in item.scanlatorFilter ?? [] {
-                    value.string(108, scanlator)
-                }
-                value.bool(111, true)
-            }
+                    else { return nil }
+                    return TachiyomiKit.BackupTracking(
+                        syncId: sync,
+                        libraryId: 0,
+                        mediaId: mediaId,
+                        trackingUrl: "",
+                        title: tracker.title ?? "",
+                        lastChapterRead: 0,
+                        totalChapters: 0,
+                        score: 0,
+                        status: 0,
+                        startedReadingDate: 0,
+                        finishedReadingDate: 0,
+                        private: false
+                    )
+                },
+                favorite: true,
+                chapterFlags: Int32(item.chapterFlags ?? 0),
+                brokenHistory: [],
+                history: itemHistory.compactMap { entry in
+                    let chapter = itemChapters.first { $0.id == entry.chapterId }
+                    return TachiyomiKit.BackupHistory(
+                        url: chapter?.url ?? entry.chapterId,
+                        lastRead: milliseconds(entry.dateRead),
+                        readDuration: durations[
+                            ChapterIdentifier(
+                                sourceKey: entry.sourceId,
+                                mangaKey: entry.mangaId,
+                                chapterKey: entry.chapterId
+                            )
+                        ] ?? 0
+                    )
+                },
+                updateStrategy: item.neverUpdate == true ? .onlyFetchOnce : .alwaysUpdate,
+                // Left unset. `viewer_flags` is Mihon's, where the reading mode occupies the low
+                // three bits alongside other flags; TachiyomiAZ has no such column -- `mangas.sq`
+                // declares `viewer` and nothing else -- so a bare mode written here would be a
+                // value with the wrong meaning in a field this app never reads.
+                //
+                // The previous encoder wrote the mode to `viewer_flags` and left `viewer` empty,
+                // which is the wrong way round: a backup taken on iOS and restored on Android lost
+                // its reading mode, because Android reads `viewer`. Reading 103 on import stays --
+                // Mihon writes it, and `aidokuViewer` masks the mode out of the flags.
+                viewerFlags: nil,
+                excludedScanlators: item.scanlatorFilter ?? [],
+                memo: Data("{}".utf8).kotlinByteArray,
+                flatMetadata: nil
+            )
+            return shared
         }
 
-        for (index, category) in categories.enumerated() {
-            guard let name = category.title else { continue }
-            root.message(2) { value in
-                value.string(1, name)
-                value.int64(2, Int64(index))
-                // Matching id and order keeps memberships compatible with
-                // both TachiyomiAZ's order-based and Mihon's id-based restore.
-                value.int64(3, Int64(index))
-            }
-        }
+        let shared = TachiyomiKit.Backup(
+            backupManga: backupManga,
+            backupCategories: categories.enumerated().compactMap { index, category in
+                category.title.map {
+                    TachiyomiKit.BackupCategory(name: $0, order: Int32(index), flags: 0, mangaOrder: [])
+                }
+            },
+            backupBrokenSources: [],
+            backupSources: Set((backup.manga ?? []).map(\.sourceId)).sorted().compactMap { key in
+                SourceIdentity.numericId(key).map {
+                    TachiyomiKit.BackupSource(name: SourceManager.shared.name(for: key) ?? key, sourceId: $0)
+                }
+            },
+            backupSavedSearches: [],
+            // This app's own state, in the field the shared model declares for it.
+            iosState: try nativeEncoder.encode(backup).kotlinByteArray
+        )
 
-        let sourceIds = Set(manga.map(\.sourceId))
-        for sourceKey in sourceIds.sorted() {
-            guard let sourceId = numericSourceId(sourceKey) else { continue }
-            root.message(101) { value in
-                value.string(
-                    1,
-                    SourceManager.shared.name(for: sourceKey)
-                        ?? sourceKey
-                )
-                value.int64(2, sourceId)
-            }
-        }
-
-        let nativeEncoder = JSONEncoder()
-        nativeEncoder.dateEncodingStrategy = .secondsSince1970
-        root.bytes(nativeBackupField, try nativeEncoder.encode(backup))
-        return try TachiJVMCompression.gzip(root.data)
+        return try TachiJVMCompression.gzip(BackupCodec.shared.encode(backup: shared).data)
     }
 
-    /// Decodes both Tachiyomi/Mihon protobuf backups and backups containing
-    /// TachiyomiAZ iOS's optional native state. Backup decoding deliberately
-    /// stays out of the Java extension host: `.tachibk` is an application data
-    /// format, not an extension API.
+    // MARK: - Reading
+
     static func decode(from data: Data) throws -> Backup {
-        let uncompressed = try uncompressed(data)
-        if let native = try decodeNativeBackup(fromUncompressed: uncompressed) {
+        let shared = try decodeShared(from: data)
+
+        // A backup this app wrote carries its own state verbatim; anything else -- Mihon, the
+        // Android app -- is converted from the shared model.
+        if let state = shared.iosState?.data, let native = try? nativeDecoder.decode(Backup.self, from: state) {
             return native
         }
-        return MihonBackupImporter.convert(
-            try decodeStandardPayload(from: uncompressed)
-        )
+        guard !shared.backupManga.isEmpty || !shared.backupCategories.isEmpty else {
+            throw CodecError.invalidBackup
+        }
+        return MihonBackupImporter.convert(shared)
     }
 
-    static func decodeNativeBackup(from data: Data) throws -> Backup? {
-        try decodeNativeBackup(fromUncompressed: uncompressed(data))
+    /// The shared model, for callers that want it before it is reshaped.
+    static func decodeShared(from data: Data) throws -> TachiyomiKit.Backup {
+        BackupCodec.shared.decode(bytes: try uncompressed(data).kotlinByteArray)
     }
 
     private static func uncompressed(_ data: Data) throws -> Data {
@@ -206,486 +211,69 @@ enum TachibkBackupCodec {
         return data
     }
 
-    private static func decodeNativeBackup(
-        fromUncompressed uncompressed: Data
-    ) throws -> Backup? {
-        var reader = ProtobufReader(data: uncompressed)
-        while let tag = try reader.nextTag() {
-            if tag.field == nativeBackupField, tag.wire == 2 {
-                let payload = try reader.bytes()
-                let decoder = JSONDecoder()
-                decoder.dateDecodingStrategy = .secondsSince1970
-                return try decoder.decode(Backup.self, from: payload)
-            }
-            try reader.skip(wire: tag.wire)
-        }
-        return nil
+    // MARK: - Vocabularies
+
+    private static var nativeEncoder: JSONEncoder {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .secondsSince1970
+        return encoder
     }
 
-    private static func decodeStandardPayload(
-        from data: Data
-    ) throws -> MihonBackupImporter.Payload {
-        var reader = ProtobufReader(data: data)
-        var manga: [MihonBackupImporter.Manga] = []
-        var categories: [MihonBackupImporter.Category] = []
-        var sources: [MihonBackupImporter.Source] = []
-
-        while let tag = try reader.nextTag() {
-            switch (tag.field, tag.wire) {
-                case (1, 2):
-                    manga.append(try decodeManga(from: reader.bytes()))
-                case (2, 2):
-                    categories.append(try decodeCategory(from: reader.bytes()))
-                case (101, 2):
-                    sources.append(try decodeSource(from: reader.bytes()))
-                default:
-                    try reader.skip(wire: tag.wire)
-            }
-        }
-
-        guard !manga.isEmpty || !categories.isEmpty || !sources.isEmpty else {
-            throw CodecError.invalidBackup
-        }
-        return .init(manga: manga, categories: categories, sources: sources)
-    }
-
-    private static func decodeManga(
-        from data: Data
-    ) throws -> MihonBackupImporter.Manga {
-        var reader = ProtobufReader(data: data)
-        var source: Int64 = 0
-        var url = ""
-        var title = ""
-        var artist: String?
-        var author: String?
-        var description: String?
-        var genre: [String] = []
-        var status = 0
-        var thumbnailURL: String?
-        var dateAdded: Int64 = 0
-        var viewer = 0
-        var chapters: [MihonBackupImporter.Chapter] = []
-        var tracking: [MihonBackupImporter.Tracking] = []
-        var categories: [Int64] = []
-        var favorite = true
-        var chapterFlags = 0
-        var viewerFlags: Int?
-        var history: [MihonBackupImporter.History] = []
-        var updateStrategy = 0
-        var excludedScanlators: [String] = []
-        var notes = ""
-        var initialized = false
-
-        while let tag = try reader.nextTag() {
-            switch tag.field {
-                case 1: source = try reader.int64(wire: tag.wire)
-                case 2: url = try reader.string(wire: tag.wire)
-                case 3: title = try reader.string(wire: tag.wire)
-                case 4: artist = try reader.string(wire: tag.wire)
-                case 5: author = try reader.string(wire: tag.wire)
-                case 6: description = try reader.string(wire: tag.wire)
-                case 7: genre.append(try reader.string(wire: tag.wire))
-                case 8: status = try reader.int(wire: tag.wire)
-                case 9: thumbnailURL = try reader.string(wire: tag.wire)
-                case 13: dateAdded = try reader.int64(wire: tag.wire)
-                case 14: viewer = try reader.int(wire: tag.wire)
-                case 16:
-                    try requireWire(tag.wire, 2)
-                    chapters.append(try decodeChapter(from: reader.bytes()))
-                case 17:
-                    if tag.wire == 2 {
-                        var packed = ProtobufReader(data: try reader.bytes())
-                        while !packed.isAtEnd {
-                            categories.append(try packed.int64(wire: 0))
-                        }
-                    } else {
-                        categories.append(try reader.int64(wire: tag.wire))
-                    }
-                case 18:
-                    try requireWire(tag.wire, 2)
-                    tracking.append(try decodeTracking(from: reader.bytes()))
-                case 100: favorite = try reader.bool(wire: tag.wire)
-                case 101: chapterFlags = try reader.int(wire: tag.wire)
-                case 103: viewerFlags = try reader.int(wire: tag.wire)
-                case 104:
-                    try requireWire(tag.wire, 2)
-                    history.append(try decodeHistory(from: reader.bytes()))
-                case 105: updateStrategy = try reader.int(wire: tag.wire)
-                case 108:
-                    excludedScanlators.append(
-                        try reader.string(wire: tag.wire)
-                    )
-                case 110: notes = try reader.string(wire: tag.wire)
-                case 111: initialized = try reader.bool(wire: tag.wire)
-                default: try reader.skip(wire: tag.wire)
-            }
-        }
-
-        return .init(
-            source: String(source),
-            url: url,
-            title: title,
-            artist: artist,
-            author: author,
-            description: description,
-            genre: genre,
-            status: status,
-            thumbnailUrl: thumbnailURL,
-            dateAdded: dateAdded,
-            viewer: viewer,
-            chapters: chapters,
-            tracking: tracking,
-            categories: categories,
-            favorite: favorite,
-            chapterFlags: chapterFlags,
-            viewerFlags: viewerFlags,
-            history: history,
-            updateStrategy: updateStrategy,
-            excludedScanlators: excludedScanlators,
-            notes: notes,
-            initialized: initialized
-        )
-    }
-
-    private static func decodeChapter(
-        from data: Data
-    ) throws -> MihonBackupImporter.Chapter {
-        var reader = ProtobufReader(data: data)
-        var url = ""
-        var name = ""
-        var scanlator: String?
-        var read = false
-        var bookmark = false
-        var lastPageRead: Int64 = 0
-        var dateFetch: Int64 = 0
-        var dateUpload: Int64 = 0
-        var chapterNumber: Float = 0
-        var sourceOrder: Int64 = 0
-
-        while let tag = try reader.nextTag() {
-            switch tag.field {
-                case 1: url = try reader.string(wire: tag.wire)
-                case 2: name = try reader.string(wire: tag.wire)
-                case 3: scanlator = try reader.string(wire: tag.wire)
-                case 4: read = try reader.bool(wire: tag.wire)
-                case 5: bookmark = try reader.bool(wire: tag.wire)
-                case 6: lastPageRead = try reader.int64(wire: tag.wire)
-                case 7: dateFetch = try reader.int64(wire: tag.wire)
-                case 8: dateUpload = try reader.int64(wire: tag.wire)
-                case 9: chapterNumber = try reader.float(wire: tag.wire)
-                case 10: sourceOrder = try reader.int64(wire: tag.wire)
-                default: try reader.skip(wire: tag.wire)
-            }
-        }
-        return .init(
-            url: url,
-            name: name,
-            scanlator: scanlator,
-            read: read,
-            bookmark: bookmark,
-            lastPageRead: lastPageRead,
-            dateFetch: dateFetch,
-            dateUpload: dateUpload,
-            chapterNumber: chapterNumber,
-            sourceOrder: sourceOrder
-        )
-    }
-
-    private static func decodeHistory(
-        from data: Data
-    ) throws -> MihonBackupImporter.History {
-        var reader = ProtobufReader(data: data)
-        var url = ""
-        var lastRead: Int64 = 0
-        var readDuration: Int64 = 0
-        while let tag = try reader.nextTag() {
-            switch tag.field {
-                case 1: url = try reader.string(wire: tag.wire)
-                case 2: lastRead = try reader.int64(wire: tag.wire)
-                case 3: readDuration = try reader.int64(wire: tag.wire)
-                default: try reader.skip(wire: tag.wire)
-            }
-        }
-        return .init(
-            url: url,
-            lastRead: lastRead,
-            readDuration: readDuration
-        )
-    }
-
-    private static func decodeTracking(
-        from data: Data
-    ) throws -> MihonBackupImporter.Tracking {
-        var reader = ProtobufReader(data: data)
-        var syncId = 0
-        var mediaIdInt = 0
-        var mediaId: Int64 = 0
-        var title = ""
-        while let tag = try reader.nextTag() {
-            switch tag.field {
-                case 1: syncId = try reader.int(wire: tag.wire)
-                case 3: mediaIdInt = try reader.int(wire: tag.wire)
-                case 5: title = try reader.string(wire: tag.wire)
-                case 100: mediaId = try reader.int64(wire: tag.wire)
-                default: try reader.skip(wire: tag.wire)
-            }
-        }
-        return .init(
-            syncId: syncId,
-            mediaIdInt: mediaIdInt,
-            mediaId: mediaId,
-            title: title
-        )
-    }
-
-    private static func decodeCategory(
-        from data: Data
-    ) throws -> MihonBackupImporter.Category {
-        var reader = ProtobufReader(data: data)
-        var name = ""
-        var order: Int64 = 0
-        var id: Int64 = 0
-        var flags: Int64 = 0
-        while let tag = try reader.nextTag() {
-            switch tag.field {
-                case 1: name = try reader.string(wire: tag.wire)
-                case 2: order = try reader.int64(wire: tag.wire)
-                case 3: id = try reader.int64(wire: tag.wire)
-                case 100: flags = try reader.int64(wire: tag.wire)
-                default: try reader.skip(wire: tag.wire)
-            }
-        }
-        return .init(name: name, order: order, id: id, flags: flags)
-    }
-
-    private static func decodeSource(
-        from data: Data
-    ) throws -> MihonBackupImporter.Source {
-        var reader = ProtobufReader(data: data)
-        var name = ""
-        var id: Int64 = 0
-        while let tag = try reader.nextTag() {
-            switch tag.field {
-                case 1: name = try reader.string(wire: tag.wire)
-                case 2: id = try reader.int64(wire: tag.wire)
-                default: try reader.skip(wire: tag.wire)
-            }
-        }
-        return .init(name: name, id: String(id))
-    }
-
-    private static func requireWire(_ actual: Int, _ expected: Int) throws {
-        guard actual == expected else { throw CodecError.invalidBackup }
-    }
-
-    private static func numericSourceId(_ key: String) -> Int64? {
-        let raw = key.hasPrefix("mihon.") ? String(key.dropFirst(6)) : key
-        return Int64(raw)
+    private static var nativeDecoder: JSONDecoder {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .secondsSince1970
+        return decoder
     }
 
     private static func milliseconds(_ date: Date?) -> Int64 {
         guard let date, date != .distantPast else { return 0 }
-        return Int64(date.timeIntervalSince1970 * 1_000)
+        return Int64(date.timeIntervalSince1970 * 1000)
     }
 
+    /// Mihon has extra states between completed and cancelled, so this is an explicit translation
+    /// rather than passing a raw value through as if the two enums agreed.
     private static func mihonStatus(_ status: Int) -> Int {
         switch status {
-            case 1: 1
-            case 2: 2
-            case 3: 5
-            case 4: 6
+            case 1: 1 // ongoing
+            case 2: 2 // completed
+            case 3: 5 // cancelled
+            case 4: 6 // hiatus
             default: 0
         }
     }
 
     private static func mihonViewer(_ viewer: Int) -> Int {
         switch viewer {
-            case 1: 1
-            case 2: 2
-            case 3: 3
-            case 4: 4
+            case 1: 1 // left-to-right
+            case 2: 2 // right-to-left
+            case 3: 3 // vertical
+            case 4: 4 // webtoon
             default: 0
         }
     }
-
-    /// The `sync_id` Android files a tracker under.
-    ///
-    /// This was its own four-entry list, written when only those four trackers existed here. It
-    /// silently dropped every other service from an exported backup -- a title tracked on Kitsu or
-    /// MangaUpdates simply was not in the file. `TrackerSyncId` is the same vocabulary the database
-    /// is written with, so there is one list rather than two that disagree.
-    private static func mihonTrackerId(_ tracker: String) -> Int? {
-        TrackerSyncId.syncId(for: tracker).map(Int.init)
-    }
 }
 
-private struct ProtobufWriter {
-    var data = Data()
-
-    mutating func int(_ field: Int, _ value: Int) {
-        int64(field, Int64(value))
-    }
-
-    mutating func int64(_ field: Int, _ value: Int64) {
-        tag(field, wire: 0)
-        varint(UInt64(bitPattern: value))
-    }
-
-    mutating func bool(_ field: Int, _ value: Bool) {
-        int64(field, value ? 1 : 0)
-    }
-
-    mutating func float(_ field: Int, _ value: Float) {
-        tag(field, wire: 5)
-        var bits = value.bitPattern.littleEndian
-        Swift.withUnsafeBytes(of: &bits) { data.append(contentsOf: $0) }
-    }
-
-    mutating func string(_ field: Int, _ value: String) {
-        bytes(field, Data(value.utf8))
-    }
-
-    mutating func optionalString(_ field: Int, _ value: String?) {
-        guard let value else { return }
-        string(field, value)
-    }
-
-    mutating func bytes(_ field: Int, _ value: Data) {
-        tag(field, wire: 2)
-        varint(UInt64(value.count))
-        data.append(value)
-    }
-
-    mutating func message(
-        _ field: Int,
-        _ body: (inout ProtobufWriter) -> Void
-    ) {
-        var value = ProtobufWriter()
-        body(&value)
-        bytes(field, value.data)
-    }
-
-    mutating func packedInt64(_ field: Int, _ values: [Int64]) {
-        guard !values.isEmpty else { return }
-        var packed = ProtobufWriter()
-        for value in values { packed.varint(UInt64(bitPattern: value)) }
-        bytes(field, packed.data)
-    }
-
-    private mutating func tag(_ field: Int, wire: Int) {
-        varint(UInt64((field << 3) | wire))
-    }
-
-    private mutating func varint(_ value: UInt64) {
-        var value = value
-        while value >= 0x80 {
-            data.append(UInt8(value & 0x7f) | 0x80)
-            value >>= 7
-        }
-        data.append(UInt8(value))
-    }
-}
-
-private struct ProtobufReader {
-    let data: Data
-    var index = 0
-
-    var isAtEnd: Bool { index >= data.count }
-
-    mutating func nextTag() throws -> (field: Int, wire: Int)? {
-        guard index < data.count else { return nil }
-        let value = try varint()
-        guard value != 0 else { throw TachibkBackupCodec.CodecError.invalidBackup }
-        return (Int(value >> 3), Int(value & 7))
-    }
-
-    mutating func bytes() throws -> Data {
-        let rawCount = try varint()
-        guard let count = Int(exactly: rawCount) else {
-            throw TachibkBackupCodec.CodecError.invalidBackup
-        }
-        guard count >= 0, index + count <= data.count else {
-            throw TachibkBackupCodec.CodecError.invalidBackup
-        }
-        defer { index += count }
-        return data.subdata(in: index..<(index + count))
-    }
-
-    mutating func string(wire: Int) throws -> String {
-        guard wire == 2, let value = String(data: try bytes(), encoding: .utf8)
-        else {
-            throw TachibkBackupCodec.CodecError.invalidBackup
-        }
-        return value
-    }
-
-    mutating func int64(wire: Int) throws -> Int64 {
-        guard wire == 0 else {
-            throw TachibkBackupCodec.CodecError.invalidBackup
-        }
-        return Int64(bitPattern: try varint())
-    }
-
-    mutating func int(wire: Int) throws -> Int {
-        guard wire == 0 else {
-            throw TachibkBackupCodec.CodecError.invalidBackup
-        }
-        return Int(Int32(truncatingIfNeeded: try varint()))
-    }
-
-    mutating func bool(wire: Int) throws -> Bool {
-        guard wire == 0 else {
-            throw TachibkBackupCodec.CodecError.invalidBackup
-        }
-        return try varint() != 0
-    }
-
-    mutating func float(wire: Int) throws -> Float {
-        guard wire == 5, index + 4 <= data.count else {
-            throw TachibkBackupCodec.CodecError.invalidBackup
-        }
-        let bits =
-            UInt32(data[index]) |
-            (UInt32(data[index + 1]) << 8) |
-            (UInt32(data[index + 2]) << 16) |
-            (UInt32(data[index + 3]) << 24)
-        index += 4
-        return Float(bitPattern: bits)
-    }
-
-    mutating func skip(wire: Int) throws {
-        switch wire {
-            case 0: _ = try varint()
-            case 1: try advance(8)
-            case 2:
-                let rawCount = try varint()
-                guard let count = Int(exactly: rawCount) else {
-                    throw TachibkBackupCodec.CodecError.invalidBackup
-                }
-                try advance(count)
-            case 5: try advance(4)
-            default: throw TachibkBackupCodec.CodecError.invalidBackup
-        }
-    }
-
-    private mutating func advance(_ count: Int) throws {
-        guard count >= 0, index + count <= data.count else {
-            throw TachibkBackupCodec.CodecError.invalidBackup
-        }
-        index += count
-    }
-
-    private mutating func varint() throws -> UInt64 {
-        var value: UInt64 = 0
-        for shift in stride(from: 0, to: 64, by: 7) {
-            guard index < data.count else {
-                throw TachibkBackupCodec.CodecError.invalidBackup
+extension Data {
+    /// Kotlin/Native exposes `ByteArray` as `KotlinByteArray`, which has no bulk initialiser.
+    var kotlinByteArray: KotlinByteArray {
+        let array = KotlinByteArray(size: Int32(count))
+        withUnsafeBytes { (raw: UnsafeRawBufferPointer) in
+            guard let base = raw.bindMemory(to: Int8.self).baseAddress else { return }
+            for index in 0..<count {
+                array.set(index: Int32(index), value: base[index])
             }
-            let byte = data[index]
-            index += 1
-            value |= UInt64(byte & 0x7f) << UInt64(shift)
-            if byte & 0x80 == 0 { return value }
         }
-        throw TachibkBackupCodec.CodecError.invalidBackup
+        return array
+    }
+}
+
+extension KotlinByteArray {
+    var data: Data {
+        var bytes = [UInt8]()
+        bytes.reserveCapacity(Int(size))
+        for index in 0..<size {
+            bytes.append(UInt8(bitPattern: get(index: index)))
+        }
+        return Data(bytes)
     }
 }

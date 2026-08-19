@@ -1,75 +1,7 @@
 import Foundation
+import TachiyomiKit
 
 enum MihonBackupImporter {
-    struct Payload: Decodable {
-        let manga: [Manga]
-        let categories: [Category]
-        let sources: [Source]
-    }
-
-    struct Manga: Decodable {
-        let source: String
-        let url: String
-        let title: String
-        let artist: String?
-        let author: String?
-        let description: String?
-        let genre: [String]
-        let status: Int
-        let thumbnailUrl: String?
-        let dateAdded: Int64
-        let viewer: Int
-        let chapters: [Chapter]
-        let tracking: [Tracking]
-        let categories: [Int64]
-        let favorite: Bool
-        let chapterFlags: Int
-        let viewerFlags: Int?
-        let history: [History]
-        let updateStrategy: Int
-        let excludedScanlators: [String]
-        let notes: String
-        let initialized: Bool
-    }
-
-    struct Chapter: Decodable {
-        let url: String
-        let name: String
-        let scanlator: String?
-        let read: Bool
-        let bookmark: Bool
-        let lastPageRead: Int64
-        let dateFetch: Int64
-        let dateUpload: Int64
-        let chapterNumber: Float
-        let sourceOrder: Int64
-    }
-
-    struct History: Decodable {
-        let url: String
-        let lastRead: Int64
-        let readDuration: Int64
-    }
-
-    struct Tracking: Decodable {
-        let syncId: Int
-        let mediaIdInt: Int
-        let mediaId: Int64
-        let title: String
-    }
-
-    struct Category: Decodable {
-        let name: String
-        let order: Int64
-        let id: Int64
-        let flags: Int64
-    }
-
-    struct Source: Decodable {
-        let name: String
-        let id: String
-    }
-
     static func load(from url: URL) async throws -> Backup {
         let secured = url.startAccessingSecurityScopedResource()
         defer {
@@ -81,19 +13,12 @@ enum MihonBackupImporter {
         }.value
     }
 
-    static func convert(_ payload: Payload) -> Backup {
-        // TachiyomiAZ categories predate Mihon's explicit category-id field,
-        // so every decoded id is zero and manga membership refers to `order`.
-        // Ignoring that sentinel also avoids Dictionary's duplicate-key trap
-        // for backups containing more than one AZ category.
-        let categoryNamesById = Dictionary(
-            payload.categories
-                .filter { $0.id != 0 }
-                .map { ($0.id, $0.name) },
-            uniquingKeysWith: { first, _ in first }
-        )
+    static func convert(_ payload: TachiyomiKit.Backup) -> Backup {
+        // Membership refers to a category's `order`. The shared model carries no separate id --
+        // TachiyomiAZ categories predate Mihon's explicit id field, and every backup this app or
+        // the Android one writes numbers them by position.
         let categoryNamesByOrder = Dictionary(
-            payload.categories.map { ($0.order, $0.name) },
+            payload.backupCategories.map { (Int64($0.order), $0.name) },
             uniquingKeysWith: { first, _ in first }
         )
 
@@ -103,12 +28,12 @@ enum MihonBackupImporter {
         var history: [BackupHistory] = []
         var trackItems: [BackupTrackItem] = []
 
-        for manga in payload.manga {
-            let sourceId = tachiyomixSourceKey(manga.source)
+        for manga in payload.backupManga {
+            let sourceId = tachiyomixSourceKey(String(manga.source))
             let mangaId = manga.url
             let dateAdded = date(milliseconds: manga.dateAdded)
             let categoryNames = manga.categories.compactMap {
-                categoryNamesById[$0] ?? categoryNamesByOrder[$0]
+                categoryNamesByOrder[Int64($0.int32Value)]
             }
             let histories = Dictionary(
                 manga.history.map { ($0.url, $0) },
@@ -116,16 +41,11 @@ enum MihonBackupImporter {
             )
             for tracking in manga.tracking {
                 guard
-                    let trackerId = aidokuTrackerId(
-                        mihonId: tracking.syncId
-                    )
+                    let trackerId = aidokuTrackerId(mihonId: Int(tracking.syncId))
                 else {
                     continue
                 }
-                // Match Mihon's restore behavior for legacy 1.x backups.
-                let remoteId = tracking.mediaIdInt != 0
-                    ? Int64(tracking.mediaIdInt)
-                    : tracking.mediaId
+                let remoteId = tracking.mediaId
                 guard remoteId != 0 else {
                     continue
                 }
@@ -151,12 +71,12 @@ enum MihonBackupImporter {
                     tags: manga.genre,
                     cover: manga.thumbnailUrl,
                     url: manga.url,
-                    status: aidokuStatus(mihonStatus: manga.status),
+                    status: aidokuStatus(mihonStatus: Int(manga.status)),
                     viewer: aidokuViewer(
-                        mihonFlags: manga.viewerFlags ?? manga.viewer
+                        mihonFlags: Int(manga.viewerFlags?.int32Value ?? manga.viewer)
                     ),
-                    neverUpdate: manga.updateStrategy == 1,
-                    chapterFlags: manga.chapterFlags,
+                    neverUpdate: manga.updateStrategy == .onlyFetchOnce,
+                    chapterFlags: Int(manga.chapterFlags),
                     scanlatorFilter: manga.excludedScanlators
                 )
             )
@@ -191,7 +111,7 @@ enum MihonBackupImporter {
                             milliseconds: chapter.dateUpload
                         ),
                         bookmarked: chapter.bookmark,
-                        sourceOrder: Int(clamping: chapter.sourceOrder)
+                        sourceOrder: Int(chapter.sourceOrder)
                     )
                 )
 
@@ -212,7 +132,7 @@ enum MihonBackupImporter {
                             chapterId: chapter.url,
                             mangaId: mangaId,
                             progress: aidokuProgress(
-                                mihonLastPageRead: chapter.lastPageRead,
+                                mihonLastPageRead: Int64(chapter.lastPageRead),
                                 hasHistory: matchingHistory != nil
                             ),
                             completed: chapter.read
@@ -230,16 +150,11 @@ enum MihonBackupImporter {
             trackItems: trackItems,
             readingSessions: [],
             updates: [],
-            categories: payload.categories
+            categories: payload.backupCategories
                 .sorted { $0.order < $1.order }
-                .map {
-                    BackupCategory(
-                        title: $0.name,
-                        sort: Int(clamping: $0.order)
-                    )
-                },
-            sources: payload.sources.map {
-                BackupSource(id: tachiyomixSourceKey($0.id))
+                .map { BackupCategory(title: $0.name, sort: Int($0.order)) },
+            sources: payload.backupSources.map {
+                BackupSource(id: tachiyomixSourceKey(String($0.sourceId)))
             },
             sourceLists: [],
             settings: nil,

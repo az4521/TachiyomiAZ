@@ -41,6 +41,12 @@ class BackupManga(
     @ProtoNumber(102) var brokenHistory: List<BrokenBackupHistory> = emptyList(),
     @ProtoNumber(104) var history: List<BackupHistory> = emptyList(),
     @ProtoNumber(105) var updateStrategy: UpdateStrategy = UpdateStrategy.ALWAYS_UPDATE,
+    // Mihon writes the reading mode here rather than in `viewer`, and the excluded scanlators it
+    // has no 0.x equivalent for. Neither is written by this app -- both are null or empty, so
+    // neither appears in a backup it produces -- but reading them is what lets a Mihon backup
+    // restore with its reading mode and scanlator filter intact rather than silently reset.
+    @ProtoNumber(103) var viewerFlags: Int? = null,
+    @ProtoNumber(108) var excludedScanlators: List<String> = emptyList(),
     // memo holds the manga's extra JSON metadata serialized as bytes, defaulting to "{}" (extlib 1.6)
     @ProtoNumber(112) var memo: ByteArray = jsonObjectEmptyBytes,
     // SY specific values

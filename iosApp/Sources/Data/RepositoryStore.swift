@@ -108,17 +108,4 @@ final class RepositoryStore: ObservableObject {
     }
 }
 
-private extension Data {
-    /// Kotlin/Native exposes `ByteArray` as `KotlinByteArray`, which has no bulk initialiser, so
-    /// the bytes are copied in one pass rather than element by element through the bridge.
-    var kotlinByteArray: KotlinByteArray {
-        let array = KotlinByteArray(size: Int32(count))
-        withUnsafeBytes { (raw: UnsafeRawBufferPointer) in
-            guard let base = raw.bindMemory(to: Int8.self).baseAddress else { return }
-            for index in 0..<count {
-                array.set(index: Int32(index), value: base[index])
-            }
-        }
-        return array
-    }
-}
+// `Data.kotlinByteArray` lives in TachibkBackupCodec, which needs the reverse direction too.
