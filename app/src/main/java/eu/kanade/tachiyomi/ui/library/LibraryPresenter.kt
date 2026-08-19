@@ -11,12 +11,12 @@ import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.data.database.models.MangaCategory
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
+import eu.kanade.tachiyomi.domain.library.LibraryFilterSort
 import eu.kanade.tachiyomi.domain.migration.MigrationFlags
 import eu.kanade.tachiyomi.source.LocalSource
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.source.model.SChapter
-import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.ui.base.presenter.BasePresenter
 import eu.kanade.tachiyomi.util.chapter.syncChaptersWithSource
@@ -26,9 +26,6 @@ import eu.kanade.tachiyomi.util.removeCovers
 import eu.kanade.tachiyomi.util.system.launchIO
 import eu.kanade.tachiyomi.util.system.withIOContext
 import eu.kanade.tachiyomi.util.updateCoverLastModified
-import eu.kanade.tachiyomi.widget.ExtendedNavigationView.Item.TriStateGroup.Companion.STATE_EXCLUDE
-import eu.kanade.tachiyomi.widget.ExtendedNavigationView.Item.TriStateGroup.Companion.STATE_IGNORE
-import eu.kanade.tachiyomi.widget.ExtendedNavigationView.Item.TriStateGroup.Companion.STATE_INCLUDE
 import exh.EH_SOURCE_ID
 import exh.EXH_SOURCE_ID
 import exh.favorites.FavoritesSyncHelper
@@ -45,7 +42,6 @@ import kotlinx.coroutines.launch
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.util.ArrayList
-import java.util.Collections
 import java.util.Comparator
 
 /**
@@ -145,47 +141,29 @@ class LibraryPresenter(
         val filterTracked = preferences.filterTracked().get()
         val filterLewd = preferences.filterLewd().get()
 
-        val filterFn: (LibraryItem) -> Boolean = f@{ item ->
-            // Filter when there isn't unread chapters.
-            if (filterUnread == STATE_INCLUDE && item.manga.unread == 0) {
-                return@f false
-            }
-            if (filterUnread == STATE_EXCLUDE && item.manga.unread > 0) {
-                return@f false
-            }
-            if (filterCompleted == STATE_INCLUDE && item.manga.status != SManga.COMPLETED) {
-                return@f false
-            }
-            if (filterCompleted == STATE_EXCLUDE && item.manga.status == SManga.COMPLETED) {
-                return@f false
-            }
-            if (filterTracked != STATE_IGNORE) {
-                val tracks = db.getTracks(item.manga)
-                if (filterTracked == STATE_INCLUDE && tracks.isEmpty()) {
-                    return@f false
-                } else if (filterTracked == STATE_EXCLUDE && tracks.isNotEmpty()) {
-                    return@f false
-                }
-            }
-            if (filterLewd != STATE_IGNORE) {
-                val isLewd = item.manga.isLewd()
-                if (filterLewd == STATE_INCLUDE && !isLewd) {
-                    return@f false
-                } else if (filterLewd == STATE_EXCLUDE && isLewd) {
-                    return@f false
-                }
-            }
-            // Filter when there are no downloads.
-            if (filterDownloaded != STATE_IGNORE || filterDownloadedOnly) {
-                val isDownloaded =
-                    when {
-                        item.manga.isLocal() -> true
-                        item.downloadCount != -1 -> item.downloadCount > 0
-                        else -> downloadManager.getDownloadCount(item.manga) > 0
+        // Which entries survive is LibraryFilterSort in :core-domain, so this app and the iOS one
+        // filter the same library the same way. What stays here is what is not portable: counting
+        // a title's downloads, reading its tracks, and exh's notion of a lewd source.
+        val filterFn: (LibraryItem) -> Boolean = { item ->
+            LibraryFilterSort.matchesFilters(
+                manga = item.manga,
+                filterUnread = filterUnread,
+                filterCompleted = filterCompleted,
+                filterTracked = filterTracked,
+                filterLewd = filterLewd,
+                filterDownloaded = filterDownloaded,
+                downloadedOnly = filterDownloadedOnly,
+                isDownloaded = {
+                    // The item's own count when the badge has already worked it out.
+                    if (item.downloadCount != -1) {
+                        item.downloadCount > 0
+                    } else {
+                        downloadManager.getDownloadCount(item.manga) > 0
                     }
-                return@f if (filterDownloaded == STATE_INCLUDE) isDownloaded else !isDownloaded
-            }
-            true
+                },
+                hasTracks = { db.getTracks(item.manga).isNotEmpty() },
+                isLewd = { item.manga.isLewd() }
+            )
         }
 
         return map.mapValues { entry -> entry.value.filter(filterFn) }
@@ -247,50 +225,19 @@ class LibraryPresenter(
             db.getLatestChapterManga().associate { it.id!! to counter++ }
         }
 
-        val sortFn: (LibraryItem, LibraryItem) -> Int = { i1, i2 ->
-            when (sortingMode) {
-                LibrarySort.ALPHA -> i1.manga.title.compareTo(i2.manga.title, true)
-                LibrarySort.LAST_READ -> {
-                    // Get index of manga, set equal to list if size unknown.
-                    val manga1LastRead = lastReadManga[i1.manga.id!!] ?: lastReadManga.size
-                    val manga2LastRead = lastReadManga[i2.manga.id!!] ?: lastReadManga.size
-                    manga1LastRead.compareTo(manga2LastRead)
-                }
-                LibrarySort.LAST_CHECKED -> i2.manga.last_update.compareTo(i1.manga.last_update)
-                LibrarySort.UNREAD -> i1.manga.unread.compareTo(i2.manga.unread)
-                LibrarySort.TOTAL -> {
-                    val manga1TotalChapter = totalChapterManga[i1.manga.id!!] ?: 0
-                    val mange2TotalChapter = totalChapterManga[i2.manga.id!!] ?: 0
-                    manga1TotalChapter.compareTo(mange2TotalChapter)
-                }
-                LibrarySort.LATEST_CHAPTER -> {
-                    val manga1latestChapter =
-                        latestChapterManga[i1.manga.id!!]
-                            ?: latestChapterManga.size
-                    val manga2latestChapter =
-                        latestChapterManga[i2.manga.id!!]
-                            ?: latestChapterManga.size
-                    manga1latestChapter.compareTo(manga2latestChapter)
-                }
-                LibrarySort.DATE_ADDED -> i2.manga.date_added.compareTo(i1.manga.date_added)
-                LibrarySort.SOURCE -> {
-                    val source1Name = sourceManager.getOrStub(i1.manga.source).name
-                    val source2Name = sourceManager.getOrStub(i2.manga.source).name
-                    source1Name.compareTo(source2Name)
-                }
-                LibrarySort.DRAG_AND_DROP -> {
-                    0
-                }
-                else -> throw Exception("Unknown sorting mode")
-            }
-        }
-
-        val comparator =
-            if (preferences.librarySortingAscending().get()) {
-                Comparator(sortFn)
-            } else {
-                Collections.reverseOrder(sortFn)
-            }
+        // The order is LibraryFilterSort's, shared with the iOS app. The three modes the database
+        // answers arrive as positions, and resolving a source's name needs the extension manager,
+        // so those are passed in.
+        val rows =
+            LibraryFilterSort.comparator(
+                mode = sortingMode,
+                ascending = preferences.librarySortingAscending().get(),
+                lastReadOrder = lastReadManga,
+                totalChapterOrder = totalChapterManga,
+                latestChapterOrder = latestChapterManga,
+                sourceName = { sourceManager.getOrStub(it).name }
+            )
+        val comparator = Comparator<LibraryItem> { i1, i2 -> rows.compare(i1.manga, i2.manga) }
 
         return map.mapValues { entry -> entry.value.sortedWith(comparator) }
     }
