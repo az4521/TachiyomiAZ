@@ -22,7 +22,7 @@ struct MangaUpdatesView: View {
         let chapterIdentifier: ChapterIdentifier
         let date: Date
         let manga: ExtensionRunner.Manga
-        let chapter: Chapter?
+        let chapter: ExtensionRunner.Chapter?
         var viewed: Bool
     }
 
@@ -164,7 +164,7 @@ extension MangaUpdatesView {
                         ),
                         date: $0.date ?? Date(),
                         manga: mangaObj.toNewManga(),
-                        chapter: $0.chapter?.toChapter(),
+                        chapter: $0.chapter?.toNewChapter(),
                         viewed: $0.viewed
                     )
                 } else {

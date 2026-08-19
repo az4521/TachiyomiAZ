@@ -399,3 +399,31 @@ extension ExtensionRunner.SelectFilter {
         defaultValue ?? ids?.first ?? options.first ?? ""
     }
 }
+
+extension ExtensionRunner.Chapter {
+    /// A chapter's display title: `Vol.X Ch.X - Title`.
+    ///
+    /// Moved off the Aidoku-shaped model, which is where the vendored UI used to reach for it. It
+    /// is presentation, not part of any model -- the same string built from whichever chapter the
+    /// caller happens to hold.
+    func makeTitle() -> String {
+        if volumeNumber == nil, title == nil, let chapterNumber {
+            return String(format: NSLocalizedString("CHAPTER_X", comment: ""), chapterNumber)
+        }
+
+        var components: [String] = []
+        if let volumeNumber {
+            components.append(String(format: NSLocalizedString("VOL_X", comment: ""), volumeNumber))
+        }
+        if let chapterNumber {
+            components.append(String(format: NSLocalizedString("CH_X", comment: ""), chapterNumber))
+        }
+        if let title {
+            if !components.isEmpty {
+                components.append("-")
+            }
+            components.append(title)
+        }
+        return components.joined(separator: " ")
+    }
+}

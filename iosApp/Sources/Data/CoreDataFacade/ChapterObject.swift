@@ -51,10 +51,6 @@ final class ChapterObject {
         }
     }
 
-    func toChapter() -> Chapter {
-        row.toLegacy(sourceId: sourceId, mangaId: mangaId)
-    }
-
     func toNewChapter() -> ExtensionRunner.Chapter {
         row.toNewChapter()
     }
