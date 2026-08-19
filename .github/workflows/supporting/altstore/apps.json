@@ -1,0 +1,34 @@
+{
+  "name": "TachiyomiAZ",
+  "identifier": "app.tachiyomiaz.source",
+  "sourceURL": "https://raw.githubusercontent.com/az4521/TachiyomiAZ/altstore/apps.json",
+  "subtitle": "The iOS build of TachiyomiAZ",
+  "description": "TachiyomiAZ for iOS. Shares its library, history and tracking rules with the Android app, and runs the same TachiyomiX extensions through an embedded JVM.",
+  "iconURL": "https://raw.githubusercontent.com/az4521/TachiyomiAZ/master/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png",
+  "website": "https://github.com/az4521/TachiyomiAZ",
+  "tintColor": "2979FF",
+  "nsfw": false,
+  "featuredApps": [
+    "eu.kanade.tachiyomi.az.ios"
+  ],
+  "apps": [
+    {
+      "name": "TachiyomiAZ",
+      "bundleIdentifier": "eu.kanade.tachiyomi.az.ios",
+      "developerName": "az4521",
+      "subtitle": "A manga reader that runs TachiyomiX extensions",
+      "localizedDescription": "TachiyomiAZ for iOS.\n\nThe library, reading history, categories and tracking all live in the same database schema the Android app uses, so a backup restores on either. Sources are the same TachiyomiX JAR extensions, loaded into an embedded JVM rather than reimplemented.",
+      "iconURL": "https://raw.githubusercontent.com/az4521/TachiyomiAZ/master/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png",
+      "tintColor": "2979FF",
+      "category": "entertainment",
+      "appPermissions": {
+        "entitlements": [],
+        "privacy": {
+          "Photos": "Saving a page to the camera roll."
+        }
+      },
+      "versions": []
+    }
+  ],
+  "news": []
+}

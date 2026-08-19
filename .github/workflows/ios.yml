@@ -1,0 +1,232 @@
+name: iOS CI
+
+# Builds an unsigned IPA. Runs alongside the Android APK workflow, which stays on Linux.
+#
+# macOS runners are billed at ten times the Linux rate, so the split here is deliberate: only
+# the work that genuinely needs a Mac happens on one. The JVM runtime jars are javac and Gradle
+# output with nothing platform-specific in them, so they are built on Linux and handed over as an
+# artifact. What is left for macOS is Kotlin/Native and Xcode, both of which are cached.
+
+on:
+  push:
+    branches:
+      - 'master'
+    paths-ignore:
+      - 'app/**'
+      - '.github/workflows/build.yml'
+  pull_request:
+    paths-ignore:
+      - 'app/**'
+      - '.github/workflows/build.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+# Needed only by the release step at the end; everything else reads.
+permissions:
+  contents: write
+
+jobs:
+  # Everything that does not need a Mac.
+  runtime:
+    name: JVM runtime jars
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up JDK
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
+        with:
+          java-version: 21
+          distribution: temurin
+
+      # 56MB of Suwayomi AndroidCompat, produced by cloning and Gradle-building Suwayomi-Server
+      # at a commit pinned inside the script. Slow enough to be worth caching, and keyed on the
+      # script so a change to that pin invalidates it.
+      - name: Restore compat jars
+        id: compat-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: Runtime/ExtensionHost/compat
+          key: suwayomi-compat-${{ hashFiles('iosApp/Scripts/bootstrap-suwayomi-compat.sh', 'iosApp/Scripts/patches/suwayomi-ios-runtime.patch', 'iosApp/Scripts/gradle/copy-suwayomi-runtime.init.gradle') }}
+
+      - name: Bootstrap compat jars
+        if: steps.compat-cache.outputs.cache-hit != 'true'
+        run: bash iosApp/Scripts/bootstrap-suwayomi-compat.sh
+
+      - name: Save compat jars
+        if: steps.compat-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: Runtime/ExtensionHost/compat
+          key: ${{ steps.compat-cache.outputs.cache-primary-key }}
+
+      # Rebuilds the shims and host from Runtime/ and stages everything the app expects.
+      - name: Build runtime jars
+        run: bash iosApp/Scripts/build-jvm-runtime.sh
+
+      - name: Upload runtime jars
+        uses: actions/upload-artifact@v4
+        with:
+          name: jvm-runtime-jars
+          path: iosApp/Vendor/jars
+          retention-days: 1
+
+  ipa:
+    name: Unsigned IPA
+    needs: runtime
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up JDK
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
+        with:
+          java-version: 21
+          distribution: temurin
+
+      - name: Download runtime jars
+        uses: actions/download-artifact@v4
+        with:
+          name: jvm-runtime-jars
+          path: iosApp/Vendor/jars
+
+      # A pinned, checksummed download rather than a build -- fast even on a cache miss, but
+      # cached anyway because it is 140MB and the runner pays for the transfer in wall time.
+      - name: Restore OpenJDK
+        id: openjdk-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: iosApp/Vendor/jvm
+          key: openjdk-ios-${{ hashFiles('iosApp/Scripts/bootstrap-openjdk-ios.sh') }}
+
+      - name: Bootstrap OpenJDK
+        if: steps.openjdk-cache.outputs.cache-hit != 'true'
+        run: bash iosApp/Scripts/bootstrap-openjdk-ios.sh
+
+      - name: Save OpenJDK
+        if: steps.openjdk-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: iosApp/Vendor/jvm
+          key: ${{ steps.openjdk-cache.outputs.cache-primary-key }}
+
+      - name: Restore Texture
+        id: texture-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: iosApp/Vendor/AsyncDisplayKit.xcframework
+          key: texture-${{ hashFiles('iosApp/Scripts/fetch-texture.sh') }}
+
+      - name: Fetch Texture
+        if: steps.texture-cache.outputs.cache-hit != 'true'
+        run: bash iosApp/Scripts/fetch-texture.sh
+
+      - name: Save Texture
+        if: steps.texture-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: iosApp/Vendor/AsyncDisplayKit.xcframework
+          key: ${{ steps.texture-cache.outputs.cache-primary-key }}
+
+      # Kotlin/Native only builds on a Mac, and it is the slowest step by a wide margin, so both
+      # its output and the toolchain it downloads are cached against the shared sources.
+      - name: Cache Kotlin/Native
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.konan
+            ~/.gradle/caches
+            shared-ios/build/XCFrameworks
+          key: konan-${{ hashFiles('core-model/src/**', 'core-database/src/**', 'core-domain/src/**', 'shared-ios/build.gradle.kts', 'gradle/libs.versions.toml') }}
+          restore-keys: konan-
+
+      - name: Build the shared framework
+        run: ./gradlew :shared-ios:assembleTachiyomiKitDebugXCFramework --no-daemon
+
+      - name: Stage the JVM runtime
+        run: bash iosApp/Scripts/stage-jvm-resources.sh device
+
+      - name: Generate the Xcode project
+        run: |
+          brew install xcodegen
+          cd iosApp && xcodegen generate
+
+      # The dependencies dominate a cold build: SwiftSoup, Nuke, Gifu, ZIPFoundation and the two
+      # local packages all recompile from scratch, and Release adds whole-module optimization. A
+      # cold Release build measured about half an hour locally.
+      #
+      # Keyed on project.yml, which declares the remote package versions, and on the sources of
+      # the two local packages. Not on Package.resolved: the .xcodeproj is generated by xcodegen
+      # and gitignored, and Xcode only writes that lockfile while resolving during the build --
+      # after this step runs, so hashing it here would hash nothing.
+      - name: Cache derived data
+        uses: actions/cache@v4
+        with:
+          path: iosApp/build-ci
+          key: deriveddata-release-${{ hashFiles('iosApp/project.yml', 'iosApp/Packages/*/Sources/**') }}
+          restore-keys: deriveddata-release-
+
+      # Unsigned: CI holds no signing identity, and an unsigned .app is what a sideloading tool
+      # such as SideStore or AltStore re-signs anyway.
+      - name: Build
+        run: |
+          cd iosApp
+          xcodebuild \
+            -project TachiyomiAZ.xcodeproj \
+            -scheme TachiyomiAZ \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build-ci \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Package IPA
+        id: package
+        run: |
+          cd iosApp
+          app="build-ci/Build/Products/Release-iphoneos/TachiyomiAZ.app"
+          if [[ ! -d "$app" ]]; then
+            echo "No .app was produced at $app" >&2
+            exit 1
+          fi
+          sha_short="$(git rev-parse --short HEAD)"
+          rm -rf package && mkdir -p package/Payload
+          ditto "$app" "package/Payload/TachiyomiAZ.app"
+          cd package
+          ditto -c -k --sequesterRsrc --keepParent Payload "TachiyomiAZ-iOS-$sha_short.ipa"
+          echo "ipa=iosApp/package/TachiyomiAZ-iOS-$sha_short.ipa" >> "$GITHUB_OUTPUT"
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: TachiyomiAZ-iOS
+          path: ${{ steps.package.outputs.ipa }}
+
+      # AltStore installs over the network, so the IPA needs a stable public URL -- a build
+      # artifact expires and requires a login. This keeps one rolling prerelease rather than
+      # accumulating a tag per commit; the AltStore workflow reads whatever is attached to it.
+      #
+      # Only from master, and never from a pull request: a fork's PR should not be able to
+      # publish something the source then serves to devices.
+      - name: Publish to the rolling prerelease
+        if: github.ref == 'refs/heads/master' && github.event_name != 'pull_request'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ios-nightly
+          name: iOS nightly
+          body: |
+            Unsigned iOS build of ${{ github.sha }}.
+
+            Install through the AltStore source, or sideload the IPA directly. Unsigned, so a
+            sideloading tool re-signs it with your own certificate.
+          prerelease: true
+          files: ${{ steps.package.outputs.ipa }}
