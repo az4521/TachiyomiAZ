@@ -24,23 +24,14 @@ enum PersistentWebViewSession {
           }
           return 1;
         };
-        // Defined on the prototype, where a browser has it.
-        //
-        // These are 0 until the view is in a window, so at document start the fallback always
-        // runs -- and defining it on `window` left an own property where every real browser has
-        // an inherited accessor. `Object.getOwnPropertyDescriptor(window, 'outerWidth')` returning
-        // something is a seam a browser check can see, and this app reported `own-getter` where
-        // Safari reports nothing at all.
-        const target = Object.getPrototypeOf(window) || window;
+        try { window[name] = resolve(); } catch (_) {}
+        if (Number(window[name]) > 0) return;
         try {
-          Object.defineProperty(target, name, {
+          Object.defineProperty(window, name, {
             configurable: true,
-            enumerable: false,
             get: resolve,
           });
-          if (Number(window[name]) > 0) return;
         } catch (_) {}
-        try { window[name] = resolve(); } catch (_) {}
       };
       installDimensionFallback('outerWidth', () => [
         window.innerWidth,
@@ -138,19 +129,8 @@ struct WebView: UIViewRepresentable {
     let initialCookies: [HTTPCookie]
     let sessionHandle: WebViewSessionHandle?
 
-    /// Sized to the screen rather than `.zero`.
-    ///
-    /// SwiftUI lays this out a moment after it is made, but scripts injected at document start run
-    /// against whatever it is then -- and against a zero frame `window.outerWidth` is 0. That is
-    /// what makes `browserCompatibilityScript` define `outerWidth` and `outerHeight` on `window`,
-    /// which leaves them as own properties where a real browser has them on the prototype.
-    ///
-    /// Sites that gate on a browser check look for exactly that kind of seam. SchaleNetwork probes
-    /// the console the same way -- logging `%c%d` with transparent styling and an object whose
-    /// getters fire if anything reads them. Giving the view a real size from the start means the
-    /// dimensions are genuine and the shim leaves `window` alone.
     private let webView = WKWebView(
-        frame: CGRect(origin: .zero, size: UIScreen.main.bounds.size),
+        frame: .zero,
         configuration: PersistentWebViewSession.configuration()
     )
 
