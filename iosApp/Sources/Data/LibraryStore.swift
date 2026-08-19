@@ -374,7 +374,7 @@ final class LibraryStore: ObservableObject {
         // requests for pages with the ones it is still making for chapter lists.
         for entry in newlyDownloadable {
             await DownloadManager.shared.download(
-                manga: entry.manga.toLegacy().toNew(),
+                manga: entry.manga.toNewManga(),
                 chapters: entry.chapters.map { $0.toNewChapter() }
             )
         }

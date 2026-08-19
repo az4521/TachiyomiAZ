@@ -122,7 +122,7 @@ final class MangaObjectRef {
 extension MangaObjectRef {
     /// The runner-facing model for this row, which is how the vendored screens carry a manga.
     func toNewManga() -> ExtensionRunner.Manga {
-        row.toLegacy().toNew()
+        row.toNewManga()
     }
 }
 

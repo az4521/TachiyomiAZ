@@ -110,6 +110,33 @@ extension Manga {
     }
 }
 
+extension DbManga {
+    /// A shared row in the terms the extension boundary uses.
+    ///
+    /// Direct, rather than going through the Aidoku-shaped model on the way. That hop was doing no
+    /// work: every field here comes off the row, and routing them through a third representation
+    /// only created somewhere for them to be dropped.
+    func toNewManga() -> ExtensionRunner.Manga {
+        ExtensionRunner.Manga(
+            sourceKey: legacySourceId,
+            key: url,
+            title: title,
+            cover: thumbnail_url,
+            artists: artist.map { [$0] },
+            authors: author.map { [$0] },
+            description: description_,
+            url: URL(string: url),
+            tags: genre?.components(separatedBy: ", "),
+            status: PublishingStatus(rawValue: Int(status))?.toNew() ?? .unknown,
+            contentRating: .safe,
+            viewer: (MangaViewer(rawValue: Int(viewer)) ?? .defaultViewer).toNew(),
+            updateStrategy: update_strategy == UpdateStrategy.onlyFetchOnce ? .never : .always,
+            nextUpdateTime: nil,
+            chapters: nil
+        )
+    }
+}
+
 extension DbChapter {
     func toNewChapter() -> ExtensionRunner.Chapter {
         ExtensionRunner.Chapter(
@@ -143,9 +170,6 @@ extension Track {
 }
 
 
-extension LibraryManga {
-    /// The runner-facing model for a library row, which the migration screens work in.
-    func toNewManga() -> ExtensionRunner.Manga {
-        toLegacy().toNew()
-    }
-}
+// A library row is a MangaImpl, so it takes `toNewManga()` from the extension above -- it does not
+// need one of its own, and having one meant the library screens converted by a different route
+// than everything else.
