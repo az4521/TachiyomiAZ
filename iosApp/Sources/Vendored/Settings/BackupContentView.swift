@@ -6,9 +6,13 @@
 //
 
 import SwiftUI
+import TachiyomiKit
 
 struct BackupContentView: View {
-    let backup: Backup
+    let decoded: TachibkBackupCodec.Decoded
+
+    private var backup: TachiyomiKit.Backup { decoded.backup }
+    private var state: BackupState { decoded.state }
 
     @State private var restoreError: String?
     @State private var missingSources: [String] = []
@@ -22,36 +26,36 @@ struct BackupContentView: View {
         PlatformNavigationStack {
             List {
                 Section {
-                    infoCell(title: NSLocalizedString("NAME"), value: backup.name ?? NSLocalizedString("NONE"))
+                    infoCell(title: NSLocalizedString("NAME"), value: state.name ?? NSLocalizedString("NONE"))
                     infoCell(
                         title: NSLocalizedString("DATE"),
-                        value: backup.date.formatted(date: .numeric, time: .shortened)
+                        value: state.date.formatted(date: .numeric, time: .shortened)
                     )
                 }
                 Section {
                     infoCell(
                         title: NSLocalizedString("LIBRARY_ENTRIES"),
-                        value: String(backup.library?.count ?? 0)
+                        value: String(backup.backupManga.count)
                     )
                     infoCell(
                         title: NSLocalizedString("HISTORY"),
-                        value: String(backup.history?.count ?? 0)
+                        value: String(backup.backupManga.reduce(0) { $0 + $1.history.count })
                     )
                     infoCell(
                         title: NSLocalizedString("CHAPTERS"),
-                        value: String(backup.chapters?.count ?? 0)
+                        value: String(backup.backupManga.reduce(0) { $0 + $1.chapters.count })
                     )
                     infoCell(
                         title: NSLocalizedString("TRACKING"),
-                        value: String(backup.trackItems?.count ?? 0)
+                        value: String(backup.backupManga.reduce(0) { $0 + $1.tracking.count })
                     )
                     infoCell(
                         title: NSLocalizedString("CATEGORIES"),
-                        value: String(backup.categories?.count ?? 0)
+                        value: String(backup.backupCategories.count)
                     )
                     infoCell(
                         title: NSLocalizedString("SETTINGS"),
-                        value: String(backup.settings?.count ?? 0)
+                        value: String(state.settings?.count ?? 0)
                     )
                 }
 

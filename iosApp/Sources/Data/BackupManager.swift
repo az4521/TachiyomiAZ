@@ -46,14 +46,18 @@ final class BackupManager {
 
     // MARK: - Reading
 
-    func loadBackup(from url: URL) -> Backup? {
+    func loadBackup(from url: URL) -> TachibkBackupCodec.Decoded? {
         guard let data = try? Data(contentsOf: url) else { return nil }
-        return try? TachibkBackupCodec.decode(from: data)
+        return try? TachibkBackupCodec.decode(from: data, url: url)
     }
 
     // MARK: - Writing
 
     /// What a backup includes, as the create screen offers it.
+    ///
+    /// The four that describe library contents are handed to the shared builder as its bitmask, so
+    /// the two apps' backup screens offer the same choices rather than each naming them their own
+    /// way. The rest are this app's own and travel in `BackupState`.
     struct BackupOptions {
         var automatic: Bool = false
         var libraryEntries: Bool = true
@@ -66,13 +70,25 @@ final class BackupManager {
         var settings: Bool = false
         var sourceLists: Bool = false
         var sensitiveSettings: Bool = false
+
+        /// - Note: `libraryEntries` has no bit. A backup *is* the library, so switching it off
+        ///   leaves nothing for the other options to apply to; the builder always walks favourites.
+        var flags: Int32 {
+            var value: Int32 = 0
+            if categories { value |= TachiyomiKit.BackupOptions.shared.CATEGORY }
+            if chapters { value |= TachiyomiKit.BackupOptions.shared.CHAPTER }
+            if history { value |= TachiyomiKit.BackupOptions.shared.HISTORY }
+            if tracking { value |= TachiyomiKit.BackupOptions.shared.TRACK }
+            return value
+        }
     }
 
     /// Snapshots the library, its chapters, history, categories and tracks.
     @discardableResult
     func saveNewBackup(name: String = "", options: BackupOptions = .init()) -> Bool {
-        let backup = makeBackup(name: name.isEmpty ? nil : name, options: options)
-        guard let data = try? TachibkBackupCodec.encode(backup) else { return false }
+        let backup = makeBackup(options: options)
+        let state = BackupState(name: name.isEmpty ? nil : name, date: Date(), automatic: options.automatic)
+        guard let data = try? TachibkBackupCodec.encode(backup, state: state) else { return false }
 
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
@@ -87,94 +103,36 @@ final class BackupManager {
         }
     }
 
-    private func makeBackup(name: String?, options: BackupOptions) -> Backup {
-        let coreData = CoreDataManager.shared
-        var library: [BackupLibraryManga] = []
-        var manga: [BackupManga] = []
-        var chapters: [BackupChapter] = []
-        var history: [BackupHistory] = []
-        var tracks: [BackupTrackItem] = []
-
-        for object in (options.libraryEntries ? coreData.getLibraryManga() : []) {
-            guard let entry = object.manga else { continue }
-            let sourceId = entry.sourceId
-            let mangaId = entry.id
-
-            library.append(
-                BackupLibraryManga(
-                    lastOpened: object.lastOpened ?? .distantPast,
-                    lastUpdated: object.lastUpdated ?? .distantPast,
-                    lastUpdatedChapters: object.lastUpdatedChapters,
-                    lastChapter: object.lastChapter,
-                    lastRead: object.lastRead,
-                    dateAdded: object.dateAdded ?? .distantPast,
-                    categories: coreData.getCategories(sourceId: sourceId, mangaId: mangaId).map(\.name),
-                    mangaId: mangaId,
-                    sourceId: sourceId
-                )
-            )
-            manga.append(
-                BackupManga(
-                    id: mangaId,
-                    sourceId: sourceId,
-                    title: entry.title ?? mangaId,
-                    author: entry.author,
-                    tags: entry.tags,
-                    cover: entry.cover,
-                    url: entry.url
-                )
-            )
-            for chapter in (options.chapters ? coreData.getChapters(sourceId: sourceId, mangaId: mangaId, context: nil) : []) {
-                chapters.append(
-                    BackupChapter(
-                        sourceId: sourceId,
-                        mangaId: mangaId,
-                        id: chapter.id,
-                        title: chapter.title,
-                        scanlator: chapter.scanlator,
-                        dateUploaded: chapter.dateUploaded,
-                        bookmarked: chapter.bookmarked,
-                        sourceOrder: chapter.sourceOrder
+    /// Builds the backup's contents.
+    ///
+    /// This is `BackupBuilder` in `:core-domain` -- the same function the other app builds its
+    /// backups with -- so a backup taken here contains what one taken there would, from the same
+    /// library. What used to be here was a second implementation that walked the same tables by
+    /// hand, and it was quietly lossy: it filled seven fields of each entry, so every backup this
+    /// app wrote carried no description, no artist, status 0, reading mode 0 and chapter_flags 0.
+    /// The shared builder copies whole rows, so a column added to the schema travels without
+    /// anyone remembering to add it here.
+    private func makeBackup(options: BackupOptions) -> TachiyomiKit.Backup {
+        BackupBuilder.shared.build(
+            db: Database.handler,
+            flags: options.flags,
+            // Source names come from the installed extensions, which is this app's to answer. The
+            // database stores the numeric id; the extensions are keyed by string.
+            sources: { mangas in
+                var ids = Set<Int64>()
+                for manga in mangas {
+                    ids.insert(manga.source)
+                }
+                return ids.map { id -> BackupSource in
+                    let key = SourceIdentity.key(for: id)
+                    return BackupSource(
+                        name: SourceManager.shared.name(for: key) ?? "",
+                        sourceId: id
                     )
-                )
-            }
-            for (chapterId, progress) in (options.history ? coreData.readingHistorySnapshot(sourceId: sourceId, mangaId: mangaId) : [:]) {
-                history.append(
-                    BackupHistory(
-                        dateRead: Date(timeIntervalSince1970: TimeInterval(progress.date)),
-                        sourceId: sourceId,
-                        chapterId: chapterId,
-                        mangaId: mangaId,
-                        progress: progress.page < 0 ? nil : progress.page,
-                        completed: progress.page < 0
-                    )
-                )
-            }
-            for track in (options.tracking ? coreData.getTracks(sourceId: sourceId, mangaId: mangaId) : []) {
-                tracks.append(
-                    BackupTrackItem(
-                        id: String(track.media_id),
-                        trackerId: TrackerSyncId.trackerId(for: track.sync_id) ?? String(track.sync_id),
-                        mangaId: mangaId,
-                        sourceId: sourceId,
-                        title: track.title,
-                        chapterOffset: 0
-                    )
-                )
-            }
-        }
-
-        return Backup(
-            library: library,
-            history: history,
-            manga: manga,
-            chapters: chapters,
-            trackItems: tracks,
-            categories: options.categories
-                ? coreData.getCategoryTitles().map { BackupCategory(title: $0) }
-                : [],
-            date: Date(),
-            name: name
+                }
+            },
+            savedSearches: [],
+            flatMetadata: { _ in nil }
         )
     }
 
@@ -192,7 +150,7 @@ final class BackupManager {
     /// stored metadata wins over the backup's, a title already in the library stays in it, and a
     /// chapter already read is never marked unread by an older backup.
     @discardableResult
-    func restore(from backup: Backup) async -> Bool {
+    func restore(from backup: TachiyomiKit.Backup) async -> Bool {
         let delegate = UIApplication.shared.delegate as? AppDelegate
         // A restore of a full library is long enough that a spinner says nothing useful. The
         // loading alert already carries a determinate bar; this is what drives it.
@@ -256,7 +214,7 @@ final class BackupManager {
     ///   because `SourceManager` is reachable from here but the answer must be sampled before the
     ///   work moves off the main thread.
     nonisolated private static func performRestore(
-        _ backup: Backup,
+        _ backup: TachiyomiKit.Backup,
         installedSources: Set<String>,
         progress: RestoreProgress
     ) -> RestoreOutcome {
@@ -264,63 +222,35 @@ final class BackupManager {
         var outcome = RestoreOutcome()
 
         handler.inTransaction {
-            restoreCategories(backup.categories ?? [], handler: handler)
+            restoreCategories(backup.backupCategories, handler: handler)
 
-            // Library membership is a separate list from the manga themselves, and a backup carries
-            // manga that are not in it -- anything with history but since removed from the library.
-            // Those are restored too, as rows that are simply not favourite, which is what keeps
-            // the history tab intact across a restore.
-            let inLibrary = Set(
-                (backup.library ?? []).map {
-                    MangaIdentifier(sourceKey: $0.sourceId, mangaKey: $0.mangaId)
-                }
-            )
-            let addedDates = Dictionary(
-                (backup.library ?? []).map {
-                    (MangaIdentifier(sourceKey: $0.sourceId, mangaKey: $0.mangaId), $0.dateAdded)
-                },
-                uniquingKeysWith: { first, _ in first }
-            )
-
-            let backupManga = backup.manga ?? []
-            var rows: [MangaIdentifier: DbManga] = [:]
-            for item in backupManga {
-                let identifier = MangaIdentifier(sourceKey: item.sourceId, mangaKey: item.id)
+            var restored: [Int64] = []
+            for entry in backup.backupManga {
                 progress.advance()
-                guard
-                    let row = restoreManga(
-                        item,
-                        favorite: inLibrary.contains(identifier),
-                        dateAdded: addedDates[identifier],
-                        handler: handler
-                    )
-                else { continue }
-                rows[identifier] = row
+                guard let manga = restoreManga(entry, handler: handler) else { continue }
+                restored.append(entry.source)
+
+                restoreChapters(entry, manga: manga, handler: handler)
+                restoreCategoryMembership(
+                    entry,
+                    manga: manga,
+                    backupCategories: backup.backupCategories,
+                    handler: handler
+                )
+                restoreTracks(entry, manga: manga, handler: handler)
+                progress.advance()
             }
-
-            restoreChapters(backup, rows: rows, handler: handler, progress: progress)
-            // The chapter pass is budgeted one unit per backup manga; anything skipped for an
-            // uninstallable source never got one, so the bar catches up here rather than stalling.
-            progress.advance(backupManga.count - rows.count)
-
-            restoreCategoryMembership(
-                backup.library ?? [],
-                rows: rows,
-                handler: handler,
-                progress: progress
-            )
-            restoreTracks(backup.trackItems ?? [], rows: rows, progress: progress)
 
             outcome.missingSources = missingSourceNames(
                 backup,
-                restored: rows.keys,
+                restored: restored,
                 installedSources: installedSources
             )
 
             // A backup with titles in it that produced no rows at all did not partly work -- every
             // one had a source id this app could not read, which means the file is not what it
             // claims to be. Reported rather than passed off as a restore that changed nothing.
-            if !backupManga.isEmpty && rows.isEmpty {
+            if !backup.backupManga.isEmpty && restored.isEmpty {
                 outcome.error = NSLocalizedString("BACKUP_NO_RESTORABLE_ENTRIES")
             }
         }
@@ -334,285 +264,125 @@ final class BackupManager {
     /// assigned per database, so the same "Reading" category has a different id on every device and
     /// matching on id would duplicate every category on every restore.
     nonisolated private static func restoreCategories(
-        _ categories: [BackupCategory],
+        _ categories: [TachiyomiKit.BackupCategory],
         handler: IosDatabaseHandler
     ) {
-        let backupCategories = categories.compactMap { item -> MangaCategory? in
-            guard let title = item.title, !title.isEmpty else { return nil }
-            return CategoryCompanion.shared.create(name: title)
-        }
-        guard !backupCategories.isEmpty else { return }
-
-        let merge = BackupMangaMergeKt.mergeBackupCategories(
-            backupCategories: backupCategories,
-            dbCategories: handler.getCategories()
-        )
-
-        // `order` is a plain sort key, so new categories go after the existing ones rather than
-        // taking the position they held on the other device and colliding with what is here.
-        var order = Int32(handler.getCategories().count)
-        for category in merge.toInsert {
-            category.order = order
-            order += 1
-            handler.insertCategory(category: category)
-        }
+        BackupRestorer.shared.restoreCategories(db: handler, backupCategories: categories)
     }
 
-    /// Writes one backup manga, merged onto the stored row if there is one.
+    /// Writes one backup entry, merged onto the stored row if there is one.
     ///
-    /// Returns the row so the chapter, category and tracker passes can address it by id without
-    /// looking it up again.
+    /// The row is returned so the chapter, category and tracker passes can address it without
+    /// looking it up again. `getMangaImpl` is the shared model's own conversion -- the columns are
+    /// no longer copied across by hand here, which is what used to lose `viewer` and
+    /// `chapter_flags` on the way in.
     nonisolated private static func restoreManga(
-        _ item: BackupManga,
-        favorite: Bool,
-        dateAdded: Date?,
+        _ entry: TachiyomiKit.BackupManga,
         handler: IosDatabaseHandler
     ) -> DbManga? {
-        guard let source = SourceIdentity.numericId(item.sourceId) else { return nil }
+        guard SourceIdentity.key(for: entry.source) != nil || entry.source != 0 else { return nil }
 
-        let record = MangaImpl()
-        record.source = source
-        record.url = item.url ?? item.id
-        record.title = item.title
-        record.author = item.author
-        record.artist = item.artist
-        record.description_ = item.desc
-        record.genre = item.tags?.joined(separator: ", ")
-        record.thumbnail_url = item.cover
-        record.status = Int32(item.status)
-        record.viewer = Int32(item.viewer)
-        record.chapter_flags = Int32(item.chapterFlags ?? 0)
-        record.favorite = favorite
-        record.update_strategy = item.neverUpdate == true
-            ? UpdateStrategy.onlyFetchOnce
-            : UpdateStrategy.alwaysUpdate
-        record.date_added = dateAdded.map { Int64($0.timeIntervalSince1970 * 1000) } ?? 0
-        // Left false deliberately: `initialized` means "the source has been asked for the full
-        // details", and a backup is not that -- it carries whatever the other device happened to
-        // have. False makes the next open fetch them, which costs one request and cannot lose
-        // anything. `mergeBackupManga` ORs it, so a row already initialised here stays initialised.
-        record.initialized = false
-
-        if let stored = handler.getManga(url: record.url, sourceId: source) {
-            BackupMangaMergeKt.mergeBackupManga(manga: record, dbManga: stored)
-        }
-        handler.insertManga(manga: record)
-        return record
+        // `restoreMangaNoFetch` is the other app's no-fetch restore path, which is what this is:
+        // nothing here asks the source for anything. `initialized` used to be forced false here so
+        // the next open would refetch details; that is not what the other app does, and a
+        // difference in a shared table is worth less than the two agreeing.
+        let record = entry.getMangaImpl()
+        let stored = handler.getManga(url: record.url, sourceId: record.source) ?? MangaImpl()
+        BackupRestorer.shared.restoreMangaNoFetch(db: handler, manga: record, dbManga: stored)
+        return handler.getManga(url: record.url, sourceId: record.source)
     }
 
-    /// Restores chapters and the read state that goes with them.
+    /// Restores an entry's chapters and the read state that goes with them.
     ///
-    /// Read state is split across two lists in this format: the chapter carries its bookmark, and
-    /// whether it was read and how far lives in `history`. They are put back together here before
-    /// `mergeBackupChapters` sees them, because that is the shape it -- and the database -- expects.
+    /// Read state arrives in two places -- the chapter carries its bookmark and page, the history
+    /// list carries when it was last read -- and they are put back together before
+    /// `mergeBackupChapters` sees them, because that is the shape it and the database expect.
     nonisolated private static func restoreChapters(
-        _ backup: Backup,
-        rows: [MangaIdentifier: DbManga],
-        handler: IosDatabaseHandler,
-        progress: RestoreProgress
-    ) {
-        let chaptersByManga = Dictionary(grouping: backup.chapters ?? []) {
-            MangaIdentifier(sourceKey: $0.sourceId, mangaKey: $0.mangaId)
-        }
-        let historyByManga = Dictionary(grouping: backup.history ?? []) {
-            MangaIdentifier(sourceKey: $0.sourceId, mangaKey: $0.mangaId)
-        }
-
-        for (identifier, manga) in rows {
-            progress.advance()
-
-            let backupChapters = chaptersByManga[identifier] ?? []
-            let history = Dictionary(
-                (historyByManga[identifier] ?? []).map { ($0.chapterId, $0) },
-                uniquingKeysWith: { first, _ in first }
-            )
-
-            let chapters: [DbChapter] = backupChapters.map { item in
-                let chapter = ChapterImpl()
-                chapter.url = item.url ?? item.id
-                chapter.name = item.title ?? item.id
-                chapter.scanlator = item.scanlator
-                chapter.chapter_number = item.chapter ?? -1
-                chapter.source_order = Int32(item.sourceOrder)
-                chapter.date_upload = item.dateUploaded
-                    .map { Int64($0.timeIntervalSince1970 * 1000) } ?? 0
-                // This format has no fetch date. Reusing the upload date keeps restored chapters
-                // out of the updates feed; stamping them with now would announce a whole library
-                // as brand new the moment a backup was restored.
-                chapter.date_fetch = chapter.date_upload
-                chapter.bookmark = item.bookmarked ?? false
-
-                if let entry = history[item.id] {
-                    chapter.read = entry.completed
-                    // The backup stores the page the reader was showing, one-based; the column is
-                    // the index it resumes from. `MihonBackupImporter` adds the one, this takes it
-                    // back off.
-                    chapter.last_page_read = Int32(max(0, (entry.progress ?? 0) - 1))
-                }
-                return chapter
-            }
-
-            if !chapters.isEmpty {
-                // Which of these are new, which are updates, and which read state survives: all
-                // three are `:core-domain`'s answer, not this file's.
-                let merge = BackupChapterMergeKt.mergeBackupChapters(
-                    manga: manga,
-                    backupChapters: chapters,
-                    dbChapters: handler.getChapters(manga: manga)
-                )
-                handler.insertChapters(chapters: merge.toInsert)
-                // Writes read, bookmark and last_page_read only -- the same columns Android's
-                // backup restore touches, so a restore cannot rewrite chapter metadata the source
-                // owns.
-                handler.updateChaptersBackup(chapters: merge.toUpdate)
-            }
-
-            // Runs even with no chapters in the backup: the title's chapters may already be stored
-            // from a library refresh, and the timestamps still belong on them.
-            restoreHistory(
-                historyByManga[identifier] ?? [],
-                manga: manga,
-                handler: handler
-            )
-        }
-    }
-
-    /// Writes the read timestamps, once the chapters they point at exist.
-    ///
-    /// Rows are keyed by chapter id, so this runs after the chapter pass has given every new
-    /// chapter one. The later of the two dates wins: the backup may be older than this device.
-    nonisolated private static func restoreHistory(
-        _ entries: [BackupHistory],
+        _ entry: TachiyomiKit.BackupManga,
         manga: DbManga,
         handler: IosDatabaseHandler
     ) {
-        guard !entries.isEmpty, let mangaId = manga.id?.int64Value else { return }
-
-        let chapterIds = Dictionary(
-            handler.getChapters(manga: manga).compactMap { chapter in
-                chapter.id.map { (chapter.url, $0.int64Value) }
-            },
-            uniquingKeysWith: { first, _ in first }
-        )
-        let stored = Dictionary(
-            handler.getHistoryByMangaId(mangaId: mangaId).map { ($0.chapter_id, $0) },
-            uniquingKeysWith: { first, _ in first }
-        )
-
-        for entry in entries {
-            guard let chapterId = chapterIds[entry.chapterId] else { continue }
-            let read = Int64(entry.dateRead.timeIntervalSince1970 * 1000)
-            let history = stored[chapterId] ?? HistoryImpl()
-            history.chapter_id = chapterId
-            history.last_read = max(history.last_read, read)
-            // Upserts: updates the row when one exists for this chapter, inserts when it does not.
-            handler.updateHistoryLastRead(history: history)
+        let chapters = entry.getChaptersImpl()
+        if !chapters.isEmpty {
+            BackupRestorer.shared.restoreChaptersForManga(db: handler, manga: manga, chapters: chapters)
         }
+
+        // Runs even with no chapters in the backup: the title's chapters may already be stored from
+        // a library refresh, and the timestamps still belong on them.
+        BackupRestorer.shared.restoreHistoryForManga(db: handler, history: entry.history)
     }
 
-    /// Files restored titles into their categories.
+    /// Puts the entry back in its categories, through the shared rule.
     ///
-    /// Additive, like the fork's restore: a title already filed under something keeps it. The
-    /// backup names categories by title, and `restoreCategories` has already made sure each one
-    /// exists, so this resolves them by name.
+    /// Resolving membership takes two hops -- the stored order names a category *in the backup*,
+    /// and that category's name finds the one in this database -- and the one-hop version that
+    /// looks equivalent files titles under the wrong categories as soon as a restore adds one.
+    /// That is `BackupRestorer`'s to know, not this file's.
     nonisolated private static func restoreCategoryMembership(
-        _ library: [BackupLibraryManga],
-        rows: [MangaIdentifier: DbManga],
-        handler: IosDatabaseHandler,
-        progress: RestoreProgress
+        _ entry: TachiyomiKit.BackupManga,
+        manga: DbManga,
+        backupCategories: [TachiyomiKit.BackupCategory],
+        handler: IosDatabaseHandler
     ) {
-        let categoriesByName = Dictionary(
-            handler.getCategories().map { ($0.name, $0) },
-            uniquingKeysWith: { first, _ in first }
+        BackupRestorer.shared.restoreCategoriesForManga(
+            db: handler,
+            manga: manga,
+            categories: entry.categories,
+            backupCategories: backupCategories
         )
-
-        for entry in library {
-            progress.advance()
-            let identifier = MangaIdentifier(sourceKey: entry.sourceId, mangaKey: entry.mangaId)
-            guard
-                let manga = rows[identifier],
-                let wanted = entry.categories,
-                !wanted.isEmpty
-            else { continue }
-
-            let existing = Set(handler.getCategoriesForManga(manga: manga).map(\.name))
-            let links = wanted
-                .filter { !existing.contains($0) }
-                .compactMap { categoriesByName[$0] }
-                .map { TachiyomiKit.MangaCategory.companion.create(manga: manga, category: $0) }
-            guard !links.isEmpty else { continue }
-
-            // Replaces this manga's memberships, so the existing ones have to be passed back in
-            // alongside the new -- the shared call clears before it inserts.
-            let keeping = handler.getCategoriesForManga(manga: manga)
-                .map { TachiyomiKit.MangaCategory.companion.create(manga: manga, category: $0) }
-            handler.setMangaCategories(mangasCategories: keeping + links, mangas: [manga])
-        }
     }
 
     /// Relinks tracked titles.
     ///
     /// A link that is already there is left alone rather than rewritten: the stored one carries the
-    /// progress this device has synced, and the backup's carries none.
+    /// progress this device has synced, and the backup's carries what the other device had.
     nonisolated private static func restoreTracks(
-        _ items: [BackupTrackItem],
-        rows: [MangaIdentifier: DbManga],
-        progress: RestoreProgress
+        _ entry: TachiyomiKit.BackupManga,
+        manga: DbManga,
+        handler: IosDatabaseHandler
     ) {
-        let manager = CoreDataManager.shared
-        for item in items {
-            progress.advance()
-            let identifier = MangaIdentifier(sourceKey: item.sourceId, mangaKey: item.mangaId)
-            guard
-                rows[identifier] != nil,
-                !manager.hasTrack(
-                    trackerId: item.trackerId,
-                    sourceId: item.sourceId,
-                    mangaId: item.mangaId
-                )
-            else { continue }
+        guard !entry.tracking.isEmpty else { return }
 
-            manager.createTrack(
-                id: item.id,
-                trackerId: item.trackerId,
-                sourceId: item.sourceId,
-                mangaId: item.mangaId,
-                title: item.title,
-                chapterOffset: item.chapterOffset ?? 0
-            )
-        }
+        // The other app's behaviour, which this now follows in two ways it did not: a link already
+        // here takes the backup's ids rather than being skipped, and its progress moves to
+        // whichever is further along. Links for services that are not signed in are left out --
+        // this app used to restore them all, which put rows in the database pointing at accounts
+        // it could not reach.
+        BackupRestorer.shared.restoreTrackForManga(
+            db: handler,
+            manga: manga,
+            tracks: entry.getTrackingImpl(),
+            // Kotlin's `Boolean` comes back boxed through a lambda.
+            isLogged: { syncId in
+                guard let id = TrackerSyncId.trackerId(for: syncId.int32Value) else {
+                    return KotlinBoolean(bool: false)
+                }
+                return KotlinBoolean(bool: TrackerManager.getTracker(id: id)?.isLoggedIn ?? false)
+            }
+        )
     }
 
     /// How many steps a restore of this backup takes.
     ///
-    /// Each manga is counted twice because it is walked twice -- once to write the title, once for
-    /// its chapters and history -- and the chapter pass is much the slower of the two. Counting
-    /// individual chapters instead would be more precise and less useful: the bar would sit at a
-    /// few percent through every large title and then jump.
-    nonisolated private static func workUnits(in backup: Backup) -> Int {
-        (backup.manga?.count ?? 0) * 2
-            + (backup.library?.count ?? 0)
-            + (backup.trackItems?.count ?? 0)
+    /// Each entry is counted twice because it is walked twice -- once to write the title, once for
+    /// everything hanging off it. Counting individual chapters instead would be more precise and
+    /// less useful: the bar would sit at a few percent through every large title and then jump.
+    nonisolated private static func workUnits(in backup: TachiyomiKit.Backup) -> Int {
+        backup.backupManga.count * 2
     }
 
-    /// Sources the restored titles need and this device does not have installed.
-    ///
-    /// Taken from the manga that were actually restored rather than only the backup's source list,
-    /// because a backup written by this app carries no such list -- and a title whose source is
-    /// missing is exactly the one the user needs to be told about.
     nonisolated private static func missingSourceNames(
-        _ backup: Backup,
-        restored: some Sequence<MangaIdentifier>,
+        _ backup: TachiyomiKit.Backup,
+        restored: [Int64],
         installedSources: Set<String>
     ) -> [String] {
-        let declared = (backup.sources ?? []).map(\.id)
-        let used = restored.map(\.sourceKey)
-        return Set(declared + used)
+        let declared = backup.backupSources.map(\.sourceId)
+        return Set(declared + restored)
+            .map { SourceIdentity.key(for: $0) }
             .filter { !installedSources.contains($0) }
             .map { SourceManager.shared.name(for: $0) ?? $0 }
             .sorted()
     }
-
     // MARK: - Managing files
 
     func importBackup(from url: URL) -> Bool {
@@ -634,9 +404,9 @@ final class BackupManager {
     }
 
     func renameBackup(url: URL, name: String) {
-        guard var backup = loadBackup(from: url) else { return }
-        backup.name = name
-        guard let data = try? TachibkBackupCodec.encode(backup) else { return }
+        guard var decoded = loadBackup(from: url) else { return }
+        decoded.state.name = name
+        guard let data = try? TachibkBackupCodec.encode(decoded.backup, state: decoded.state) else { return }
         try? data.write(to: url)
     }
 

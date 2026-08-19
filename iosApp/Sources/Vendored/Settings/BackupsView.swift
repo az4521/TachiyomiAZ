@@ -9,12 +9,12 @@ import SwiftUI
 
 struct BackupsView: View {
     @State private var backupUrls: [URL] = []
-    @State private var backups: [URL: Backup] = [:]
+    @State private var backups: [URL: TachibkBackupCodec.Decoded] = [:]
     @State private var invalidBackups: Set<URL> = []
 
     @State private var loadedInitialBackupInfo = false
-    @State private var targetRestoreBackup: Backup?
-    @State private var targetExportBackup: Backup?
+    @State private var targetRestoreBackup: TachibkBackupCodec.Decoded?
+    @State private var targetExportBackup: TachibkBackupCodec.Decoded?
     @State private var showCreateSheet = false
     @State private var showImportSheet = false
     @State private var showAutoBackupsSheet = false
@@ -84,7 +84,7 @@ struct BackupsView: View {
                 .navigationTransitionZoom(sourceID: SheetID.autoBackup, in: transitionNamespace)
         }
         .sheet(item: $targetRestoreBackup) { backup in
-            BackupContentView(backup: backup)
+            BackupContentView(decoded: backup)
         }
         .alert(NSLocalizedString("IMPORT_FAIL"), isPresented: $showImportFailAlert) {
             Button(NSLocalizedString("OK"), role: .cancel) {}
@@ -162,18 +162,18 @@ struct BackupsView: View {
         }
     }
 
-    func backupCell(url: URL, backup: Backup) -> some View {
+    func backupCell(url: URL, backup: TachibkBackupCodec.Decoded) -> some View {
         Button {
             targetRestoreBackup = backup
         } label: {
             HStack {
-                let date = DateFormatter.localizedString(from: backup.date, dateStyle: .short, timeStyle: .short)
-                if let name = backup.name {
+                let date = DateFormatter.localizedString(from: backup.state.date, dateStyle: .short, timeStyle: .short)
+                if let name = backup.state.name {
                     VStack(alignment: .leading) {
                         HStack {
                             Text(name)
                                 .lineLimit(1)
-                            if backup.automatic ?? false {
+                            if backup.state.automatic ?? false {
                                 automaticBadge
                             }
                         }
@@ -184,7 +184,7 @@ struct BackupsView: View {
                     HStack {
                         Text(String(format: NSLocalizedString("BACKUP_%@"), date))
                             .lineLimit(1)
-                        if backup.automatic ?? false {
+                        if backup.state.automatic ?? false {
                             automaticBadge
                         }
                     }
@@ -208,7 +208,7 @@ struct BackupsView: View {
                 Label(NSLocalizedString("DELETE"), systemImage: "trash")
             }
             Button {
-                showRenamePrompt(targetRenameBackupUrl: url, initialName: backup.name)
+                showRenamePrompt(targetRenameBackupUrl: url, initialName: backup.state.name)
             } label: {
                 Label(NSLocalizedString("RENAME"), systemImage: "pencil")
             }
