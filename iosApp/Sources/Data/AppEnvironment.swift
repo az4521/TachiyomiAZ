@@ -44,7 +44,8 @@ final class AppEnvironment {
         // The library renders each entry against its source, so entries loaded before the sources
         // existed showed as unavailable until something else triggered a reload -- which is why
         // browsing one source appeared to fix the whole library.
-        NotificationCenter.default.post(name: Notification.Name("updateSourceList"), object: nil)
+        //
+        // `reload()` announces the source list itself now, so only the library needs a nudge here.
         NotificationCenter.default.post(name: Notification.Name("updateLibrary"), object: nil)
     }
 }

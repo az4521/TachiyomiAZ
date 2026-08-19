@@ -97,6 +97,9 @@
 "FILTER_STARTED" = "Started";
 "FILTER_WILL_REFRESH" = "In next refresh";
 "REFRESH_INCOMPLETE" = "Library Refresh Incomplete";
+"LIBRARY_UPDATE_NEW_CHAPTERS_FORMAT" = "%1$d new chapters found. %2$d of %3$d titles updated.";
+"LIBRARY_UPDATE_FAILURES_FORMAT" = "%1$d of %2$d titles updated; %3$d could not be updated.";
+"LIBRARY_UPDATE_COMPLETE_FORMAT" = "%d titles checked. No new chapters found.";
 "ASCENDING" = "Ascending";
 "DESCENDING" = "Descending";
 "OLDEST_FIRST" = "Oldest First";

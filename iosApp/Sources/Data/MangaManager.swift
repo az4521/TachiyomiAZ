@@ -32,11 +32,18 @@ final class MangaManager {
         // methods silently did nothing -- adding to the library from the manga screen included.
         guard let library, let sourceId = SourceIdentity.numericId(manga.sourceKey) else { return }
         await library.addFromRunner(manga, sourceId: sourceId)
+        // Browse and search grids swap a cell's library badge on this. Without it the cell kept
+        // saying the title was not in the library until the whole screen was rebuilt.
+        NotificationCenter.default.post(name: .addToLibrary, object: manga)
     }
 
     func removeFromLibrary(sourceId: String, mangaId: String) async {
         guard let library, let source = SourceIdentity.numericId(sourceId) else { return }
         await library.remove(url: mangaId, sourceId: source)
+        NotificationCenter.default.post(
+            name: .removeFromLibrary,
+            object: ExtensionRunner.Manga(sourceKey: sourceId, key: mangaId, title: "")
+        )
     }
 
     /// Re-fetches details purely to refresh a broken cover URL.
@@ -265,7 +272,15 @@ final class MangaManager {
     /// Refreshes the library without blocking the UI, as the pull-to-refresh and the scheduled
     /// update both do. The rules -- which entries are eligible, how chapters are diffed -- come
     /// from :core-domain via LibraryStore, so this only decides when to run.
-    func backgroundRefreshLibrary(category: String? = nil, skipReachabilityCheck: Bool = false) async {
+    /// New-chapter notifications are decided by whether the app is on screen when the run
+    /// *finishes*, not by how it started. The fork gates them on having been launched by the
+    /// system, which misses the common case: starting a refresh by hand and then switching away.
+    /// Nothing is worth notifying about while the user is watching the library update in front of
+    /// them; everything is, the moment they are not.
+    func backgroundRefreshLibrary(
+        category: String? = nil,
+        skipReachabilityCheck: Bool = false
+    ) async {
         guard let library, let runtime else { return }
         let categoryId = category.flatMap { title in
             CoreDataManager.shared.getCategory(title: title)?.id?.int32Value
@@ -277,6 +292,34 @@ final class MangaManager {
             .window?.rootViewController as? TabBarController
         tabBarController?.showLibraryRefreshView()
 
+        // Ask for the short allowance that lets a refresh keep running after the user switches
+        // away. Without it iOS suspends the app on backgrounding and the run simply stops partway
+        // -- no chapters, no notification, no indication it did not finish. The download queue
+        // already does this for the same reason; the library refresh never did.
+        //
+        // "Background library refresh" is the setting that governs it, and it only covers a few
+        // minutes: a long refresh can still be cut short, which is why the scheduled
+        // BGProcessingTask exists alongside it.
+        var backgroundTask = UIBackgroundTaskIdentifier.invalid
+        if UserDefaults.standard.bool(forKey: "Library.backgroundRefresh") {
+            backgroundTask = UIApplication.shared.beginBackgroundTask(
+                withName: "TachiyomiAZ Library Refresh"
+            )
+        }
+        defer {
+            if backgroundTask != .invalid {
+                UIApplication.shared.endBackgroundTask(backgroundTask)
+            }
+        }
+
+        // Zero total with a detail line, because how many titles are eligible is not known until
+        // the selection rule has run -- the notification says "calculating" rather than "0 of 0".
+        await NotificationManager.shared.beginProgress(
+            .libraryUpdate,
+            total: 0,
+            detail: NotificationManager.calculatingLibraryRefreshDetail
+        )
+
         await library.refresh(
             categoryId: categoryId,
             runtime: runtime,
@@ -285,15 +328,43 @@ final class MangaManager {
             tabBarController?.setLibraryRefreshProgress(
                 LibraryRefreshProgress(completed: completed, total: total)
             )
+            // The notification is throttled inside NotificationManager -- to whole percent and at
+            // most once a second -- so this can be called per title without flooding.
+            Task {
+                await NotificationManager.shared.updateProgress(
+                    .libraryUpdate,
+                    completed: Double(completed),
+                    total: total
+                )
+            }
         }
 
         tabBarController?.hideAccessoryView()
         NotificationCenter.default.post(name: Notification.Name("updateLibrary"), object: nil)
 
+        let summary = library.lastSummary
+
+        await NotificationManager.shared.finishProgress(
+            .libraryUpdate,
+            success: summary.map { $0.failed == 0 && $0.missingSource == 0 } ?? true,
+            summary: summary?.completionSummary
+        )
+
+        // Read here rather than at the start: a refresh takes minutes, and what matters is where
+        // the user is now. Starting one by hand and switching away should still notify.
+        let isActive = UIApplication.shared.applicationState == .active
+
+        if !isActive, let summary, !summary.newChapters.isEmpty {
+            await NotificationManager.shared.notifyNewChapters(summary.newChapters)
+        }
+
         // Say so when a refresh did not do what it looked like it was doing. The counts were being
         // written to a property with no reader, so a run that fetched nothing at all was reported
         // exactly the same as one that worked: the progress bar filled and the accessory vanished.
-        if let summary = library.lastSummary, !summary.isComplete {
+        //
+        // Only while the app is on screen: an alert raised behind a backgrounded refresh would
+        // ambush the user on next launch, and the completion notification carries the same counts.
+        if isActive, let summary, !summary.isComplete {
             (UIApplication.shared.delegate as? AppDelegate)?.presentAlert(
                 title: NSLocalizedString("REFRESH_INCOMPLETE"),
                 message: summary.description

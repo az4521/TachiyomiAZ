@@ -241,6 +241,7 @@ final class LibraryStore: ObservableObject {
         // Which sources, not just how many. Knowing "188 skipped" says something is wrong; knowing
         // they are all source 2499283573021220255 says what.
         var missingSourceIds = Set<Int64>()
+        var newChapters: [NotificationManager.NewChaptersSummary] = []
 
         // One lookup for the whole run. `sources.first(where:)` inside the loop is a linear scan
         // per entry, which on a thousand-title library is a scan per title.
@@ -288,13 +289,30 @@ final class LibraryStore: ObservableObject {
                 }
 
                 // Shared diffing: which chapters are new, deleted, or silently renamed.
-                _ = try ChapterSyncKt.syncChaptersWithSource(
+                let result = try ChapterSyncKt.syncChaptersWithSource(
                     db: handler,
                     rawSourceChapters: sourceChapters,
                     manga: entry,
                     platform: syncPlatform
                 )
                 fetched += 1
+
+                // What the shared diff considered genuinely new, which is what a "new chapters"
+                // notification should count. A chapter the source renamed, or deleted and re-added
+                // under another url, is not in here -- nothing changed for the reader.
+                let added = (result.first as? [DbChapter]) ?? []
+                if !added.isEmpty {
+                    newChapters.append(
+                        NotificationManager.NewChaptersSummary(
+                            mangaIdentifier: MangaIdentifier(
+                                sourceKey: entry.legacySourceId,
+                                mangaKey: entry.url
+                            ),
+                            mangaTitle: entry.title,
+                            chapterCount: added.count
+                        )
+                    )
+                }
             } catch {
                 failed += 1
                 // Keep the first, not the last: a run where every request fails the same way was
@@ -311,7 +329,8 @@ final class LibraryStore: ObservableObject {
             missingSource: missingSource,
             failed: failed,
             firstFailure: firstFailure,
-            missingSourceIds: missingSourceIds.sorted()
+            missingSourceIds: missingSourceIds.sorted(),
+            newChapters: newChapters
         )
         lastSummary = summary
         lastError = summary.isComplete ? nil : summary.description
@@ -345,8 +364,34 @@ final class LibraryStore: ObservableObject {
         let firstFailure: String?
         let missingSourceIds: [Int64]
 
+        /// Titles that gained chapters, for the new-chapter notifications.
+        let newChapters: [NotificationManager.NewChaptersSummary]
+
         /// Whether every selected title was actually fetched.
         var isComplete: Bool { fetched == selected }
+
+        var newChapterCount: Int { newChapters.reduce(0) { $0 + $1.chapterCount } }
+
+        /// The line a finished background refresh shows in its completion notification.
+        var completionSummary: String {
+            if newChapterCount > 0 {
+                return String(
+                    format: NSLocalizedString("LIBRARY_UPDATE_NEW_CHAPTERS_FORMAT"),
+                    newChapterCount,
+                    fetched,
+                    selected
+                )
+            }
+            if failed > 0 || missingSource > 0 {
+                return String(
+                    format: NSLocalizedString("LIBRARY_UPDATE_FAILURES_FORMAT"),
+                    fetched,
+                    selected,
+                    failed + missingSource
+                )
+            }
+            return String(format: NSLocalizedString("LIBRARY_UPDATE_COMPLETE_FORMAT"), selected)
+        }
 
         var description: String {
             var parts = ["\(fetched)/\(selected) fetched"]

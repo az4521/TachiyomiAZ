@@ -146,6 +146,15 @@ final class SourceRuntime: ObservableObject {
         if loaded.isEmpty && !catalog.installed.isEmpty {
             loadErrors["*"] = "No sources loaded from \(catalog.installed.count) installed extension(s)."
         }
+
+        // Announce the new list. Everything above updates the source registry correctly, and none
+        // of it reaches the screen on its own: Browse rebuilds from `.updateSourceList`, which was
+        // posted once at startup and nowhere else. So installing an extension loaded it, listed it
+        // internally, and left Browse showing the list from launch until the app was restarted.
+        //
+        // Posted here rather than at each call site because every path that changes what is
+        // installed -- install, uninstall, local import, reset -- ends in a reload.
+        NotificationCenter.default.post(name: .updateSourceList, object: nil)
     }
 
     /// Forgets a loaded extension so the next reload picks up a new version of it.
