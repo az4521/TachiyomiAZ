@@ -38,3 +38,17 @@ app/src/main/res/values-iw/
 
 # Texture (AsyncDisplayKit), fetched by iosApp/Scripts/fetch-texture.sh
 iosApp/Vendor/AsyncDisplayKit.xcframework/
+
+# JVM runtime build output. The sources under Runtime/ are tracked; the jars they
+# produce are not, except the two checked-in distributions the iOS build stages.
+/Runtime/ExtensionHost/build/
+/Runtime/ExtensionHost/dist/*
+!/Runtime/ExtensionHost/dist/tachiaz-extension-host.jar
+/Runtime/ExtensionHost/compat/*
+!/Runtime/ExtensionHost/compat/README.md
+/Runtime/MobileShims/build/
+/Runtime/MobileShims/dist/*
+!/Runtime/MobileShims/dist/tachiaz-mobile-shims.jar
+!/Runtime/MobileShims/dist/cacerts
+/Runtime/MobileCompatShims/build/
+/Runtime/MobileCompatShims/test-build/

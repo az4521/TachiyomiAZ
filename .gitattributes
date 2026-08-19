@@ -7,6 +7,10 @@
 # Gradle wrapper
 *.jar binary
 
+# JDK trust store staged into the iOS app. No file extension, so the blanket
+# `* text eol=lf` above would rewrite line endings inside a binary keystore.
+Runtime/MobileShims/dist/cacerts binary
+
 # Images
 *.webp binary
 *.png binary
