@@ -289,6 +289,16 @@ final class MangaManager {
 
         tabBarController?.hideAccessoryView()
         NotificationCenter.default.post(name: Notification.Name("updateLibrary"), object: nil)
+
+        // Say so when a refresh did not do what it looked like it was doing. The counts were being
+        // written to a property with no reader, so a run that fetched nothing at all was reported
+        // exactly the same as one that worked: the progress bar filled and the accessory vanished.
+        if let summary = library.lastSummary, !summary.isComplete {
+            (UIApplication.shared.delegate as? AppDelegate)?.presentAlert(
+                title: NSLocalizedString("REFRESH_INCOMPLETE"),
+                message: summary.description
+            )
+        }
     }
 
     /// Drops library membership for a set of titles, returning what was dropped so the caller can
@@ -296,23 +306,39 @@ final class MangaManager {
     ///
     /// Everything else the title owns -- chapters, history, tracks, downloads -- is left alone;
     /// only the `favorite` flag and category links change.
+    /// Everything else the title owns -- chapters, history, tracks, downloads -- is left alone;
+    /// only the `favorite` flag and category links change.
+    ///
+    /// The snapshots are taken in one pass and the removal happens in one transaction. Doing both
+    /// per title meant a full library reload for each one, which froze the app on a large
+    /// selection; see `LibraryStore.remove(urls:)`.
     @discardableResult
     func removeFromLibrary(manga identifiers: [MangaIdentifier]) async -> [LibraryMembershipSnapshot] {
+        // Both maps cover the whole library in a handful of queries, rather than the three per
+        // title this used to run. `libraryCategoryNames` is the same lookup the library screen
+        // uses, so the two cannot disagree about what a title is filed under.
+        let handler = Database.handler
+        let categoriesFor = CoreDataManager.shared.libraryCategoryNames()
+        var objects: [MangaIdentifier: LibraryMangaObject] = [:]
+        for row in handler.getLibraryMangas() {
+            let identifier = MangaIdentifier(sourceKey: row.legacySourceId, mangaKey: row.url)
+            objects[identifier] = LibraryMangaObject(
+                row: row,
+                sourceId: identifier.sourceKey,
+                mangaId: identifier.mangaKey
+            )
+        }
+
         var snapshots: [LibraryMembershipSnapshot] = []
+        var removals: [(url: String, sourceId: Int64)] = []
+
         for identifier in identifiers {
-            guard
-                let object = CoreDataManager.shared.getLibraryManga(
-                    sourceId: identifier.sourceKey,
-                    mangaId: identifier.mangaKey
-                )
-            else { continue }
+            guard let object = objects[identifier] else { continue }
 
             snapshots.append(
                 LibraryMembershipSnapshot(
                     identifier: identifier,
-                    categories: CoreDataManager.shared
-                        .getCategories(sourceId: identifier.sourceKey, mangaId: identifier.mangaKey)
-                        .map(\.name),
+                    categories: categoriesFor[identifier] ?? [],
                     lastOpened: object.lastOpened ?? .distantPast,
                     lastUpdated: object.lastUpdated ?? .distantPast,
                     lastUpdatedChapters: object.lastUpdatedChapters ?? .distantPast,
@@ -322,38 +348,48 @@ final class MangaManager {
                 )
             )
 
-            await library?.remove(
-                url: identifier.mangaKey,
-                sourceId: SourceIdentity.numericId(identifier.sourceKey) ?? 0
-            )
+            if let source = SourceIdentity.numericId(identifier.sourceKey) {
+                removals.append((url: identifier.mangaKey, sourceId: source))
+            }
         }
+
+        await library?.remove(urls: removals)
         NotificationCenter.default.post(name: Notification.Name("updateLibrary"), object: nil)
         return snapshots
     }
 
     /// Puts back what `removeFromLibrary` took, for the undo action.
+    /// Undoing a thousand-title removal is the same amount of work as the removal, so it gets the
+    /// same treatment: one transaction rather than one per title.
     func restoreLibraryMembership(_ snapshots: [LibraryMembershipSnapshot]) async {
-        for snapshot in snapshots {
-            guard
-                let source = SourceIdentity.numericId(snapshot.identifier.sourceKey),
-                let manga = CoreDataManager.shared.sharedManga(
-                    sourceId: snapshot.identifier.sourceKey,
-                    mangaId: snapshot.identifier.mangaKey
-                )
-            else { continue }
-            _ = source
+        guard !snapshots.isEmpty else { return }
+        let handler = Database.handler
+        let categoriesByName = Dictionary(
+            handler.getCategories().map { ($0.name, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
 
-            manga.favorite = true
-            Database.handler.updateMangaFavorite(manga: manga)
+        handler.inTransaction {
+            for snapshot in snapshots {
+                guard
+                    let source = SourceIdentity.numericId(snapshot.identifier.sourceKey),
+                    let manga = handler.getManga(
+                        url: snapshot.identifier.mangaKey,
+                        sourceId: source
+                    )
+                else { continue }
 
-            if !snapshot.categories.isEmpty {
-                await CoreDataManager.shared.setMangaCategories(
-                    sourceId: snapshot.identifier.sourceKey,
-                    mangaId: snapshot.identifier.mangaKey,
-                    categories: snapshot.categories
-                )
+                manga.favorite = true
+                handler.updateMangaFavorite(manga: manga)
+
+                guard !snapshot.categories.isEmpty else { continue }
+                let links = snapshot.categories
+                    .compactMap { categoriesByName[$0] }
+                    .map { TachiyomiKit.MangaCategory.companion.create(manga: manga, category: $0) }
+                handler.setMangaCategories(mangasCategories: links, mangas: [manga])
             }
         }
+
         await library?.reload()
         NotificationCenter.default.post(name: Notification.Name("updateLibrary"), object: nil)
     }
