@@ -5,6 +5,7 @@
 //  Created by Skitty on 4/29/25.
 //
 
+import TachiyomiKit
 import ExtensionRunner
 import Combine
 import SwiftUI
@@ -797,26 +798,70 @@ extension MangaView.ViewModel {
         }
     }
 
+    /// The chapter list as the reader has asked to see it.
+    ///
+    /// The read, downloaded and bookmarked filters and the sort order are `filterAndSortChapters`
+    /// in `:core-domain` -- the other app's rule -- driven by the same `chapter_flags` this screen
+    /// already writes. Read state lives beside the chapters here rather than on them, and these
+    /// are the chapters the extension returned rather than database rows, so the rule reads both
+    /// through the accessors it takes.
+    ///
+    /// Source order deserves a note: it is stored newest-first, so it compares the opposite way
+    /// round to the other two modes. That inversion used to be written out here as well, and
+    /// getting it backwards silently reverses every chapter list.
     private func sortedChapters() -> [ExtensionRunner.Chapter] {
         guard let chapters = manga.chapters, !chapters.isEmpty else {
             return []
         }
-        return switch chapterSortOption {
-            case .sourceOrder:
-                chapterSortAscending ? chapters.reversed() : chapters
-            case .chapter:
-                if chapterSortAscending {
-                    chapters.sorted(by: { $0.chapterNumber ?? -1 < $1.chapterNumber ?? -1 })
-                } else {
-                    chapters.sorted(by: { $0.chapterNumber ?? -1 > $1.chapterNumber ?? -1 })
-                }
-            case .uploadDate:
-                if chapterSortAscending {
-                    chapters.sorted(by: { $0.dateUploaded ?? .distantPast < $1.dateUploaded ?? .distantPast })
-                } else {
-                    chapters.sorted(by: { $0.dateUploaded ?? .distantPast > $1.dateUploaded ?? .distantPast })
-                }
+        let identifier = manga.identifier
+        // The extension returns chapters in source order, so a chapter's position in that list is
+        // its source order. Looked up once rather than searched for inside the comparator, which
+        // would make sorting a long title quadratic.
+        let sourceOrders = Dictionary(
+            chapters.enumerated().map { ($0.element.key, Int32($0.offset)) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        // Each accessor is named rather than written inline: the call takes six closures over a
+        // generic, and Swift gives up type-checking it as one expression.
+        let read = readingHistory
+        let bookmarks = chapterBookmarks
+        let key: (Any?) -> String = { ($0 as? ExtensionRunner.Chapter)?.key ?? "" }
+
+        let isRead: (Any?) -> KotlinBoolean = { KotlinBoolean(bool: read[key($0)]?.page == -1) }
+        let isBookmarked: (Any?) -> KotlinBoolean = { KotlinBoolean(bool: bookmarks.contains(key($0))) }
+        let isDownloaded: (Any?) -> KotlinBoolean = { chapter in
+            KotlinBoolean(
+                bool: DownloadManager.shared.isChapterDownloaded(
+                    chapter: ChapterIdentifier(
+                        sourceKey: identifier.sourceKey,
+                        mangaKey: identifier.mangaKey,
+                        chapterKey: key(chapter)
+                    )
+                )
+            )
         }
+        let number: (Any?) -> KotlinFloat = {
+            KotlinFloat(float: ($0 as? ExtensionRunner.Chapter)?.chapterNumber ?? -1)
+        }
+        let uploadDate: (Any?) -> KotlinLong = { chapter in
+            let date = (chapter as? ExtensionRunner.Chapter)?.dateUploaded ?? .distantPast
+            return KotlinLong(longLong: Int64(date.timeIntervalSince1970 * 1000))
+        }
+        let sourceOrder: (Any?) -> KotlinInt = { KotlinInt(int: sourceOrders[key($0)] ?? 0) }
+
+        let ordered = ChapterFilterKt.filterAndSortChapters(
+            chapters: chapters,
+            flags: Int32(generateChapterFlags()),
+            isLocal: manga.isLocal(),
+            forceDownloaded: false,
+            isRead: isRead,
+            isBookmarked: isBookmarked,
+            isDownloaded: isDownloaded,
+            number: number,
+            uploadDate: uploadDate,
+            sourceOrder: sourceOrder
+        )
+        return ordered.compactMap { $0 as? ExtensionRunner.Chapter }
     }
 
     private func filteredChapters() -> [ExtensionRunner.Chapter] {
@@ -843,25 +888,11 @@ extension MangaView.ViewModel {
             }
         }
 
-        for filter in chapterFilters {
-            switch filter.type {
-                case .downloaded:
-                    chapters = chapters.filter {
-                        let downloaded = !DownloadManager.shared.isChapterDownloaded(
-                            chapter: .init(sourceKey: manga.sourceKey, mangaKey: manga.key, chapterKey: $0.key)
-                        )
-                        return filter.exclude ? downloaded : !downloaded
-                    }
-                case .unread:
-                    chapters = chapters.filter {
-                        let isCompleted = self.readingHistory[$0.id]?.0 == -1
-                        return filter.exclude ? isCompleted : !isCompleted
-                    }
-                case .locked:
-                    chapters = chapters.filter {
-                        filter.exclude ? !$0.locked : $0.locked
-                    }
-            }
+        // The read, downloaded and bookmarked filters are applied by the shared rule in
+        // `sortedChapters`, through the flags this screen writes. What is left is the filter this
+        // app has and the other does not: locked chapters are a source's notion, with no column.
+        for filter in chapterFilters where filter.type == .locked {
+            chapters = chapters.filter { filter.exclude ? !$0.locked : $0.locked }
         }
 
         return chapters
