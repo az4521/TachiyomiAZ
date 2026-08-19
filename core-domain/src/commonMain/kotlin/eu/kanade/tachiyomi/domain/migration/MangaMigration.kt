@@ -37,6 +37,7 @@ fun markChaptersReadUpTo(
  *
  * @param replace whether the old manga leaves the library. The new one always joins it.
  */
+@Throws(Exception::class)
 fun migrateMangaData(
     db: DatabaseHandler,
     prevManga: Manga,

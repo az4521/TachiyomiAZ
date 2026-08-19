@@ -121,7 +121,12 @@ final class LibraryStore: ObservableObject {
     /// Separate from `add(manga:source:)` because that one takes the JVM client's TachiyomiXManga.
     /// Both funnel into the same shared insert, so there is one write path regardless of which
     /// model the caller happens to hold.
-    func addFromRunner(_ manga: ExtensionRunner.Manga, sourceId: Int64) async {
+    /// Adds a title to the library.
+    ///
+    /// `reload` re-runs the whole library query, which aggregates over every chapter row, so a
+    /// caller adding many titles at once should pass `false` and reload once at the end -- the
+    /// same reason `remove(urls:)` exists.
+    func addFromRunner(_ manga: ExtensionRunner.Manga, sourceId: Int64, reload: Bool = true) async {
         let existing = handler.getManga(url: manga.key, sourceId: sourceId)
         let record = existing ?? MangaImpl()
         record.url = manga.key
@@ -140,7 +145,9 @@ final class LibraryStore: ObservableObject {
         } else {
             handler.updateMangaFavorite(manga: record)
         }
-        await reload()
+        if reload {
+            await self.reload()
+        }
     }
 
     func remove(url: String, sourceId: Int64) async {

@@ -215,11 +215,21 @@ final class MangaManager {
 
     /// Moves (or copies) library entries from one source to another.
     ///
-    /// Upstream's version threads through its CoreData object graph. This works in the same terms
-    /// the shared database does: the destination becomes a favourite carrying the source's details
-    /// and chapters, category membership follows it, and unless `copy` is set the original stops
-    /// being a favourite. Read state is not carried across -- the two sources number chapters
-    /// differently, and guessing an alignment would silently mark things read.
+    /// What carries across is `migrateMangaData` in :core-domain, the rule the other app already
+    /// used: chapters (as read progress, matched by number), category membership, and tracker
+    /// links, each governed by a bit of [MigrationFlags].
+    ///
+    /// This app used to do its own thing here -- details and categories only. Read progress and
+    /// tracker links were dropped, so migrating a title on this app sent you back to chapter one
+    /// and unlinked the tracker, while migrating the same title on the other app kept both. Read
+    /// state lives in the shared database, so that was a real divergence rather than a per-device
+    /// difference. The reasoning previously recorded here, that aligning chapters across sources
+    /// would have to guess, was wrong: the shared rule does not guess. It carries the highest
+    /// *recognised* chapter number the reader finished and marks the destination's chapters up to
+    /// it, leaving unnumbered chapters (which hold a -1 sentinel) alone.
+    ///
+    /// There is no UI for the flags yet, so everything carries across, matching the other app's
+    /// default.
     func migrate(
         copy: Bool,
         fromSeries: [ExtensionRunner.Manga],
@@ -228,6 +238,8 @@ final class MangaManager {
         progressReport: ((Float) -> Void)? = nil
     ) async {
         let total = Float(max(fromSeries.count, 1))
+        let flags = Int32(MigrationFlags.shared.CHAPTERS | MigrationFlags.shared.CATEGORIES | MigrationFlags.shared.TRACK)
+
         for (index, from) in fromSeries.enumerated() {
             defer { progressReport?(Float(index + 1) / total) }
 
@@ -244,28 +256,43 @@ final class MangaManager {
                 )
             }
 
-            let categories = CoreDataManager.shared
-                .getCategories(sourceId: from.sourceKey, mangaId: from.key)
-                .map(\.name)
+            // Establishes the row, its date_added and its details. The shared rule sets `favorite`
+            // itself, but not the rest, and it expects both rows to already exist. Reloading is
+            // left until the end: it re-runs the whole library query each time.
+            await library?.addFromRunner(
+                destination,
+                sourceId: SourceIdentity.numericId(destination.sourceKey) ?? 0,
+                reload: false
+            )
 
-            await library?.addFromRunner(destination, sourceId: SourceIdentity.numericId(destination.sourceKey) ?? 0)
-
-            if !categories.isEmpty {
-                await CoreDataManager.shared.setMangaCategories(
+            guard
+                let handler = library?.handler,
+                let previous = CoreDataManager.shared.sharedManga(sourceId: from.sourceKey, mangaId: from.key),
+                let next = CoreDataManager.shared.sharedManga(
                     sourceId: destination.sourceKey,
-                    mangaId: destination.key,
-                    categories: categories
-                )
+                    mangaId: destination.key
+                ),
+                next.id != nil
+            else {
+                LogManager.logger.error("MangaManager.migrate: no database row for \(from.key) -> \(destination.key)")
+                continue
             }
 
-            if !copy {
-                await library?.remove(
-                    url: from.key,
-                    sourceId: SourceIdentity.numericId(from.sourceKey) ?? 0
+            do {
+                try MangaMigrationKt.migrateMangaData(
+                    db: handler,
+                    prevManga: previous,
+                    manga: next,
+                    flags: flags,
+                    replace: !copy
                 )
+            } catch {
+                // One title failing should not abandon the rest of the batch.
+                LogManager.logger.error("MangaManager.migrate: \(destination.key): \(error.localizedDescription)")
             }
         }
 
+        await library?.reload()
         NotificationCenter.default.post(name: Notification.Name("updateLibrary"), object: nil)
     }
 
