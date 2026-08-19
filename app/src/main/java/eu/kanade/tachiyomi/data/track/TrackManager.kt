@@ -12,20 +12,30 @@ import eu.kanade.tachiyomi.data.track.mangaupdates.MangaUpdates
 import eu.kanade.tachiyomi.data.track.myanimelist.MyAnimeList
 import eu.kanade.tachiyomi.data.track.shikimori.Shikimori
 import eu.kanade.tachiyomi.data.track.suwayomi.Suwayomi
+import eu.kanade.tachiyomi.domain.track.TrackerIds
 
 class TrackManager(context: Context) {
+    /**
+     * The `sync_id` of each service, from [TrackerIds].
+     *
+     * These are kept as names here because the call sites read better for it, but the numbers are
+     * no longer written down twice: they identify a service inside `manga_sync` and inside every
+     * backup, so the other app has to agree with them. Being `const`, a drift between the two
+     * lists is now a compile error rather than something noticed when a tracked title comes back
+     * from a backup attached to the wrong service.
+     */
     companion object {
-        const val MYANIMELIST = 1
-        const val ANILIST = 2
-        const val KITSU = 3
-        const val SHIKIMORI = 4
-        const val BANGUMI = 5
-        const val MANGAUPDATES = 6
-        const val HIKKA = 7
-        const val MANGABAKA = 8
-        const val KOMGA = 9
-        const val KAVITA = 10
-        const val SUWAYOMI = 11
+        const val MYANIMELIST = TrackerIds.MYANIMELIST
+        const val ANILIST = TrackerIds.ANILIST
+        const val KITSU = TrackerIds.KITSU
+        const val SHIKIMORI = TrackerIds.SHIKIMORI
+        const val BANGUMI = TrackerIds.BANGUMI
+        const val MANGAUPDATES = TrackerIds.MANGAUPDATES
+        const val HIKKA = TrackerIds.HIKKA
+        const val MANGABAKA = TrackerIds.MANGABAKA
+        const val KOMGA = TrackerIds.KOMGA
+        const val KAVITA = TrackerIds.KAVITA
+        const val SUWAYOMI = TrackerIds.SUWAYOMI
     }
 
     val myAnimeList = MyAnimeList(context, MYANIMELIST)

@@ -86,12 +86,31 @@ class TrackStatusVocabularyTest {
         }
     }
 
+    /**
+     * This test used to assert the opposite -- that Shikimori and Bangumi had no vocabulary and
+     * reported none. That was wrong: both declare status constants in the Android trackers, and
+     * treating them as absent meant this app wrote no status for either, the very gap the rest of
+     * this file exists to close. `:app`'s TrackStatusVocabularyTest now checks these against the
+     * trackers' own constants, so the claim is no longer made from memory.
+     */
     @Test
-    fun `services with no status vocabulary report none rather than guessing`() {
-        for (service in listOf(TrackerIds.SHIKIMORI, TrackerIds.BANGUMI)) {
-            assertNull(TrackStatusVocabulary.toRemote(service, TrackStatus.READING))
-            assertEquals(TrackStatus.NONE, TrackStatusVocabulary.fromRemote(service, 1))
-        }
+    fun `shikimori and bangumi have vocabularies of their own`() {
+        assertEquals(1, TrackStatusVocabulary.toRemote(TrackerIds.SHIKIMORI, TrackStatus.READING))
+        assertEquals(6, TrackStatusVocabulary.toRemote(TrackerIds.SHIKIMORI, TrackStatus.REREADING))
+        assertEquals(TrackStatus.PLANNING, TrackStatusVocabulary.fromRemote(TrackerIds.SHIKIMORI, 5))
+
+        // Bangumi numbers these unlike anyone else: reading is 3 and planning is 1, where every
+        // other service reads 1 as "reading".
+        assertEquals(3, TrackStatusVocabulary.toRemote(TrackerIds.BANGUMI, TrackStatus.READING))
+        assertEquals(1, TrackStatusVocabulary.toRemote(TrackerIds.BANGUMI, TrackStatus.PLANNING))
+        assertEquals(TrackStatus.PLANNING, TrackStatusVocabulary.fromRemote(TrackerIds.BANGUMI, 1))
+        assertEquals(TrackStatus.READING, TrackStatusVocabulary.fromRemote(TrackerIds.BANGUMI, 3))
+    }
+
+    @Test
+    fun `an unknown service reports none rather than guessing`() {
+        assertNull(TrackStatusVocabulary.toRemote(syncId = 999, status = TrackStatus.READING))
+        assertEquals(TrackStatus.NONE, TrackStatusVocabulary.fromRemote(syncId = 999, raw = 1))
     }
 
     @Test

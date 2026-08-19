@@ -101,6 +101,27 @@ object TrackStatusVocabulary {
                     TrackStatus.REREADING -> 5
                     TrackStatus.NONE -> null
                 }
+            TrackerIds.SHIKIMORI ->
+                when (status) {
+                    TrackStatus.READING -> 1
+                    TrackStatus.COMPLETED -> 2
+                    TrackStatus.PAUSED -> 3
+                    TrackStatus.DROPPED -> 4
+                    TrackStatus.PLANNING -> 5
+                    TrackStatus.REREADING -> 6
+                    TrackStatus.NONE -> null
+                }
+            // Bangumi numbers these unlike anyone else: reading is 3 and planning is 1.
+            TrackerIds.BANGUMI ->
+                when (status) {
+                    TrackStatus.PLANNING -> 1
+                    TrackStatus.COMPLETED -> 2
+                    // No rereading state, so it stays "reading" rather than being dropped.
+                    TrackStatus.READING, TrackStatus.REREADING -> 3
+                    TrackStatus.PAUSED -> 4
+                    TrackStatus.DROPPED -> 5
+                    TrackStatus.NONE -> null
+                }
             // The self-hosted services track progress through the server itself and express only
             // how far through a series the reader is.
             TrackerIds.KOMGA, TrackerIds.KAVITA, TrackerIds.SUWAYOMI ->
@@ -110,7 +131,6 @@ object TrackStatusVocabulary {
                     TrackStatus.PLANNING -> 1
                     TrackStatus.PAUSED, TrackStatus.DROPPED, TrackStatus.NONE -> null
                 }
-            // Shikimori and Bangumi declare no status constants on either platform.
             else -> null
         }
 
@@ -165,6 +185,25 @@ object TrackStatusVocabulary {
                     3 -> TrackStatus.DROPPED
                     4 -> TrackStatus.PLANNING
                     5 -> TrackStatus.REREADING
+                    else -> TrackStatus.NONE
+                }
+            TrackerIds.SHIKIMORI ->
+                when (raw) {
+                    1 -> TrackStatus.READING
+                    2 -> TrackStatus.COMPLETED
+                    3 -> TrackStatus.PAUSED
+                    4 -> TrackStatus.DROPPED
+                    5 -> TrackStatus.PLANNING
+                    6 -> TrackStatus.REREADING
+                    else -> TrackStatus.NONE
+                }
+            TrackerIds.BANGUMI ->
+                when (raw) {
+                    1 -> TrackStatus.PLANNING
+                    2 -> TrackStatus.COMPLETED
+                    3 -> TrackStatus.READING
+                    4 -> TrackStatus.PAUSED
+                    5 -> TrackStatus.DROPPED
                     else -> TrackStatus.NONE
                 }
             TrackerIds.KOMGA, TrackerIds.KAVITA, TrackerIds.SUWAYOMI ->
