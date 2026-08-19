@@ -243,19 +243,10 @@ final class SourceRuntime: ObservableObject {
     }
 
 
-    // MARK: - Cloudflare
-
-    /// Cached per-source user agents from solved challenges, so one solve covers later requests.
-    private static var solvedUserAgents: [String: String] = [:]
-
-
-    /// The host signals a challenge in the error text; there is no distinct status for it.
-    private static func isCloudflareChallenge(_ response: ExtensionHostResponse) -> Bool {
-        guard !response.success else { return false }
-        let message = response.error?.lowercased() ?? ""
-        return message.contains("tachiyomiazcloudflarechallenge")
-            || message.contains("cloudflare bypass currently disabled")
-    }
+    // Cloudflare challenges are handled by JVMSourceRuntime.dispatch, which detects them on any
+    // host response, solves through CloudflareHandler and retries the request. A second copy of
+    // the detection and a user-agent cache lived here and were called from nowhere -- easy to
+    // mistake for the real thing when reading this file, and they would have gone stale silently.
 
 
     /// Removes every installed extension, then reloads so the source list reflects it.

@@ -1,0 +1,47 @@
+name: JVM Runtime
+
+# The jars under Runtime/*/dist are committed but built from Java sources in the same
+# tree, so the two can drift: edit the source without rebuilding, or rebuild without
+# committing, and nothing downstream notices. That is not hypothetical -- the
+# SchaleNetwork WebView fix shipped with only its Swift half for exactly this reason,
+# back when the Java source was not even in this repository.
+
+on:
+  push:
+    branches:
+      - 'master'
+      - 'rxjava-migration'
+    paths:
+      - 'Runtime/**'
+      - 'iosApp/Scripts/build-mobile-shims.sh'
+      - 'iosApp/Scripts/build-extension-host.sh'
+      - 'iosApp/Scripts/verify-jvm-runtime.sh'
+      - '.github/workflows/jvm-runtime.yml'
+  pull_request:
+    paths:
+      - 'Runtime/**'
+      - 'iosApp/Scripts/build-mobile-shims.sh'
+      - 'iosApp/Scripts/build-extension-host.sh'
+      - 'iosApp/Scripts/verify-jvm-runtime.sh'
+      - '.github/workflows/jvm-runtime.yml'
+
+jobs:
+  verify:
+    name: Committed jars match their source
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up JDK
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
+        with:
+          java-version: 21
+          distribution: temurin
+
+      # Rebuilds from Runtime/ and compares class-by-class against what is committed.
+      # Class-by-class rather than by file checksum, because a jar embeds build
+      # timestamps and two builds of identical source differ as files regardless.
+      - name: Verify
+        run: bash iosApp/Scripts/verify-jvm-runtime.sh
