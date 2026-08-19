@@ -138,7 +138,11 @@ extension OldMangaCollectionViewController {
             default: // custom
                 let isLandscape = containerWidth > environment.container.contentSize.height
                 let key = isLandscape ? "Appearance.customLandscapeRows" : "Appearance.customPortraitRows"
-                itemsPerRow = UserDefaults.standard.integer(forKey: key)
+                // Clamped like the two branches above. `integer(forKey:)` answers 0 for a key that
+                // is absent, and every dimension below divides by this -- 1/0 is infinity, which
+                // Auto Layout accepts into its constraint engine and then crashes rebuilding.
+                // Both keys have registered defaults today, so this is a guard rather than a fix.
+                itemsPerRow = max(1, UserDefaults.standard.integer(forKey: key))
         }
 
         let item = NSCollectionLayoutItem(layoutSize: NSCollectionLayoutSize(

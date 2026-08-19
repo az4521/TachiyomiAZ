@@ -14,6 +14,11 @@ private final class LibraryCategorySwipeGestureRecognizer: UISwipeGestureRecogni
 
 class LibraryViewController: OldMangaCollectionViewController {
     let viewModel = LibraryViewModel()
+
+    /// Guards against overlapping diffable applies; see `updateDataSource`.
+    private var isApplyingSnapshot = false
+    private var needsAnotherApply = false
+
     private let filterDrawerTransitioningDelegate = FilterDrawerTransitioningDelegate()
     private weak var presentedFilterDrawer: UIViewController?
 
@@ -817,7 +822,35 @@ extension LibraryViewController {
         dataSource.apply(snapshot)
     }
 
+    /// Applies the current library to the collection view, one apply at a time.
+    ///
+    /// A dozen observers end here, and several of them fire together: finishing a chapter posts
+    /// historyAdded, historySet and updateHistory, each handled in its own `Task { @MainActor }`,
+    /// so they interleave rather than running in order. Starting an animated diffable apply while
+    /// another is mid-animation corrupts the layout engine -- it shows up as an EXC_BAD_ACCESS deep
+    /// inside NSISEngine during `_endItemAnimationsWithInvalidationContext`, nowhere near the code
+    /// that caused it, and only on a library big enough for the animation to still be running when
+    /// the next apply arrives.
+    ///
+    /// So an apply that arrives during one is remembered rather than started. The coalesced apply
+    /// runs unanimated: it is catching up to state the user has already seen change, and animating
+    /// a diff that may now span many items is both wrong-looking and the expensive case.
     func updateDataSource(animatingDifferences: Bool = true) {
+        // Cheap, idempotent, and independent of the apply -- so it runs even on a call that
+        // coalesces into an in-flight one and builds no snapshot. Mirrors what the snapshot would
+        // have contained: nothing when locked, otherwise the two arrays.
+        let willBeEmpty = locked || (viewModel.manga.isEmpty && viewModel.pinnedManga.isEmpty)
+        if navigationItem.searchController?.searchBar.text?.isEmpty ?? true {
+            emptyStackView.isHidden = !willBeEmpty
+        }
+        collectionView.isScrollEnabled = emptyStackView.isHidden && lockedStackView.isHidden
+        collectionView.refreshControl = collectionView.isScrollEnabled ? refreshControl : nil
+
+        guard !isApplyingSnapshot else {
+            needsAnotherApply = true
+            return
+        }
+
         var snapshot = NSDiffableDataSourceSnapshot<Section, MangaInfo>()
 
         if !locked {
@@ -831,17 +864,19 @@ extension LibraryViewController {
             snapshot.appendItems(viewModel.manga, toSection: .regular)
         }
 
+        isApplyingSnapshot = true
         dataSource.apply(
             snapshot,
             animatingDifferences: animatingDifferences
-        )
-
-        // handle empty library or category
-        if navigationItem.searchController?.searchBar.text?.isEmpty ?? true {
-            emptyStackView.isHidden = !snapshot.itemIdentifiers.isEmpty
+        ) { [weak self] in
+            guard let self else { return }
+            self.isApplyingSnapshot = false
+            if self.needsAnotherApply {
+                self.needsAnotherApply = false
+                self.updateDataSource(animatingDifferences: false)
+            }
         }
-        collectionView.isScrollEnabled = emptyStackView.isHidden && lockedStackView.isHidden
-        collectionView.refreshControl = collectionView.isScrollEnabled ? refreshControl : nil
+
     }
 
     func reloadItems() {
