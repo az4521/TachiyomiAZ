@@ -84,7 +84,7 @@ enum TachibkBackupCodec {
                 description: item.desc,
                 genre: item.tags ?? [],
                 status: Int32(mihonStatus(item.status)),
-                thumbnailUrl: item.cover,
+                thumbnailUrl: portableCover(item.cover),
                 dateAdded: milliseconds(library[identifier]?.dateAdded),
                 viewer: Int32(mihonViewer(item.viewer)),
                 chapters: itemChapters.map { chapter in
@@ -276,4 +276,22 @@ extension KotlinByteArray {
         }
         return Data(bytes)
     }
+}
+
+/// The cover url as another installation can resolve it, or nil.
+///
+/// A custom cover set in this app is written into `mangas.thumbnail_url` as
+/// `aidoku-image:///Covers/<uuid>.heic`, and a local-file cover similarly points into this app's
+/// container. That column is carried in the backup as field 9, so those urls used to travel to the
+/// other app, where the cover loader treats any non-http value as a filesystem path -- giving a
+/// broken cover that never repairs itself, because a non-empty url means it never refetches. It
+/// also overwrote the source url that installation had been using.
+///
+/// The image itself is not in the backup and never was, so there is nothing to point at on the
+/// other side. Sending nothing lets that installation fetch the cover from the source again.
+private func portableCover(_ cover: String?) -> String? {
+    guard let cover, !cover.isEmpty else { return nil }
+    let lowered = cover.lowercased()
+    guard lowered.hasPrefix("http://") || lowered.hasPrefix("https://") else { return nil }
+    return cover
 }
