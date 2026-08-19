@@ -315,7 +315,7 @@ extension MangaView.ViewModel {
             mangaId: manga.key
         )
         chapterSortOption = .init(flags: filters.flags)
-        chapterSortAscending = filters.flags & ChapterFlagMask.sortAscending != 0
+        chapterSortAscending = ChapterFlagMask.sortAscending(filters.flags)
         chapterFilters = ChapterFilterOption.parseOptions(flags: filters.flags)
         chapterLangFilter = filters.language
         chapterScanlatorFilter = filters.scanlators ?? []
@@ -903,31 +903,20 @@ extension MangaView.ViewModel {
         }
     }
 
+    /// Packs the screen's sort and filters back into `mangas.chapter_flags`.
+    ///
+    /// Starts from the stored value rather than zero, so parts of the column this screen does not
+    /// offer -- Android's bookmarked filter, and its chapter-title display mode -- survive being
+    /// rewritten here. The old version built the value from scratch and erased them.
     private func generateChapterFlags() -> Int {
-        var flags: Int = 0
-        if chapterSortAscending {
-            flags |= ChapterFlagMask.sortAscending
-        }
-        flags |= chapterSortOption.rawValue << 1
-        for filter in chapterFilters {
-            switch filter.type {
-                case .downloaded:
-                    flags |= ChapterFlagMask.downloadFilterEnabled
-                    if filter.exclude {
-                        flags |= ChapterFlagMask.downloadFilterExcluded
-                    }
-                case .unread:
-                    flags |= ChapterFlagMask.unreadFilterEnabled
-                    if filter.exclude {
-                        flags |= ChapterFlagMask.unreadFilterExcluded
-                    }
-                case .locked:
-                    flags |= ChapterFlagMask.lockedFilterEnabled
-                    if filter.exclude {
-                        flags |= ChapterFlagMask.lockedFilterExcluded
-                    }
-            }
-        }
+        // Read the stored value first: this screen does not offer every part of the column.
+        var flags = CoreDataManager.shared.getMangaChapterFilters(
+            sourceId: manga.sourceKey,
+            mangaId: manga.key
+        ).flags
+        flags = ChapterFlagMask.withSortAscending(flags, chapterSortAscending)
+        flags = chapterSortOption.apply(to: flags)
+        flags = ChapterFilterOption.apply(chapterFilters, to: flags)
         return flags
     }
 

@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import TachiyomiKit
 
 enum ChapterSortOption: Int, CaseIterable {
     case sourceOrder = 0
@@ -13,8 +14,21 @@ enum ChapterSortOption: Int, CaseIterable {
     case uploadDate
 
     init(flags: Int) {
-        let option = (flags & ChapterFlagMask.sortMethod) >> 1
-        self = ChapterSortOption(rawValue: option) ?? .sourceOrder
+        self = switch ChapterFlags.shared.sort(flags: Int32(flags)) {
+            case .number: .chapter
+            case .uploadDate: .uploadDate
+            default: .sourceOrder
+        }
+    }
+
+    /// Writes this option into `flags`, leaving every other part of the column alone.
+    func apply(to flags: Int) -> Int {
+        let sort: ChapterSort = switch self {
+            case .sourceOrder: .source
+            case .chapter: .number
+            case .uploadDate: .uploadDate
+        }
+        return Int(ChapterFlags.shared.withSort(flags: Int32(flags), sort: sort))
     }
 
     var stringValue: String {

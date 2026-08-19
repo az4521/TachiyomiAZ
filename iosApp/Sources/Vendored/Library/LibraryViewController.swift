@@ -1396,7 +1396,7 @@ extension LibraryViewController {
                     mangaId: info.mangaId
                 )
                 let sortOption = ChapterSortOption(flags: filters.flags)
-                let sortAscending = filters.flags & ChapterFlagMask.sortAscending != 0
+                let sortAscending = ChapterFlagMask.sortAscending(filters.flags)
 
                 let sortedChapters: [ExtensionRunner.Chapter] = {
                     switch sortOption {
