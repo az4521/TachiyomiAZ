@@ -480,9 +480,9 @@ class LibraryViewController: OldMangaCollectionViewController {
             }
         }
         addObserver(forName: .historyAdded) { [weak self] notification in
-            guard let self, let chapters = notification.object as? [Chapter] else { return }
+            guard let self, let chapters = notification.object as? [ChapterIdentifier] else { return }
             Task { @MainActor in
-                let manga = Array(Set(chapters.map { MangaInfo(mangaId: $0.mangaId, sourceId: $0.sourceId) }))
+                let manga = Array(Set(chapters.map { MangaInfo(mangaId: $0.mangaKey, sourceId: $0.sourceKey) }))
                 await self.viewModel.updateHistory(for: manga, read: true)
                 self.updateDataSource()
             }
@@ -491,19 +491,19 @@ class LibraryViewController: OldMangaCollectionViewController {
             guard let self else { return }
             Task { @MainActor in
                 var manga: [MangaInfo] = []
-                if let chapters = notification.object as? [Chapter] {
-                    manga = Array(Set(chapters.map { MangaInfo(mangaId: $0.mangaId, sourceId: $0.sourceId) }))
-                } else if let mangaObject = notification.object as? Manga {
-                    manga = [mangaObject.toInfo()]
+                if let chapters = notification.object as? [ChapterIdentifier] {
+                    manga = Array(Set(chapters.map { MangaInfo(mangaId: $0.mangaKey, sourceId: $0.sourceKey) }))
+                } else if let mangaObject = notification.object as? MangaIdentifier {
+                    manga = [MangaInfo(mangaId: mangaObject.mangaKey, sourceId: mangaObject.sourceKey)]
                 }
                 await self.viewModel.updateHistory(for: manga, read: false)
                 self.updateDataSource()
             }
         }
         addObserver(forName: .historySet) { [weak self] notification in
-            guard let self, let item = notification.object as? (chapter: Chapter, page: Int) else { return }
+            guard let self, let item = notification.object as? (chapter: ChapterIdentifier, page: Int) else { return }
             Task { @MainActor in
-                self.viewModel.mangaRead(sourceId: item.chapter.sourceId, mangaId: item.chapter.mangaId)
+                self.viewModel.mangaRead(sourceId: item.chapter.sourceKey, mangaId: item.chapter.mangaKey)
                 if self.viewModel.hasEffectiveFilter([.started]) {
                     await self.viewModel.loadLibrary()
                 }

@@ -44,7 +44,17 @@ final class HistoryManager {
             completed: completed
         )
         // The library's "started" filter and its last-read sort watch for this.
-        NotificationCenter.default.post(name: .historySet, object: (chapter, progress))
+        NotificationCenter.default.post(
+            name: .historySet,
+            object: (
+                ChapterIdentifier(
+                    sourceKey: chapter.sourceId,
+                    mangaKey: chapter.mangaId,
+                    chapterKey: chapter.id
+                ),
+                progress
+            )
+        )
     }
 
     /// Adds a finished session's duration to the chapter's accumulated read time.
@@ -85,9 +95,14 @@ final class HistoryManager {
         )
         guard written else { return }
 
+        // Identifiers rather than chapters: every observer of this only reads the source, manga
+        // and chapter keys off it, and carrying a whole chapter model meant converting one into
+        // the shape the vendored UI used to hold.
         NotificationCenter.default.post(
             name: .historyAdded,
-            object: chapters.map { $0.toOld(sourceId: sourceId, mangaId: mangaId) }
+            object: chapters.map {
+                ChapterIdentifier(sourceKey: sourceId, mangaKey: mangaId, chapterKey: $0.key)
+            }
         )
 
         if !defersDownloadCleanup, DownloadPreferencesBridge.shared.removeAfterMarkedAsRead {
@@ -125,12 +140,10 @@ final class HistoryManager {
             mangaId: mangaId,
             chapterIds: chapterIds
         )
-        // The observers read only the source and manga off these, so the rest is left empty
-        // rather than queried back out of the database purely to fill a notification.
         NotificationCenter.default.post(
             name: .historyRemoved,
             object: chapterIds.map {
-                Chapter(sourceId: sourceId, id: $0, mangaId: mangaId, title: nil, sourceOrder: 0)
+                ChapterIdentifier(sourceKey: sourceId, mangaKey: mangaId, chapterKey: $0)
             }
         )
     }
@@ -139,7 +152,7 @@ final class HistoryManager {
         CoreDataManager.shared.removeHistory(sourceId: sourceId, mangaId: mangaId)
         NotificationCenter.default.post(
             name: .historyRemoved,
-            object: Manga(sourceId: sourceId, id: mangaId)
+            object: MangaIdentifier(sourceKey: sourceId, mangaKey: mangaId)
         )
     }
 }

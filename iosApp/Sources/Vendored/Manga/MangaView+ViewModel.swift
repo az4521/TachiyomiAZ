@@ -159,11 +159,11 @@ extension MangaView {
                 .sink { [weak self] output in
                     guard
                         let self,
-                        let chapters = output.object as? [Chapter]
+                        let chapters = output.object as? [ChapterIdentifier]
                     else { return }
                     let date = Int(Date().timeIntervalSince1970)
                     for chapter in chapters where chapter.mangaIdentifier == self.manga.identifier {
-                        self.readingHistory[chapter.id] = (page: -1, date: date)
+                        self.readingHistory[chapter.chapterKey] = (page: -1, date: date)
                     }
                     self.updateReadButton()
                     self.checkForAllReadMarkOpened()
@@ -174,13 +174,13 @@ extension MangaView {
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] output in
                     guard let self else { return }
-                    if let chapters = output.object as? [Chapter] {
+                    if let chapters = output.object as? [ChapterIdentifier] {
                         for chapter in chapters where chapter.mangaIdentifier == self.manga.identifier {
-                            self.readingHistory.removeValue(forKey: chapter.id)
+                            self.readingHistory.removeValue(forKey: chapter.chapterKey)
                         }
                     } else if
-                        let manga = output.object as? Manga,
-                        manga.identifier == self.manga.identifier
+                        let identifier = output.object as? MangaIdentifier,
+                        identifier == self.manga.identifier
                     {
                         self.readingHistory = [:]
                     }
@@ -192,13 +192,13 @@ extension MangaView {
                 .sink { [weak self] output in
                     guard
                         let self,
-                        let item = output.object as? (chapter: Chapter, page: Int),
+                        let item = output.object as? (chapter: ChapterIdentifier, page: Int),
                         item.chapter.mangaIdentifier == self.manga.identifier,
-                        self.readingHistory[item.chapter.id]?.page != -1
+                        self.readingHistory[item.chapter.chapterKey]?.page != -1
                     else {
                         return
                     }
-                    self.readingHistory[item.chapter.id] = (
+                    self.readingHistory[item.chapter.chapterKey] = (
                         page: item.page,
                         date: Int(Date().timeIntervalSince1970)
                     )
