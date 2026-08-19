@@ -127,7 +127,11 @@
 "NONE" = "None";
 "CATEGORIES" = "Categories";
 "CATEGORY" = "Category";
-"UNCATEGORIZED" = "Uncategorized";
+/* The library tab for entries in no category. Named "Default" because that is what the Android
+   app calls the same bucket -- it is still not a row in the database, only a name for the
+   absence of one. The key keeps its original spelling so the existing translations still
+   resolve; they will read as their language's "Uncategorized" until retranslated. */
+"UNCATEGORIZED" = "Default";
 "EDIT_CATEGORIES" = "Edit Categories";
 "CATEGORY_ADD" = "Add Category";
 "CATEGORY_ADD_TEXT" = "Enter the name of the new category to create.";
