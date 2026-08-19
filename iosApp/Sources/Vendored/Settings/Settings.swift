@@ -696,6 +696,22 @@ extension Settings {
                 value: .toggle(.init())
             ),
             .init(
+                key: "Downloads.removeAfterReadSlots",
+                title: NSLocalizedString("REMOVE_AFTER_READ"),
+                value: .select(.init(
+                    // The other app's values, so the setting means the same thing on both.
+                    values: ["-1", "0", "1", "2", "3", "4"],
+                    titles: [
+                        NSLocalizedString("DISABLED"),
+                        NSLocalizedString("LAST_READ_CHAPTER"),
+                        NSLocalizedString("SECOND_TO_LAST"),
+                        NSLocalizedString("THIRD_TO_LAST"),
+                        NSLocalizedString("FOURTH_TO_LAST"),
+                        NSLocalizedString("FIFTH_TO_LAST")
+                    ]
+                ))
+            ),
+            .init(
                 key: "Downloads.compress",
                 title: NSLocalizedString("COMPRESS_DOWNLOADS"),
                 value: .toggle(.init())

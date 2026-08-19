@@ -211,6 +211,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
                 "Library.downloadOnlyOnWifi": false,
                 "Library.deleteDownloadAfterReading": false,
+                // "-1" is DownloadCleanup.KEEP_ALL, as a string because the settings list stores
+                // its selections that way.
+                "Downloads.removeAfterReadSlots": "-1",
                 "Downloads.compress": true,
                 "Downloads.parallel": true,
                 "Downloads.background": true,

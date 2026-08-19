@@ -37,4 +37,13 @@ interface DownloadPreferences {
 
     /** Category ids that auto-download is limited to. Empty means every category. */
     val downloadNewCategories: List<Int>
+
+    /** Whether marking a chapter read should delete its download. */
+    val removeAfterMarkedAsRead: Boolean
+
+    /**
+     * How many chapters back from the one just read to delete, or
+     * [eu.kanade.tachiyomi.domain.download.DownloadCleanup.KEEP_ALL] to keep every download.
+     */
+    val removeAfterReadSlots: Int
 }

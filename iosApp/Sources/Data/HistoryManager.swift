@@ -64,12 +64,18 @@ final class HistoryManager {
     /// The tracker sync is part of finishing a chapter, not a separate feature: "update trackers
     /// after reading" is a setting the user can turn on, and with this method silent it did
     /// nothing at all.
+    /// - Parameter defersDownloadCleanup: set by the reader, which queues its own deletions until
+    ///   the chapter is off screen. Everywhere else marking a chapter read should drop its
+    ///   download straight away, which is what the other app does from each of its mark-read
+    ///   screens; this app only ever did it from the reader, so marking a title read from the
+    ///   library left every chapter's pages on disk with the setting on.
     func addHistory(
         sourceId: String,
         mangaId: String,
         chapters: [ExtensionRunner.Chapter],
         date: Date = Date(),
-        skipTracker: Tracker? = nil
+        skipTracker: Tracker? = nil,
+        defersDownloadCleanup: Bool = false
     ) async {
         let written = CoreDataManager.shared.setCompleted(
             sourceId: sourceId,
@@ -83,6 +89,14 @@ final class HistoryManager {
             name: .historyAdded,
             object: chapters.map { $0.toOld(sourceId: sourceId, mangaId: mangaId) }
         )
+
+        if !defersDownloadCleanup, DownloadPreferencesBridge.shared.removeAfterMarkedAsRead {
+            await DownloadManager.shared.delete(
+                chapters: chapters.map {
+                    ChapterIdentifier(sourceKey: sourceId, mangaKey: mangaId, chapterKey: $0.key)
+                }
+            )
+        }
 
         Task {
             if UserDefaults.standard.bool(forKey: "Tracking.updateAfterReading") {

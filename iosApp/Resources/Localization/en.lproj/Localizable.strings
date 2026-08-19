@@ -503,6 +503,12 @@
 "NEW_CHAPTERS_AVAILABLE" = "New Chapters Available";
 "X_SERIES_HAVE_NEW_CHAPTERS" = "%d series have new chapters";
 "DELETE_DOWNLOAD_AFTER_READING" = "Delete Download After Reading";
+"REMOVE_AFTER_READ" = "Remove After Read";
+"LAST_READ_CHAPTER" = "Last read chapter";
+"SECOND_TO_LAST" = "Second to last chapter";
+"THIRD_TO_LAST" = "Third to last chapter";
+"FOURTH_TO_LAST" = "Fourth to last chapter";
+"FIFTH_TO_LAST" = "Fifth to last chapter";
 "NEVER" = "Never";
 "EVERY_6_HOURS" = "Every 6 hours";
 "EVERY_12_HOURS" = "Every 12 hours";

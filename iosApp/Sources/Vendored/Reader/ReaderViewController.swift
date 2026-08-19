@@ -8,6 +8,7 @@
 import UIKit
 import SwiftUI
 import ExtensionRunner
+import TachiyomiKit
 
 class ReaderViewController: BaseObservingViewController {
     enum Reader {
@@ -938,13 +939,48 @@ extension ReaderViewController: ReaderHoldingDelegate {
                 await HistoryManager.shared.addHistory(
                     sourceId: manga.sourceKey,
                     mangaId: manga.key,
-                    chapters: chaptersToMark
+                    chapters: chaptersToMark,
+                    // Deleting a chapter's pages while it is still on screen would pull them out
+                    // from under the reader, so the queue below is emptied on the way out instead.
+                    defersDownloadCleanup: true
                 )
             }
         }
         if UserDefaults.standard.bool(forKey: "Library.deleteDownloadAfterReading") {
             chaptersToRemoveDownload.append(chapter)
         }
+        queueChapterBehindForDeletion()
+    }
+
+    /// Applies the "keep the last few read chapters" rule to the chapter just finished.
+    ///
+    /// Separate from the delete-after-reading toggle above, and from the other app's point of
+    /// view the same pair of settings: that one deletes what you just read, this one leaves a few
+    /// behind you and deletes past them. This app only had the first.
+    ///
+    /// The chapter chosen is queued rather than deleted now. `chaptersToRemoveDownload` is emptied
+    /// on leaving the reader and is persisted meanwhile, so a chapter still on screen keeps its
+    /// pages and a deletion survives the app being killed mid-title.
+    private func queueChapterBehindForDeletion() {
+        let slots = DownloadPreferencesBridge.shared.removeAfterReadSlots
+        guard slots != DownloadCleanup.shared.KEEP_ALL else { return }
+
+        // `chapterList` runs newest first -- `getNextChapter` walks towards zero -- while the rule
+        // counts back through reading order. Reversing makes the positions mean what it expects;
+        // without it the rule would pick chapters ahead of the reader and delete unread pages.
+        let readingOrder = Array(chapterList.reversed())
+        guard
+            let readIndex = readingOrder.firstIndex(of: chapter),
+            let target = DownloadCleanup.shared.indexToDeleteAfterRead(
+                count: Int32(readingOrder.count),
+                readIndex: Int32(readIndex),
+                slots: slots
+            )?.intValue
+        else { return }
+
+        let behind = readingOrder[Int(target)]
+        guard !chaptersToRemoveDownload.contains(where: { $0.key == behind.key }) else { return }
+        chaptersToRemoveDownload.append(behind)
     }
 }
 

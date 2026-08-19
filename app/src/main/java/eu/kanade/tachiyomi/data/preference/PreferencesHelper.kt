@@ -41,6 +41,12 @@ class PreferencesHelper(val context: Context) : DownloadPreferences {
     override val downloadNewCategories: List<Int>
         get() = downloadNewCategories().get().map(String::toInt)
 
+    override val removeAfterMarkedAsRead: Boolean
+        get() = removeAfterMarkedAsRead()
+
+    override val removeAfterReadSlots: Int
+        get() = removeAfterReadSlots()
+
     private val prefs = PreferenceManager.getDefaultSharedPreferences(context)
     val flowPrefs = FlowSharedPreferences(prefs)
 

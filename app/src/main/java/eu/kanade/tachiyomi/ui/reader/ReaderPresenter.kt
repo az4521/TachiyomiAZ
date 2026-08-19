@@ -13,6 +13,7 @@ import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.data.track.job.DelayedTrackingStore
 import eu.kanade.tachiyomi.data.track.job.DelayedTrackingUpdateJob
+import eu.kanade.tachiyomi.domain.download.DownloadCleanup
 import eu.kanade.tachiyomi.source.LocalSource
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.source.model.Page
@@ -745,19 +746,21 @@ class ReaderPresenter(
         if (!chapter.chapter.read || chapter.pageLoader !is DownloadPageLoader) return
         val manga = manga ?: return
 
-        // Return if the setting is disabled
         val removeAfterReadSlots = preferences.removeAfterReadSlots()
-        if (removeAfterReadSlots == -1) return
+        if (removeAfterReadSlots == DownloadCleanup.KEEP_ALL) return
 
         launchIO {
-            // Position of the read chapter
-            val position = chapterList.indexOf(chapter)
+            // Which position to drop is the shared rule, so both apps count back the same way and
+            // agree on what the settings entries mean. `chapterList` is already in reading order
+            // here, which is what it expects.
+            val target =
+                DownloadCleanup.indexToDeleteAfterRead(
+                    count = chapterList.size,
+                    readIndex = chapterList.indexOf(chapter),
+                    slots = removeAfterReadSlots
+                ) ?: return@launchIO
 
-            // Retrieve chapter to delete according to preference
-            val chapterToDelete = chapterList.getOrNull(position - removeAfterReadSlots)
-            if (chapterToDelete != null) {
-                downloadManager.enqueueDeleteChapters(listOf(chapterToDelete.chapter), manga)
-            }
+            downloadManager.enqueueDeleteChapters(listOf(chapterList[target].chapter), manga)
         }
     }
 
