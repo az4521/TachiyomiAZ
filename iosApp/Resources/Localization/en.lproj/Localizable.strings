@@ -95,6 +95,8 @@
 "IS_TRACKING" = "Tracking";
 "FILTER_HAS_UNREAD" = "Unread";
 "FILTER_STARTED" = "Started";
+"FILTER_WILL_REFRESH" = "In next refresh";
+"REFRESH_INCOMPLETE" = "Library Refresh Incomplete";
 "ASCENDING" = "Ascending";
 "DESCENDING" = "Descending";
 "OLDEST_FIRST" = "Oldest First";

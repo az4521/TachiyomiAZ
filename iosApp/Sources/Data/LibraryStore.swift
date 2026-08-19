@@ -140,6 +140,28 @@ final class LibraryStore: ObservableObject {
         await remove(url: entry.url, sourceId: entry.source)
     }
 
+    /// Drops many titles from the library at once.
+    ///
+    /// Removing a thousand titles by calling `remove` a thousand times meant a thousand separate
+    /// write transactions and, worse, a thousand `reload()` calls -- and a reload re-runs the whole
+    /// library query, which aggregates over every chapter row in the database. That is quadratic
+    /// work on the main actor, which is why a large selection froze the app until the watchdog
+    /// killed it. One transaction, one reload.
+    func remove(urls: [(url: String, sourceId: Int64)]) async {
+        guard !urls.isEmpty else { return }
+        let handler = self.handler
+        handler.inTransaction {
+            for entry in urls {
+                guard let record = handler.getManga(url: entry.url, sourceId: entry.sourceId) else {
+                    continue
+                }
+                record.favorite = false
+                handler.updateMangaFavorite(manga: record)
+            }
+        }
+        await reload()
+    }
+
     // MARK: - Categories
 
     func addCategory(named name: String) async {
@@ -176,6 +198,25 @@ final class LibraryStore: ObservableObject {
     /// - Parameter onProgress: called as each entry finishes, so the caller can drive a progress
     ///   view. Reported here rather than only published, because the refresh runs off the screen
     ///   that shows it.
+    /// The library entries a refresh would touch.
+    ///
+    /// Shared with the "would be refreshed" library filter, so what the filter shows and what a
+    /// refresh does cannot drift apart -- the point of the filter is to be believable.
+    ///
+    /// All three skip filters are the shared rule's, so this app and the Android one select the
+    /// same set. The unread and not-started filters used to be applied afterwards, with a chapter
+    /// query per library entry to find out what had been read; the library query counts both now.
+    func refreshTargets(categoryId: Int32? = nil, settings: AppSettings) -> [LibraryManga] {
+        LibraryUpdateSelectionKt.selectLibraryMangaToUpdate(
+            library: handler.getLibraryMangas(),
+            categoryId: categoryId ?? LibraryUpdateSelectionKt.ALL_CATEGORIES,
+            categoriesToUpdate: settings.updateCategories.map { KotlinInt(int: $0) },
+            excludeCompleted: settings.skipCompleted,
+            excludeUnread: settings.skipUnread,
+            excludeNotStarted: settings.skipNotStarted
+        )
+    }
+
     func refresh(
         categoryId: Int32?,
         runtime: SourceRuntime,
@@ -184,27 +225,39 @@ final class LibraryStore: ObservableObject {
     ) async {
         lastError = nil
 
-        // All three skip filters are the shared rule's, so this app and the Android one refresh
-        // the same set. The unread and not-started filters used to be applied here afterwards,
-        // with a chapter query per library entry to find out what had been read; the library query
-        // counts both now, so the rule can answer it without the extra pass.
-        let targets = LibraryUpdateSelectionKt.selectLibraryMangaToUpdate(
-            library: handler.getLibraryMangas(),
-            categoryId: categoryId ?? LibraryUpdateSelectionKt.ALL_CATEGORIES,
-            categoriesToUpdate: settings.updateCategories.map { KotlinInt(int: $0) },
-            excludeCompleted: settings.skipCompleted,
-            excludeUnread: settings.skipUnread,
-            excludeNotStarted: settings.skipNotStarted
-        )
+        let targets = refreshTargets(categoryId: categoryId, settings: settings)
         guard !targets.isEmpty else { return }
 
         refreshProgress = (0, targets.count)
         defer { refreshProgress = nil }
 
+        // A refresh that skips everything looks exactly like a refresh that worked: the bar runs to
+        // the end in a second and nothing changes. These count what actually happened so the
+        // outcome can be stated rather than guessed at.
+        var fetched = 0
+        var missingSource = 0
+        var failed = 0
+        var firstFailure: String?
+        // Which sources, not just how many. Knowing "188 skipped" says something is wrong; knowing
+        // they are all source 2499283573021220255 says what.
+        var missingSourceIds = Set<Int64>()
+
+        // One lookup for the whole run. `sources.first(where:)` inside the loop is a linear scan
+        // per entry, which on a thousand-title library is a scan per title.
+        let sourcesById = Dictionary(
+            runtime.sources.map { ($0.id, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+
         for (index, entry) in targets.enumerated() {
             refreshProgress = (index, targets.count)
             onProgress?(index, targets.count)
-            guard let source = runtime.sources.first(where: { $0.id == entry.source }) else { continue }
+            guard let source = sourcesById[entry.source] else {
+                // The extension providing this title is not installed, so there is nothing to ask.
+                missingSource += 1
+                missingSourceIds.insert(entry.source)
+                continue
+            }
             do {
                 let update = try await runtime.mangaDetails(
                     source,
@@ -223,20 +276,99 @@ final class LibraryStore: ObservableObject {
                     if let number = chapter.chapterNumber { s.chapter_number = number }
                     return s
                 }
+                // A source that returned nothing has nothing to diff. Counted as a failure rather
+                // than passed on: the shared sync treats an empty list as an error, and calling it
+                // anyway is what crashed a whole refresh the moment one dead source came up.
+                guard !sourceChapters.isEmpty else {
+                    failed += 1
+                    if firstFailure == nil {
+                        firstFailure = "\(entry.title): the source returned no chapters"
+                    }
+                    continue
+                }
+
                 // Shared diffing: which chapters are new, deleted, or silently renamed.
-                _ = ChapterSyncKt.syncChaptersWithSource(
+                _ = try ChapterSyncKt.syncChaptersWithSource(
                     db: handler,
                     rawSourceChapters: sourceChapters,
                     manga: entry,
                     platform: syncPlatform
                 )
+                fetched += 1
             } catch {
-                lastError = "\(entry.title): \(error.localizedDescription)"
+                failed += 1
+                // Keep the first, not the last: a run where every request fails the same way was
+                // being reported by whichever title happened to come last.
+                if firstFailure == nil {
+                    firstFailure = "\(entry.title): \(error.localizedDescription)"
+                }
             }
+        }
+
+        let summary = RefreshSummary(
+            selected: targets.count,
+            fetched: fetched,
+            missingSource: missingSource,
+            failed: failed,
+            firstFailure: firstFailure,
+            missingSourceIds: missingSourceIds.sorted()
+        )
+        lastSummary = summary
+        lastError = summary.isComplete ? nil : summary.description
+
+        // Always logged, so Settings -> Logs has a record even when the run looked fine. A refresh
+        // that skips everything takes about as long as one that has nothing to do, and the two are
+        // indistinguishable from the outside.
+        LogManager.logger.log("Library refresh: \(summary.description)")
+        if !summary.missingSourceIds.isEmpty {
+            let loaded = sourcesById.keys.sorted().map(String.init).joined(separator: ", ")
+            LogManager.logger.log(
+                "Library refresh: no loaded source for ids "
+                    + summary.missingSourceIds.map(String.init).joined(separator: ", ")
+                    + " -- loaded ids are [\(loaded)]"
+            )
         }
 
         await reload()
     }
+
+    /// What a refresh run actually did.
+    ///
+    /// Every count is here rather than a single error string, because the interesting cases are
+    /// partial: a refresh that fetched 12 of 200 has a problem, and reporting only the last error
+    /// hides that it happened 188 times.
+    struct RefreshSummary {
+        let selected: Int
+        let fetched: Int
+        let missingSource: Int
+        let failed: Int
+        let firstFailure: String?
+        let missingSourceIds: [Int64]
+
+        /// Whether every selected title was actually fetched.
+        var isComplete: Bool { fetched == selected }
+
+        var description: String {
+            var parts = ["\(fetched)/\(selected) fetched"]
+            if missingSource > 0 {
+                var line = "\(missingSource) with no loaded source"
+                // Named, up to a point -- a library spanning thirty dead sources should not put
+                // thirty ids in an alert.
+                if !missingSourceIds.isEmpty {
+                    let shown = missingSourceIds.prefix(3).map(String.init).joined(separator: ", ")
+                    let more = missingSourceIds.count > 3 ? " and \(missingSourceIds.count - 3) more" : ""
+                    line += " (\(shown)\(more))"
+                }
+                parts.append(line)
+            }
+            if failed > 0 { parts.append("\(failed) failed") }
+            if let firstFailure { parts.append("first error -- \(firstFailure)") }
+            return parts.joined(separator: ", ")
+        }
+    }
+
+    /// Set after every refresh, so a run that did nothing can say why.
+    @Published private(set) var lastSummary: RefreshSummary?
 
     func clearLibrary() async {
         let handler = self.handler

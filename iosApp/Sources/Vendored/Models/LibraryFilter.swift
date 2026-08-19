@@ -21,6 +21,12 @@ struct LibraryFilter: Codable, Hashable {
         case source
         case contentRating
         case category
+        /// Entries a library refresh would actually fetch, by the shared update-selection rule.
+        ///
+        /// Answers "why did the refresh only cover some of my library" directly, which is
+        /// otherwise guesswork across the skip settings, the excluded categories, and each
+        /// source's own update strategy.
+        case willRefresh
 
         var title: String {
             switch self {
@@ -32,6 +38,7 @@ struct LibraryFilter: Codable, Hashable {
                 case .source: NSLocalizedString("SOURCES")
                 case .contentRating: NSLocalizedString("CONTENT_RATING")
                 case .category: NSLocalizedString("CATEGORY")
+                case .willRefresh: NSLocalizedString("FILTER_WILL_REFRESH")
             }
         }
 
@@ -45,6 +52,7 @@ struct LibraryFilter: Codable, Hashable {
                 case .source: "globe"
                 case .contentRating: "exclamationmark.triangle.fill"
                 case .category: "folder"
+                case .willRefresh: "arrow.clockwise"
             }
         }
 

@@ -138,12 +138,16 @@ extension CoreDataManager {
             return s
         }
 
-        let result = ChapterSyncKt.syncChaptersWithSource(
-            db: handler,
-            rawSourceChapters: sourceChapters,
-            manga: manga,
-            platform: Self.syncPlatform
-        )
+        // Throws only for an empty source list, which the guard above already excludes -- but it
+        // is a thrown error now rather than a process abort, so the boundary is worth respecting.
+        guard
+            let result = try? ChapterSyncKt.syncChaptersWithSource(
+                db: handler,
+                rawSourceChapters: sourceChapters,
+                manga: manga,
+                platform: Self.syncPlatform
+            )
+        else { return [] }
 
         let added = (result.first as? [DbChapter]) ?? []
         return added.map { ChapterObject(row: $0, sourceId: sourceId, mangaId: mangaId) }
