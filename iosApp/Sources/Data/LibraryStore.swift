@@ -153,6 +153,9 @@ final class LibraryStore: ObservableObject {
     func remove(url: String, sourceId: Int64) async {
         guard let record = handler.getManga(url: url, sourceId: sourceId) else { return }
         record.favorite = false
+        // Drops the cached cover, as the other app does when a title leaves the library. Without
+        // it a removed title's cover stayed in the image cache for the life of the install.
+        MangaExtensionsKt.removeCovers(record, coverCache: CoverStoreBridge.shared)
         handler.updateMangaFavorite(manga: record)
         await reload()
     }
@@ -177,6 +180,7 @@ final class LibraryStore: ObservableObject {
                     continue
                 }
                 record.favorite = false
+                MangaExtensionsKt.removeCovers(record, coverCache: CoverStoreBridge.shared)
                 handler.updateMangaFavorite(manga: record)
             }
         }
