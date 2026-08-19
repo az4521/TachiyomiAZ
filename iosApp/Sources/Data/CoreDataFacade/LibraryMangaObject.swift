@@ -16,10 +16,20 @@ final class LibraryMangaObject {
     private let sourceId: String
     private let mangaId: String
 
-    init(row: DbManga, sourceId: String, mangaId: String) {
+    /// How many chapters this title has, for the "total chapters" library sort.
+    ///
+    /// Upstream sorts on a `chapterCount` attribute of its CoreData entity. There is no such
+    /// column here, but the library query already returns the read and unread counts, and their
+    /// sum is the same number -- so it is carried in rather than counted again.
+    ///
+    /// Zero when built from a plain manga row, which has neither count.
+    let totalChapters: Int
+
+    init(row: DbManga, sourceId: String, mangaId: String, totalChapters: Int = 0) {
         self.row = row
         self.sourceId = sourceId
         self.mangaId = mangaId
+        self.totalChapters = totalChapters
     }
 
     /// Upstream's entity points at a manga; here the row *is* the manga, presented under the name

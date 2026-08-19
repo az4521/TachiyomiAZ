@@ -20,8 +20,12 @@ CREATE TABLE chapters(
 CREATE INDEX chapters_manga_id_index ON chapters(manga_id);
 CREATE INDEX chapters_unread_by_manga_index ON chapters(manga_id, read) WHERE read = 0;
 
+-- Ordered by the position the source listed them in, which is the order both apps present
+-- chapters in. Without an ORDER BY, SQLite returns them in rowid order -- insertion order, which
+-- after a sync that added chapters at both ends bears no relation to the source's own list.
+-- `_id` breaks ties, so the order is total rather than merely mostly-defined.
 getChaptersByMangaId:
-SELECT * FROM chapters WHERE manga_id = ?;
+SELECT * FROM chapters WHERE manga_id = ? ORDER BY source_order, _id;
 
 getChapterById:
 SELECT * FROM chapters WHERE _id = ?;

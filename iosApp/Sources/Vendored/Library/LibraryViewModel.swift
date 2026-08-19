@@ -93,18 +93,10 @@ class LibraryViewModel {
             }
         }
 
-        var sortStringValue: String {
-            switch self {
-                case .alphabetical: "manga.title"
-                case .lastRead: "lastRead"
-                case .lastOpened: "lastOpened"
-                case .lastUpdated: "lastUpdated"
-                case .dateAdded: "dateAdded"
-                case .lastChapter: "lastChapter"
-                case .unreadChapters: ""
-                case .totalChapters: "manga.chapterCount"
-            }
-        }
+        // `sortStringValue` lived here: CoreData key paths for the fetch request's sort
+        // descriptor. The fetch is gone, so they named attributes of an entity this app does not
+        // have -- "manga.chapterCount" among them, which never existed here at all. `LibrarySort`
+        // does the ordering now.
     }
 
     struct BadgeType: OptionSet {
@@ -259,14 +251,9 @@ extension LibraryViewModel {
         if refreshCategoryAvailability {
             hasUncategorizedManga = await CoreDataManager.shared.container
                 .performBackgroundTask { @Sendable context in
-                // Rewritten from a raw fetch: the shared database has no NSPredicate, and
-                // category membership is a join rather than a relationship on the row.
-                return CoreDataManager.shared.getLibraryManga().contains { object in
-                    guard let manga = object.manga else { return false }
-                    return CoreDataManager.shared
-                        .getCategories(sourceId: manga.sourceId, mangaId: manga.id)
-                        .isEmpty
-                }
+                // Answered by the library query itself. This walked every library entry and ran a
+                // category lookup per entry -- two queries each, on every single library load.
+                CoreDataManager.shared.hasUncategorizedLibraryManga()
             }
             normalizeCurrentCategory()
         }
@@ -275,6 +262,18 @@ extension LibraryViewModel {
         let filters = effectiveFilters
         let currentCategory = (isInUncategorizedCategory || isInRealCategory) ? self.currentCategory : nil
 
+        // The refresh filter asks a question about the library as a whole, so it is answered once
+        // here rather than per entry. Computed only when the filter is on, because it runs the
+        // whole selection rule. Deliberately not scoped to the current category: the filter means
+        // "a refresh would fetch this", and the category tab already narrows what is on screen.
+        let refreshEligible: Set<MangaIdentifier>? = filters.contains { $0.type == .willRefresh }
+            ? Set(
+                MangaManager.shared.library?
+                    .refreshTargets(settings: AppEnvironment.shared.settings)
+                    .map { MangaIdentifier(sourceKey: $0.legacySourceId, mangaKey: $0.url) } ?? []
+            )
+            : nil
+
         let (
             success,
             actuallyEmpty,
@@ -282,7 +281,7 @@ extension LibraryViewModel {
             manga,
             sourceKeys,
             unappliedFilters
-        ) = await CoreDataManager.shared.container.performBackgroundTask { @Sendable [sortMethod, sortAscending, pinType] context in
+        ) = await CoreDataManager.shared.container.performBackgroundTask { @Sendable [sortMethod, sortAscending, pinType, refreshEligible] context in
             var pinnedManga: [MangaInfo] = []
             var manga: [MangaInfo] = []
             var sourceKeys: Set<String> = []
@@ -291,14 +290,12 @@ extension LibraryViewModel {
             // Rewritten from a raw fetch. `getLibraryManga(category:)` runs the shared query;
             // "uncategorised" is not a category there, so it is filtered here instead. Sorting
             // stays below, where the view model already sorts what it has built.
+            // An empty category name is the library screen's "Uncategorized" tab. Both branches
+            // are now a filter over rows the library query already returned; the uncategorised one
+            // used to run a category lookup per library entry.
             let libraryObjects: [LibraryMangaObject] = if let currentCategory {
                 if currentCategory.isEmpty {
-                    CoreDataManager.shared.getLibraryManga().filter { object in
-                        guard let manga = object.manga else { return false }
-                        return CoreDataManager.shared
-                            .getCategories(sourceId: manga.sourceId, mangaId: manga.id)
-                            .isEmpty
-                    }
+                    CoreDataManager.shared.getUncategorizedLibraryManga()
                 } else {
                     CoreDataManager.shared.getLibraryManga(category: currentCategory)
                 }
@@ -308,9 +305,23 @@ extension LibraryViewModel {
 
             let actuallyEmpty = libraryObjects.isEmpty
 
+            // Upstream sorts with an NSSortDescriptor on the fetch request. The fetch is gone --
+            // this reads the shared query instead -- and the sort went with it, which is why every
+            // option except title and unread count appeared to do nothing. Same keys, same
+            // inversion for alphabetical, applied to the rows before they become view models.
+            let sortedObjects = LibrarySort.sorted(
+                libraryObjects,
+                by: sortMethod,
+                ascending: sortAscending
+            )
+
             var ids = Set<String>()
 
-            main: for libraryObject in libraryObjects {
+            // Two queries for the whole library, rather than the two per entry this used to run
+            // inside the loop below -- the single biggest cost of loading the library screen.
+            let categoriesByManga = CoreDataManager.shared.libraryCategoryNames()
+
+            main: for libraryObject in sortedObjects {
                 guard
                     let mangaObject = libraryObject.manga,
                     // ensure the manga hasn't already been accounted for
@@ -319,9 +330,9 @@ extension LibraryViewModel {
                     continue
                 }
 
-                let categories = CoreDataManager.shared
-                    .getCategories(sourceId: mangaObject.sourceId, mangaId: mangaObject.id)
-                    .map { $0.name }
+                let categories = categoriesByManga[
+                    MangaIdentifier(sourceKey: mangaObject.sourceId, mangaKey: mangaObject.id)
+                ] ?? []
 
                 let info = MangaInfo(
                     mangaId: mangaObject.id,
@@ -362,6 +373,8 @@ extension LibraryViewModel {
                             )
                         case .completed:
                             condition = mangaObject.status == ExtensionRunner.PublishingStatus.completed.rawValue
+                        case .willRefresh:
+                            condition = refreshEligible?.contains(info.identifier) ?? false
                         case .source:
                             guard let sourceId = filter.value else { continue }
                             if filter.exclude {
@@ -938,6 +951,43 @@ extension LibraryViewModel {
     }
 }
 
+/// Orders library rows the way upstream's sort descriptor did.
+///
+/// Outside `LibraryViewModel` because that type is `@MainActor` and this runs on the background
+/// task that loads the library, alongside the query it orders.
+///
+/// Two details carried over from upstream rather than reasoned out fresh: `.alphabetical` inverts
+/// the ascending flag (its menu labels it the other way round), and `.unreadChapters` is not
+/// sorted here at all -- the counts are not known until the badge pass has run, so `sortLibrary`
+/// handles that one afterwards.
+enum LibrarySort {
+    static func sorted(
+        _ objects: [LibraryMangaObject],
+        by method: LibraryViewModel.SortMethod,
+        ascending: Bool
+    ) -> [LibraryMangaObject] {
+        // A missing date sorts as the distant past, which puts it first ascending -- where a nil
+        // sorts under upstream's descriptor.
+        func by<T: Comparable>(
+            _ key: (LibraryMangaObject) -> T,
+            _ ascending: Bool
+        ) -> [LibraryMangaObject] {
+            objects.sorted { ascending ? key($0) < key($1) : key($0) > key($1) }
+        }
+
+        switch method {
+            case .alphabetical: return by({ ($0.manga?.title ?? "").lowercased() }, !ascending)
+            case .lastRead: return by({ $0.lastRead ?? .distantPast }, ascending)
+            case .lastOpened: return by({ $0.lastOpened ?? .distantPast }, ascending)
+            case .lastUpdated: return by({ $0.lastUpdated ?? .distantPast }, ascending)
+            case .dateAdded: return by({ $0.dateAdded ?? .distantPast }, ascending)
+            case .lastChapter: return by({ $0.lastChapter ?? .distantPast }, ascending)
+            case .totalChapters: return by({ $0.totalChapters }, ascending)
+            case .unreadChapters: return objects
+        }
+    }
+}
+
 struct LibrarySearchQuery {
     struct Term: Equatable {
         let value: String
@@ -950,6 +1000,20 @@ struct LibrarySearchQuery {
         terms = Self.parse(query)
     }
 
+    /// Whether a library entry matches the query.
+    ///
+    /// Matches the Android app's rule, which is a plain case-insensitive substring test. This used
+    /// `fuzzyMatch`, a *subsequence* test -- "nrt" matches "Naruto" because n, r and t appear in
+    /// that order somewhere -- so almost any short query matched most of a library. Searching the
+    /// same words on the two apps returned wildly different sets.
+    ///
+    /// Tags are no longer searched by plain terms either, for the same reason: on Android a genre
+    /// is only searched behind an explicit flag, so "action" matched nothing here and every
+    /// action title there. They are still searched by `-term`, which can only ever remove results.
+    ///
+    /// Known remaining differences from Android, both of which would *add* results rather than
+    /// inflate them: it also matches the artist and the source name, and searches linked trackers.
+    /// `MangaInfo` carries neither artist nor source name today.
     func matches(_ manga: MangaInfo) -> Bool {
         let fields = [manga.title, manga.author].compactMap { $0?.searchNormalized }
         let tags = (manga.tags ?? []).map(\.searchNormalized)
@@ -962,8 +1026,7 @@ struct LibrarySearchQuery {
                 if tags.contains(where: { $0.contains(normalizedTerm) }) {
                     return false
                 }
-            } else if !fields.contains(where: { $0.fuzzyMatch(normalizedTerm) ?? false })
-                        && !tags.contains(where: { $0.contains(normalizedTerm) }) {
+            } else if !fields.contains(where: { $0.contains(normalizedTerm) }) {
                 return false
             }
         }
