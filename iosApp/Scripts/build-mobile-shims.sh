@@ -46,6 +46,27 @@ mkdir -p \
     "$compat_test_build_root" \
     "$output_root" \
     "$compat_root"
+
+# Seed the dependency jars the compile classpath needs.
+#
+# They are the Suwayomi AndroidCompat runtime and its dependencies -- 56MB of third-party build
+# output, produced by bootstrap-suwayomi-compat.sh cloning and building Suwayomi-Server at a
+# pinned commit. Neither this repository nor the fork commits them, so a fresh clone has none.
+#
+# If a previous iOS build has already staged them under iosApp/Vendor, reuse those rather than
+# making the developer bootstrap twice. A clean machine still needs the bootstrap; this only
+# spares the common case.
+vendored_compat="$repository_root/iosApp/Vendor/jars/compat"
+if [[ -d "$vendored_compat" ]]; then
+    for jar in "$vendored_compat"/*.jar; do
+        [[ -e "$jar" ]] || continue
+        # Never overwrite the shim jar this script is about to produce.
+        [[ "$(basename "$jar")" == "000-tachiaz-mobile-compat-shims.jar" ]] && continue
+        target="$compat_root/$(basename "$jar")"
+        [[ -f "$target" ]] || cp "$jar" "$target"
+    done
+fi
+
 if [[ ! -f "$aircompressor_jar" ]] ||
     ! echo "$aircompressor_sha256  $aircompressor_jar" | "${checksum[@]}" -c -
 then

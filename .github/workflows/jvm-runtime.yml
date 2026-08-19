@@ -1,10 +1,15 @@
 name: JVM Runtime
 
-# The jars under Runtime/*/dist are committed but built from Java sources in the same
-# tree, so the two can drift: edit the source without rebuilding, or rebuild without
-# committing, and nothing downstream notices. That is not hypothetical -- the
-# SchaleNetwork WebView fix shipped with only its Swift half for exactly this reason,
-# back when the Java source was not even in this repository.
+# tachiaz-extension-host.jar is committed but built from Java sources in the same tree,
+# so the two can drift: edit the source without rebuilding, or rebuild without committing,
+# and nothing downstream notices. That is not hypothetical -- the SchaleNetwork WebView fix
+# shipped with only its Swift half for exactly this reason.
+#
+# Only that one jar is checked. The mobile and compat shims compile against the Suwayomi
+# AndroidCompat runtime, 56MB of third-party build output that no one commits and that takes
+# a clone-and-Gradle-build to produce, so a clean runner cannot rebuild them cheaply. Their
+# protection is different: their sources live here now, build-jvm-runtime.sh regenerates them,
+# and stage-jvm-resources.sh warns when a staged jar is older than the source it came from.
 
 on:
   push:
