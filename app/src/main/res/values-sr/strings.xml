@@ -106,7 +106,6 @@
     <string name="pref_library_update_restriction_summary">Ažuriraj samo kada su uslovi zadovoljeni</string>
     <string name="wifi">Wi-Fi</string>
     <string name="charging">Punjenje</string>
-    <string name="pref_update_only_non_completed">Samo ažuriraj mangu koja je u toku</string>
     <string name="pref_auto_update_manga_sync">Sinhronizuj poglavlja nakon čitanja</string>
     <string name="pref_start_screen">Početni ekran</string>
     <string name="pref_language">Jezik</string>

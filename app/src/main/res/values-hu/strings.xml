@@ -53,7 +53,6 @@
     <string name="pref_library_update_restriction_summary">Frissítés csak akkor, ha a feltételek teljesülnek</string>
     <string name="wifi">Wi-Fi</string>
     <string name="charging">Töltés</string>
-    <string name="pref_update_only_non_completed">Csak a folyamatban lévő mangákat frissítse</string>
     <string name="pref_start_screen">Kezdőképernyő</string>
     <string name="pref_language">Nyelv</string>
     <string name="system_default">Rendszer alapértelmezése</string>

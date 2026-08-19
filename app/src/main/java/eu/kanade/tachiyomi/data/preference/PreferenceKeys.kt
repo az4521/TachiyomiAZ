@@ -68,6 +68,23 @@ object PreferenceKeys {
 
     const val updateOnlyNonCompleted = "pref_update_only_non_completed_key"
 
+    /**
+     * Which titles a library update skips, as a set of [libraryUpdateSkipHasUnread],
+     * [libraryUpdateSkipCompleted] and [libraryUpdateSkipNotStarted].
+     *
+     * Replaces [updateOnlyNonCompleted], which offered only the completed filter. That key is kept
+     * so an existing setting can be carried over once; see PreferencesHelper.
+     */
+    const val libraryUpdateSkip = "pref_library_update_skip_key"
+
+    const val libraryUpdateSkipMigrated = "pref_library_update_skip_migrated_key"
+
+    const val libraryUpdateSkipHasUnread = "hasUnread"
+
+    const val libraryUpdateSkipCompleted = "completed"
+
+    const val libraryUpdateSkipNotStarted = "notStarted"
+
     const val autoUpdateTrack = "pref_auto_update_manga_sync_key"
 
     const val trackMarkedAsRead = "pref_track_marked_as_read_key"

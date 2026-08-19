@@ -289,7 +289,6 @@
     <string name="default_category_summary">ಯಾವಾಗಲೂ ಕೇಳಿ</string>
     <string name="default_category">ಡೀಫಾಲ್ಟ್ ವರ್ಗ</string>
     <string name="pref_category_library_categories">ವರ್ಗಗಳು</string>
-    <string name="pref_update_only_non_completed">ಚಾಲ್ತಿಯಿರುವ ಮಾಂಗಾವನ್ನು ಮಾತ್ರ ನವೀಕರಿಸಿ</string>
     <string name="charging">ಚಾರ್ಜಿಂಗ್</string>
     <string name="wifi">ವೈಫೈ</string>
     <string name="pref_library_update_restriction_summary">ಷರತ್ತುಗಳನ್ನು ಪೂರೈಸಿದಾಗ ಮಾತ್ರ ನವೀಕರಿಸಿ</string>

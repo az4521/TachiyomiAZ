@@ -99,7 +99,6 @@
     <string name="pref_library_update_restriction_summary">تحديث فقط عندما يتم استيفاء الشروط</string>
     <string name="wifi">الواي فاى Wi-Fi</string>
     <string name="charging">أثناء الشحن</string>
-    <string name="pref_update_only_non_completed">تحديث المانجا المستمرة فقط</string>
     <string name="pref_auto_update_manga_sync">مزامنة الفصول بعد القراءة</string>
     <string name="pref_start_screen">شاشة البداية</string>
     <string name="pref_language">اللغة</string>

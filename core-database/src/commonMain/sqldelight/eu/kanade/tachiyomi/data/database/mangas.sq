@@ -93,15 +93,21 @@ SELECT last_insert_rowid();
 -- Library view: every favourite manga, once per category it belongs to (or category 0 when
 -- uncategorised), with its unread count. `unread` and `category` are computed aliases, not
 -- columns on mangas -- which is why they are absent from the table definition above.
+-- `readCount` answers "has this been started", which the library-update skip settings need. It
+-- comes from the same pass over chapters as `unread` -- conditional sums rather than a second
+-- WHERE'd subquery and a second join -- so the extra answer costs nothing. Written with CASE
+-- rather than COUNT(*) FILTER because FILTER needs SQLite 3.30, which is newer than the version
+-- bundled with the Android versions this app still supports.
 getLibraryMangas:
 SELECT M.*, COALESCE(MC.category_id, 0) AS category
 FROM (
-    SELECT mangas.*, COALESCE(C.unread, 0) AS unread
+    SELECT mangas.*, COALESCE(C.unread, 0) AS unread, COALESCE(C.readCount, 0) AS readCount
     FROM mangas
     LEFT JOIN (
-        SELECT manga_id, COUNT(*) AS unread
+        SELECT manga_id,
+            SUM(CASE WHEN read = 0 THEN 1 ELSE 0 END) AS unread,
+            SUM(CASE WHEN read = 1 THEN 1 ELSE 0 END) AS readCount
         FROM chapters
-        WHERE read = 0
         GROUP BY manga_id
     ) AS C
     ON mangas._id = C.manga_id

@@ -72,6 +72,7 @@ fun mapLibraryManga(
     updateStrategy: Long,
     memo: ByteArray,
     unread: Long,
+    readCount: Long,
     category: Long
 ): LibraryManga =
     LibraryManga().also {
@@ -95,6 +96,7 @@ fun mapLibraryManga(
         it.update_strategy = updateStrategyAdapter.decode(updateStrategy.toInt())
         it.memo = memoColumnAdapter.decode(memo)
         it.unread = unread.toInt()
+        it.read = readCount.toInt()
         it.category = category.toInt()
     }
 

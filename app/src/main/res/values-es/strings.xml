@@ -74,7 +74,6 @@
     <string name="pref_library_update_restriction_summary">Actualizar solo cuando se cumplan las condiciones</string>
     <string name="wifi">Wi-Fi</string>
     <string name="charging">Cargando</string>
-    <string name="pref_update_only_non_completed">Solo actualizar manga no finalizada</string>
     <string name="pref_auto_update_manga_sync">Sincronizar capítulos después de leerlos</string>
     <!-- Reader section -->
     <string name="pref_fullscreen">Pantalla completa</string>

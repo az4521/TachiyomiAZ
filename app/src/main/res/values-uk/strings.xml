@@ -106,7 +106,6 @@
     <string name="pref_library_update_restriction_summary">Оновлювати коли умови виконано</string>
     <string name="wifi">Wi-Fi</string>
     <string name="charging">Заряджається</string>
-    <string name="pref_update_only_non_completed">Оновлювати тільки ongoing мангу</string>
     <string name="pref_auto_update_manga_sync">Синхронізувати глави після прочитання</string>
     <string name="pref_start_screen">Стартовий екран</string>
     <string name="pref_language">Мова</string>

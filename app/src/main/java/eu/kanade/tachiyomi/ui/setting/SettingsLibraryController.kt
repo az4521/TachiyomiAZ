@@ -129,10 +129,50 @@ class SettingsLibraryController : SettingsController() {
                         true
                     }
                 }
-                switchPreference {
-                    key = Keys.updateOnlyNonCompleted
-                    titleRes = R.string.pref_update_only_non_completed
-                    defaultValue = false
+                multiSelectListPreference {
+                    // Was a single "only update ongoing manga" switch. The iOS app offers three
+                    // filters here and the rule behind them is shared, so this offers the same
+                    // three rather than the platforms disagreeing about what an update touches.
+                    key = Keys.libraryUpdateSkip
+                    titleRes = R.string.pref_library_update_skip
+                    entriesRes =
+                        arrayOf(
+                            R.string.pref_library_update_skip_unread,
+                            R.string.pref_library_update_skip_completed,
+                            R.string.pref_library_update_skip_not_started
+                        )
+                    entryValues =
+                        arrayOf(
+                            Keys.libraryUpdateSkipHasUnread,
+                            Keys.libraryUpdateSkipCompleted,
+                            Keys.libraryUpdateSkipNotStarted
+                        )
+                    // Read through the helper so the old switch is carried over before the
+                    // preference screen binds to the new key.
+                    defaultValue = preferences.libraryUpdateSkip().get()
+
+                    preferences.libraryUpdateSkip().asFlow()
+                        .onEach { selected ->
+                            summary =
+                                if (selected.isEmpty()) {
+                                    context.getString(R.string.pref_library_update_skip_none)
+                                } else {
+                                    selected
+                                        .mapNotNull { value ->
+                                            when (value) {
+                                                Keys.libraryUpdateSkipHasUnread ->
+                                                    R.string.pref_library_update_skip_unread_short
+                                                Keys.libraryUpdateSkipCompleted ->
+                                                    R.string.pref_library_update_skip_completed_short
+                                                Keys.libraryUpdateSkipNotStarted ->
+                                                    R.string.pref_library_update_skip_not_started_short
+                                                else -> null
+                                            }
+                                        }
+                                        .joinToString { context.getString(it) }
+                                }
+                        }
+                        .launchIn(scope)
                 }
                 multiSelectListPreference {
                     key = Keys.libraryUpdateCategories

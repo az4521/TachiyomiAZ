@@ -184,23 +184,18 @@ final class LibraryStore: ObservableObject {
     ) async {
         lastError = nil
 
-        let selection = LibraryUpdateSelectionKt.selectLibraryMangaToUpdate(
+        // All three skip filters are the shared rule's, so this app and the Android one refresh
+        // the same set. The unread and not-started filters used to be applied here afterwards,
+        // with a chapter query per library entry to find out what had been read; the library query
+        // counts both now, so the rule can answer it without the extra pass.
+        let targets = LibraryUpdateSelectionKt.selectLibraryMangaToUpdate(
             library: handler.getLibraryMangas(),
             categoryId: categoryId ?? LibraryUpdateSelectionKt.ALL_CATEGORIES,
             categoriesToUpdate: settings.updateCategories.map { KotlinInt(int: $0) },
-            excludeCompleted: settings.skipCompleted
+            excludeCompleted: settings.skipCompleted,
+            excludeUnread: settings.skipUnread,
+            excludeNotStarted: settings.skipNotStarted
         )
-
-        // Only pay for the chapter lookup when a read-state filter is actually on.
-        let targets: [LibraryManga]
-        if settings.needsReadState {
-            targets = selection.filter { entry in
-                let hasStarted = handler.getChapters(manga: entry).contains { $0.read }
-                return settings.shouldRefresh(unread: Int(entry.unread), hasStarted: hasStarted)
-            }
-        } else {
-            targets = selection
-        }
         guard !targets.isEmpty else { return }
 
         refreshProgress = (0, targets.count)

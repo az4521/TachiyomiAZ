@@ -76,18 +76,16 @@ final class AppSettings: ObservableObject {
         Set(Self.defaults.stringArray(forKey: Key.skipTitles) ?? [])
     }
 
-    /// Handled by the shared `selectLibraryMangaToUpdate`.
+    /// The three skip filters, all of them handled by the shared `selectLibraryMangaToUpdate`.
+    ///
+    /// Two of these were applied here instead, on top of the shared selection, because the rule had
+    /// no read counts to work with. It has them now -- the library query computes them -- so all
+    /// three are the shared rule's answer and the Android app offers exactly the same three.
     var skipCompleted: Bool { skipTitles.contains(SkipTitle.completed) }
 
-    /// Applied on top of the shared selection, because they depend on read counts the shared rule
-    /// does not take. Kept as plain filters so the shared rule stays the single source of truth for
-    /// everything it does cover.
     var skipUnread: Bool { skipTitles.contains(SkipTitle.hasUnread) }
 
     var skipNotStarted: Bool { skipTitles.contains(SkipTitle.notStarted) }
-
-    /// Not offered by the settings screens; the fork's "skip titles" has no fully-read option.
-    var skipFullyRead: Bool { false }
 
     /// Whether a refresh should re-read details as well as chapters.
     var refreshMetadata: Bool { Self.defaults.bool(forKey: Key.refreshMetadata) }
@@ -99,20 +97,4 @@ final class AppSettings: ObservableObject {
         contentFilter = UserDefaults.standard.string(forKey: Key.contentFilter)
             .flatMap(ContentFilter.init(rawValue:)) ?? .hideAdult
     }
-
-    /// The read-state filters, applied after the shared selection rule.
-    ///
-    /// `hasStarted` is passed in rather than read off LibraryManga, which exposes only `category`
-    /// and `unread` -- whether anything was actually read has to come from the chapters table.
-    func shouldRefresh(unread: Int, hasStarted: Bool) -> Bool {
-        if skipUnread && unread > 0 { return false }
-        // "Fully read" means started and nothing left unread.
-        if skipFullyRead && hasStarted && unread == 0 { return false }
-        if skipNotStarted && !hasStarted { return false }
-        return true
-    }
-
-    /// True when any of the read-state filters is on, so callers can skip the per-manga chapter
-    /// lookup entirely in the common case where none is.
-    var needsReadState: Bool { skipFullyRead || skipUnread || skipNotStarted }
 }

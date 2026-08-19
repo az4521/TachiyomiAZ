@@ -207,7 +207,6 @@
     <string name="default_category_summary">שאל תמיד</string>
     <string name="default_category">קטגוריית ברירת המחדל</string>
     <string name="pref_category_library_categories">קטגוריות</string>
-    <string name="pref_update_only_non_completed">עדכן רק מאנגה מתמשכת</string>
     <string name="charging">טוען</string>
     <string name="pref_library_update_restriction_summary">עדכן רק כאשר מתקיימים התנאים</string>
     <string name="pref_library_update_restriction">מגבלות עדכון הספריה</string>

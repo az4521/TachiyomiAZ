@@ -16,7 +16,9 @@ class LibraryUpdateSelectionTest {
         id: Long,
         category: Int,
         status: Int = SManga.ONGOING,
-        strategy: UpdateStrategy = UpdateStrategy.ALWAYS_UPDATE
+        strategy: UpdateStrategy = UpdateStrategy.ALWAYS_UPDATE,
+        unread: Int = 0,
+        read: Int = 0
     ) = LibraryManga().apply {
         this.id = id
         this.category = category
@@ -25,6 +27,8 @@ class LibraryUpdateSelectionTest {
         this.title = "Manga $id"
         this.status = status
         this.update_strategy = strategy
+        this.unread = unread
+        this.read = read
     }
 
     @Test
@@ -64,6 +68,49 @@ class LibraryUpdateSelectionTest {
         val library = listOf(entry(1, 0), entry(2, 0, status = SManga.COMPLETED))
         assertEquals(2, selectLibraryMangaToUpdate(library, excludeCompleted = false).size)
         assertEquals(listOf(1L), selectLibraryMangaToUpdate(library, excludeCompleted = true).map { it.id })
+    }
+
+    @Test
+    fun `series with unread chapters are dropped only when asked`() {
+        val library = listOf(entry(1, 0, unread = 0, read = 4), entry(2, 0, unread = 3, read = 1))
+        assertEquals(2, selectLibraryMangaToUpdate(library, excludeUnread = false).size)
+        assertEquals(
+            listOf(1L),
+            selectLibraryMangaToUpdate(library, excludeUnread = true).map { it.id }
+        )
+    }
+
+    @Test
+    fun `unstarted series are dropped only when asked`() {
+        // Nothing read is what "not started" means; an entry with no chapters at all counts too,
+        // which is right -- it has certainly not been read.
+        val library = listOf(entry(1, 0, read = 2), entry(2, 0, unread = 5, read = 0))
+        assertEquals(2, selectLibraryMangaToUpdate(library, excludeNotStarted = false).size)
+        assertEquals(
+            listOf(1L),
+            selectLibraryMangaToUpdate(library, excludeNotStarted = true).map { it.id }
+        )
+    }
+
+    @Test
+    fun `the skip filters combine`() {
+        // Every filter is a separate exclusion, so asking for all three leaves only a title that
+        // is ongoing, caught up, and has been started.
+        val library =
+            listOf(
+                entry(1, 0, read = 3),
+                entry(2, 0, status = SManga.COMPLETED, read = 3),
+                entry(3, 0, unread = 1, read = 3),
+                entry(4, 0, read = 0)
+            )
+        val result =
+            selectLibraryMangaToUpdate(
+                library,
+                excludeCompleted = true,
+                excludeUnread = true,
+                excludeNotStarted = true
+            )
+        assertEquals(listOf(1L), result.map { it.id })
     }
 
     @Test

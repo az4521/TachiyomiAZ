@@ -106,7 +106,6 @@
     <string name="pref_library_update_restriction_summary">Uppdatera endast när vilkoren är uppfyllda</string>
     <string name="wifi">WiFi</string>
     <string name="charging">Laddning</string>
-    <string name="pref_update_only_non_completed">Uppdatera endast pågående manga</string>
     <string name="pref_auto_update_manga_sync">Synkronisera kapitel efter läsning</string>
     <string name="pref_start_screen">Startskärm</string>
     <string name="pref_language">Språk</string>

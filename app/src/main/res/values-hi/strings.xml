@@ -103,7 +103,6 @@
     <string name="pref_library_update_restriction_summary">अद्यतन तभी जब परिस्थिति अनुकूल हो</string>
     <string name="wifi">वाई - फाई</string>
     <string name="charging">चार्ज होते समय</string>
-    <string name="pref_update_only_non_completed">केवल चालू मंगा का अद्यतन करे</string>
     <string name="pref_auto_update_manga_sync">अध्याय पढ़ने के बाद समकालीन करे</string>
     <string name="pref_start_screen">प्रथम प्रदर्शनी</string>
     <string name="pref_language">भाषा</string>

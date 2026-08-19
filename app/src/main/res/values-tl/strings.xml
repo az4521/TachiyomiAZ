@@ -107,7 +107,6 @@
     <string name="pref_library_update_restriction_summary">I-update lamang kung nakamit ang mga kondisyon</string>
     <string name="wifi">Wi-Fi</string>
     <string name="charging">Habang nagtsa-charge</string>
-    <string name="pref_update_only_non_completed">I-update lamang ang (mga) nagpapatuloy na manga</string>
     <string name="pref_auto_update_manga_sync">I-sync ang mga kabanata pagkatapos basahin</string>
     <string name="pref_start_screen">Start screen</string>
     <string name="pref_language">Wika</string>

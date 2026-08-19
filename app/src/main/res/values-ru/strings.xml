@@ -206,7 +206,6 @@
     <string name="pref_rotation_type">Ориентация</string>
     <string name="pref_show_page_number">Показывать номер страницы</string>
     <string name="pref_start_screen">Стартовый экран</string>
-    <string name="pref_update_only_non_completed">Обновлять только незавершенную мангу</string>
     <string name="pref_viewer_type">Направление чтения</string>
     <string name="pref_zoom_start">Стартовая позиция увеличения</string>
     <string name="reading">Читаю</string>

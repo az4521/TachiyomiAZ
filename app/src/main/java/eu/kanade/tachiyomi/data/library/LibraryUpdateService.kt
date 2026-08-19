@@ -17,6 +17,7 @@ import eu.kanade.tachiyomi.data.download.DownloadService
 import eu.kanade.tachiyomi.data.library.LibraryUpdateRanker.rankingScheme
 import eu.kanade.tachiyomi.data.library.LibraryUpdateService.Companion.start
 import eu.kanade.tachiyomi.data.notification.Notifications
+import eu.kanade.tachiyomi.data.preference.PreferenceKeys
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.domain.library.ALL_CATEGORIES
@@ -246,11 +247,24 @@ class LibraryUpdateService(
 
         // The rule itself lives in :core-domain so iOS reaches the same answer; everything
         // platform-shaped is resolved here first.
+        //
+        // All three skip filters are for chapter updates only. A metadata refresh is asking the
+        // source what a title *is*, and none of these -- caught up, finished, never opened -- says
+        // anything about whether its description or cover has changed.
+        val skip =
+            if (target == Target.CHAPTERS) {
+                preferences.libraryUpdateSkip().get()
+            } else {
+                emptySet()
+            }
+
         return selectLibraryMangaToUpdate(
             library = db.getLibraryMangas(),
             categoryId = categoryId,
             categoriesToUpdate = preferences.libraryUpdateCategories().get().map(String::toInt),
-            excludeCompleted = target == Target.CHAPTERS && preferences.updateOnlyNonCompleted()
+            excludeCompleted = PreferenceKeys.libraryUpdateSkipCompleted in skip,
+            excludeUnread = PreferenceKeys.libraryUpdateSkipHasUnread in skip,
+            excludeNotStarted = PreferenceKeys.libraryUpdateSkipNotStarted in skip
         )
     }
 
