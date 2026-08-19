@@ -53,6 +53,31 @@ extension CoreDataManager {
         remove(syncIds: Set(handler.getAllTracks().map(\.sync_id)))
     }
 
+    /// Removes a tracker's links whose stored id satisfies `matches`.
+    ///
+    /// The enhanced trackers need this to drop every link to one server when its source is
+    /// removed: their id carries the source key, so which rows to delete is a question about the
+    /// id's contents rather than about a manga. Upstream fetches `TrackObject` with a predicate;
+    /// there is no such entity here.
+    /// `matches` escapes because the deletion runs inside a database transaction block.
+    func removeTracks(trackerId: String, where matches: @escaping (String) -> Bool) {
+        guard let sync = TrackerSyncId.syncId(for: trackerId) else { return }
+        let handler = self.handler
+        let byId = Dictionary(
+            handler.getMangas().compactMap { manga in manga.id.map { ($0.int64Value, manga) } },
+            uniquingKeysWith: { first, _ in first }
+        )
+        handler.inTransaction {
+            for track in handler.getAllTracks() where track.sync_id == sync {
+                let storedId = TrackerSyncId.usesTrackingUrlAsId(syncId: sync)
+                    ? track.tracking_url
+                    : String(track.media_id)
+                guard matches(storedId), let manga = byId[track.manga_id_] else { continue }
+                handler.deleteTrackForManga(manga: manga, syncId: sync)
+            }
+        }
+    }
+
     private func remove(syncIds: Set<Int32>) {
         let handler = self.handler
         let byId = Dictionary(
@@ -92,9 +117,16 @@ extension CoreDataManager {
         let track = TrackImpl()
         track.manga_id_ = mangaRowId
         track.sync_id = sync
-        track.media_id = Int64(id) ?? 0
         track.title = title ?? ""
-        track.tracking_url = ""
+        // The enhanced trackers' id is a composite string, which does not fit the integer column;
+        // it goes where Android puts it instead.
+        if TrackerSyncId.usesTrackingUrlAsId(syncId: sync) {
+            track.media_id = 0
+            track.tracking_url = id
+        } else {
+            track.media_id = Int64(id) ?? 0
+            track.tracking_url = ""
+        }
         handler.insertTrack(track: track)
 
         setTrackChapterOffset(

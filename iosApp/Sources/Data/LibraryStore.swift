@@ -27,8 +27,22 @@ final class IOSChapterSyncPlatform: NSObject, ChapterSyncPlatform {
         // the extension has already normalised the name before it crossed the JVM boundary.
     }
 
-    func isChapterDownloaded(chapter: any DbChapter, manga: any DbManga) -> Bool { false }
+    func isChapterDownloaded(chapter: any DbChapter, manga: any DbManga) -> Bool {
+        DownloadManager.shared.getDownloadStatus(
+            for: ChapterIdentifier(
+                sourceKey: manga.legacySourceId,
+                mangaKey: manga.url,
+                chapterKey: chapter.url
+            )
+        ) == .finished
+    }
 
+    /// Nothing to move.
+    ///
+    /// On Android a download lives in a directory named after the chapter, so a source renaming a
+    /// chapter orphans it and the sync has to move it. Here `DownloadCache` keys directories by
+    /// the chapter's key -- its url -- which a rename does not touch, so the download stays
+    /// attached on its own. Empty because there is genuinely no work, not because it is unfinished.
     func renameDownloadedChapter(manga: any DbManga, from: any DbChapter, to: any DbChapter) {}
 
     /// Only the EH/EXH sources carry progress over, and those are deliberately out of scope.

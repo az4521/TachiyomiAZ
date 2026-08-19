@@ -27,6 +27,21 @@ enum EnhancedSourceBridge {
         packages[packageName]
     }
 
+    /// Which enhanced service a source belongs to, if any.
+    ///
+    /// This is what the three trackers ask before offering to track a title. Upstream answers it
+    /// with `sourceKey.hasPrefix(KomgaSourceRunner.sourceKeyPrefix)`, because its Komga source is
+    /// built in and owns a key prefix. Here the source is a JVM extension whose key is
+    /// `mihon.<id>` like every other, carrying nothing about which server it talks to -- so the
+    /// question is answered by the extension behind it instead.
+    static func service(forSourceKey sourceKey: String) -> String? {
+        guard
+            let id = SourceIdentity.numericId(sourceKey),
+            let descriptor = SourceManager.shared.descriptors.first(where: { $0.id == id })
+        else { return nil }
+        return service(forExtension: descriptor.extensionId)
+    }
+
     /// The setting keys the Tachiyomi extensions use, mapped to the names the helpers read.
     ///
     /// The extensions spell these differently from Aidoku's sources -- `address` rather than

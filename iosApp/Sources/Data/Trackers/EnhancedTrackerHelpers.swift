@@ -74,6 +74,15 @@ extension EnhancedServerHelper {
 
 struct KomgaHelper: EnhancedServerHelper {
     let sourceKey: String
+
+    /// Komga's endpoints are plain REST paths under the configured server.
+    func request<T: Decodable>(
+        path: String,
+        method: HttpMethod = .GET,
+        body: Data? = nil
+    ) async throws -> T {
+        try await perform(path: path, method: method.rawValue, body: body)
+    }
 }
 
 struct KavitaHelper: EnhancedServerHelper {

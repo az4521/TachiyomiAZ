@@ -32,4 +32,21 @@ enum TrackerSyncId {
     static func trackerId(for syncId: Int32) -> String? {
         ids.first { $0.value == syncId }?.key
     }
+
+    /// The trackers that track against the server a manga came from.
+    ///
+    /// They identify a title by a composite string -- the source key and the series id -- rather
+    /// than a number, so their id does not fit `manga_sync.media_id`, which is an integer. Android
+    /// has the same problem and solves it by keying these three on `tracking_url` instead:
+    /// `Komga.kt` matches with `track.tracking_url == manga.url`. This app follows that, so a
+    /// title tracked against a Komga server on one platform is recognised on the other.
+    private static let enhanced: Set<Int32> = [9, 10, 11]
+
+    static func usesTrackingUrlAsId(syncId: Int32) -> Bool {
+        enhanced.contains(syncId)
+    }
+
+    static func usesTrackingUrlAsId(trackerId: String) -> Bool {
+        syncId(for: trackerId).map(usesTrackingUrlAsId(syncId:)) ?? false
+    }
 }

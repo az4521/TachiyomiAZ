@@ -68,7 +68,7 @@ final class SuwayomiTracker: EnhancedTracker, PageTracker {
     }
 
     func canRegister(sourceKey: String, mangaKey: String) -> Bool {
-        sourceKey.hasPrefix(SuwayomiSourceRunner.sourceKeyPrefix) && !UserDefaults.standard.bool(forKey: "\(sourceKey).disableTracking")
+        EnhancedSourceBridge.service(forSourceKey: sourceKey) == "suwayomi" && !UserDefaults.standard.bool(forKey: "\(sourceKey).disableTracking")
     }
 
     func setProgress(trackId: String, chapter: ExtensionRunner.Chapter, progress: ChapterReadProgress) async throws {
@@ -97,26 +97,10 @@ final class SuwayomiTracker: EnhancedTracker, PageTracker {
     }
 
     func removeTrackItems(source: ExtensionRunner.Source) async {
-        await CoreDataManager.shared.container.performBackgroundTask { context in
-            let request = TrackObject.fetchRequest()
-            request.predicate = NSPredicate(
-                format: "trackerId == %@",
-                self.id
-            )
-            do {
-                let items = try? context.fetch(request)
-                guard let items else { return }
-                for item in items {
-                    guard let id = item.id else { continue }
-                    let (sourceKey, _) = try self.getIdParts(from: id)
-                    if sourceKey == source.key {
-                        context.delete(item)
-                    }
-                }
-                try context.save()
-            } catch {
-                LogManager.logger.error("Error removing suwayomi track items: \(error)")
-            }
+        // Every link this tracker holds against the server this source talks to. The id carries
+        // the source key, so the source being removed is what decides which rows go.
+        CoreDataManager.shared.removeTracks(trackerId: id) { storedId in
+            (try? self.getIdParts(from: storedId))?.sourceKey == source.key
         }
     }
 }

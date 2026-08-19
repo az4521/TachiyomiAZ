@@ -125,9 +125,12 @@ extension DbChapter {
 
 extension Track {
     /// The tracker view model for this `manga_sync` row.
+    ///
+    /// Komga, Kavita and Suwayomi identify a title by a composite string rather than a number, so
+    /// theirs is read back from `tracking_url` -- see `TrackerSyncId.usesTrackingUrlAsId`.
     func toItem() -> TrackItem {
         TrackItem(
-            id: String(media_id),
+            id: TrackerSyncId.usesTrackingUrlAsId(syncId: sync_id) ? tracking_url : String(media_id),
             trackerId: TrackerSyncId.trackerId(for: sync_id) ?? String(sync_id),
             sourceId: "",
             mangaId: String(manga_id_),

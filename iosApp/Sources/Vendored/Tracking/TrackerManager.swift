@@ -30,6 +30,12 @@ actor TrackerManager {
     static let mangaupdates = MangaUpdatesTracker()
     /// An instance of the Hikka tracker.
     static let hikka = HikkaTracker()
+    /// An instance of the Komga tracker.
+    static let komga = KomgaTracker()
+    /// An instance of the Kavita tracker.
+    static let kavita = KavitaTracker()
+    /// An instance of the Suwayomi tracker.
+    static let suwayomi = SuwayomiTracker()
 
     /// An array of the available trackers.
     ///
@@ -37,12 +43,15 @@ actor TrackerManager {
     /// tachiyomiazios, so those three are written for this port against the same endpoints Android
     /// uses -- see Sources/Data/Trackers.
     ///
-    /// Komga, Kavita and Suwayomi are missing: they track against their source's own server and
-    /// their clients need that source's models, which this port does not have. See
-    /// Vendored/_excluded/Tracking.
+    /// Komga, Kavita and Suwayomi are the enhanced ones: they track against the same server the
+    /// manga came from rather than a public service, so they are never "logged in" and are offered
+    /// only for titles from that server. `EnhancedSourceBridge` supplies the connection details
+    /// from the JVM extension's settings, and `EnhancedTrackerModels` carries the few response
+    /// shapes they decode.
     static let trackers: [Tracker] = [
         myanimelist, anilist, kitsu, shikimori, bangumi,
-        mangaupdates, hikka, mangabaka
+        mangaupdates, hikka, mangabaka,
+        komga, kavita, suwayomi
     ]
 
     /// A boolean indicating if there is a tracker that is currently logged in.

@@ -1,21 +1,21 @@
 //
-//  KavitaTracker.swift
+//  KomgaTracker.swift
 //  Aidoku
 //
-//  Created by Skitty on 10/23/25.
+//  Created by Skitty on 9/15/25.
 //
 
 import ExtensionRunner
 import Foundation
 
-final class KavitaTracker: EnhancedTracker, PageTracker {
-    let id = "kavita"
-    let name = NSLocalizedString("KAVITA")
-    let icon = PlatformImage(named: "kavita")
+final class KomgaTracker: EnhancedTracker, PageTracker {
+    let id = "komga"
+    let name = NSLocalizedString("KOMGA")
+    let icon = PlatformImage(named: "komga")
 
     let isLoggedIn = true
 
-    private let api = KavitaApi()
+    private let api = KomgaApi()
 
     private let idSeparator: Character = "|"
 
@@ -29,11 +29,17 @@ final class KavitaTracker: EnhancedTracker, PageTracker {
         let (sourceKey, seriesId) = try getIdParts(from: trackId)
 
         let state = try? await api.getState(sourceKey: sourceKey, seriesId: seriesId)
-        if state?.lastReadVolume == nil || state?.lastReadVolume == 0 {
+        if state?.lastReadVolume == nil || highestChapterRead > state?.lastReadChapter ?? 0 {
+            let useChapters = await api.shouldUseChapters(sourceKey: sourceKey, mangaKey: seriesId)
+            let update: TrackUpdate = if useChapters {
+                .init(lastReadChapter: highestChapterRead)
+            } else {
+                .init(lastReadVolume: Int(floor(highestChapterRead)))
+            }
             try await api.update(
                 sourceKey: sourceKey,
                 seriesId: seriesId,
-                update: .init(lastReadChapter: highestChapterRead)
+                update: update
             )
         }
 
@@ -54,7 +60,7 @@ final class KavitaTracker: EnhancedTracker, PageTracker {
         if let state = try await api.getState(sourceKey: sourceKey, seriesId: seriesId) {
             return state
         } else {
-            throw KavitaTrackerError.getStateFailed
+            throw KomgaTrackerError.getStateFailed
         }
     }
 
@@ -72,21 +78,14 @@ final class KavitaTracker: EnhancedTracker, PageTracker {
     }
 
     func canRegister(sourceKey: String, mangaKey: String) -> Bool {
-        sourceKey.hasPrefix(KavitaSourceRunner.sourceKeyPrefix) && !UserDefaults.standard.bool(forKey: "\(sourceKey).disableTracking")
+        EnhancedSourceBridge.service(forSourceKey: sourceKey) == "komga" && !UserDefaults.standard.bool(forKey: "\(sourceKey).disableTracking")
     }
 
     func setProgress(trackId: String, chapter: ExtensionRunner.Chapter, progress: ChapterReadProgress) async throws {
-        let (sourceKey, seriesId) = try getIdParts(from: trackId)
-        guard
-            let seriesId = Int(seriesId),
-            let chapterId = Int(chapter.key)
-        else {
-            throw KavitaTrackerError.invalidId
-        }
+        let (sourceKey, _) = try getIdParts(from: trackId)
         try await api.updateReadProgress(
             sourceKey: sourceKey,
-            seriesId: seriesId,
-            chapterId: chapterId,
+            bookId: chapter.key,
             progress: progress
         )
     }
@@ -97,42 +96,28 @@ final class KavitaTracker: EnhancedTracker, PageTracker {
     }
 
     func logout() {
-        fatalError("logout not implemented for kavita tracker")
+        fatalError("logout not implemented for komga tracker")
     }
 
     func removeTrackItems(source: ExtensionRunner.Source) async {
-        await CoreDataManager.shared.container.performBackgroundTask { context in
-            let request = TrackObject.fetchRequest()
-            request.predicate = NSPredicate(
-                format: "trackerId == %@", self.id
-            )
-            do {
-                let items = try? context.fetch(request)
-                guard let items else { return }
-                for item in items {
-                    guard let id = item.id else { continue }
-                    let (sourceKey, _) = try self.getIdParts(from: id)
-                    if sourceKey == source.key {
-                        context.delete(item)
-                    }
-                }
-                try context.save()
-            } catch {
-                LogManager.logger.error("Error removing kavita track items: \(error)")
-            }
+        // Every link this tracker holds against the server this source talks to. The id carries
+        // the source key, so the source being removed is what decides which rows go.
+        CoreDataManager.shared.removeTracks(trackerId: id) { storedId in
+            (try? self.getIdParts(from: storedId))?.sourceKey == source.key
         }
     }
 }
 
-extension KavitaTracker {
+extension KomgaTracker {
     private func getIdParts(from id: String) throws -> (sourceKey: String, seriesId: String) {
         let split = id.split(separator: idSeparator, maxSplits: 2).map(String.init)
-        guard split.count == 2 else { throw KavitaTrackerError.invalidId }
+        guard split.count == 2 else { throw KomgaTrackerError.invalidId }
         return (sourceKey: split[0], seriesId: split[1])
     }
 }
 
-enum KavitaTrackerError: Error {
+enum KomgaTrackerError: Error {
     case invalidId
     case getStateFailed
+    case notLoggedIn
 }
