@@ -138,6 +138,46 @@ extension CoreDataManager {
         return track
     }
 
+    /// Writes a tracker's reported state onto the stored row.
+    ///
+    /// These columns were never written here. A title tracked on iOS carried its service and its
+    /// remote id and nothing else, so on Android it showed as tracked with no status, no progress
+    /// and no score -- the row existed and said nothing.
+    ///
+    /// `status` holds the *service's* number, not this app's, and the services disagree about what
+    /// a number means. `TrackStatusVocabulary` in `:core-domain` owns that translation, so both
+    /// apps write the same value for the same state; writing this app's own enum would have marked
+    /// a planned title completed on the three largest services.
+    func setTrackState(
+        trackerId: String,
+        sourceId: String,
+        mangaId: String,
+        state: TrackState,
+        context: Any? = nil
+    ) {
+        guard
+            let sync = TrackerSyncId.syncId(for: trackerId),
+            let manga = sharedManga(sourceId: sourceId, mangaId: mangaId),
+            let track = handler.getTracks(manga: manga).first(where: { $0.sync_id == sync })
+        else { return }
+
+        if let status = state.status,
+           let remote = TrackerSyncId.remoteStatus(for: status, trackerId: trackerId) {
+            track.status = remote
+        }
+        // The column is whole chapters; a service reporting 12.5 has read up to 12.
+        if let lastRead = state.lastReadChapter { track.last_chapter_read = Int32(lastRead) }
+        if let total = state.totalChapters { track.total_chapters = Int32(total) }
+        if let score = state.score { track.score_ = Float(score) }
+        if let started = state.startReadDate {
+            track.started_reading_date = Int64(started.timeIntervalSince1970 * 1000)
+        }
+        if let finished = state.finishReadDate {
+            track.finished_reading_date = Int64(finished.timeIntervalSince1970 * 1000)
+        }
+        handler.insertTrack(track: track)
+    }
+
     /// Android's `manga_sync` has no offset column -- it is this app's own adjustment for sources
     /// whose chapter numbering differs from the tracker's -- so it is kept alongside.
     func setTrackChapterOffset(

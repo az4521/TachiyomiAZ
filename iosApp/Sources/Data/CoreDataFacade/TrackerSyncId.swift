@@ -1,52 +1,73 @@
 import Foundation
+import TachiyomiKit
 
 /// Maps a tracker's string id to the numeric `sync_id` the shared `manga_sync` table stores.
 ///
-/// These numbers are not ours to choose. They are `TrackManager`'s constants in the Android app,
-/// and they are what a row's `sync_id` column holds, so a title tracked on one app is only
-/// recognised by the other if both agree on them. The vendored trackers identify themselves by
-/// string, so this is the single place the two vocabularies meet.
-///
-/// Anything unknown maps to nil rather than a guess: writing a wrong `sync_id` would silently
-/// attribute a tracked title to the wrong service.
+/// The numbers are not ours to choose, and they are no longer written down here: `TrackerIds` in
+/// `:core-domain` holds them, and the Android app reads the same object. They used to exist twice
+/// -- as constants in `TrackManager` and as a dictionary here -- with nothing keeping the two lists
+/// the same, which is a poor arrangement for the value that decides whether a title tracked on one
+/// app is recognised by the other.
 enum TrackerSyncId {
-    /// Mirrors `TrackManager` in the Android app.
-    private static let ids: [String: Int32] = [
-        "myanimelist": 1,
-        "anilist": 2,
-        "kitsu": 3,
-        "shikimori": 4,
-        "bangumi": 5,
-        "mangaupdates": 6,
-        "hikka": 7,
-        "mangabaka": 8,
-        "komga": 9,
-        "kavita": 10,
-        "suwayomi": 11
-    ]
-
     static func syncId(for trackerId: String) -> Int32? {
-        ids[trackerId.lowercased()]
+        TrackerIds.shared.syncId(name: trackerId)?.int32Value
     }
 
     static func trackerId(for syncId: Int32) -> String? {
-        ids.first { $0.value == syncId }?.key
+        TrackerIds.shared.name(syncId: syncId)
     }
 
-    /// The trackers that track against the server a manga came from.
+    /// Whether this service is keyed on `tracking_url` rather than `media_id`.
     ///
-    /// They identify a title by a composite string -- the source key and the series id -- rather
-    /// than a number, so their id does not fit `manga_sync.media_id`, which is an integer. Android
-    /// has the same problem and solves it by keying these three on `tracking_url` instead:
-    /// `Komga.kt` matches with `track.tracking_url == manga.url`. This app follows that, so a
-    /// title tracked against a Komga server on one platform is recognised on the other.
-    private static let enhanced: Set<Int32> = [9, 10, 11]
-
+    /// Komga, Kavita and Suwayomi identify a title by a composite string that does not fit the
+    /// integer column. Android's Komga tracker matches on `tracking_url`, so this follows it.
     static func usesTrackingUrlAsId(syncId: Int32) -> Bool {
-        enhanced.contains(syncId)
+        TrackerIds.shared.usesTrackingUrlAsId(syncId: syncId)
     }
 
     static func usesTrackingUrlAsId(trackerId: String) -> Bool {
         syncId(for: trackerId).map(usesTrackingUrlAsId(syncId:)) ?? false
+    }
+
+    /// The number a service stores for this app's status, or nil when it has no equivalent.
+    ///
+    /// `manga_sync.status` holds the *service's* value, and the services disagree about what a
+    /// number means -- this app's `planning` is 2, and 2 is `completed` on MyAnimeList, AniList and
+    /// Kitsu. Translating through the shared table is what stops a planned title reading as
+    /// finished on the other app.
+    static func remoteStatus(for status: TrackStatus, trackerId: String) -> Int32? {
+        guard let sync = syncId(for: trackerId) else { return nil }
+        return TrackStatusVocabulary.shared.toRemote(syncId: sync, status: status.shared)?.int32Value
+    }
+
+    static func status(fromRemote raw: Int32, syncId: Int32) -> TrackStatus {
+        TrackStatus(shared: TrackStatusVocabulary.shared.fromRemote(syncId: syncId, raw: raw))
+    }
+}
+
+private extension TrackStatus {
+    /// This app's status as the shared vocabulary names it.
+    var shared: TachiyomiKit.TrackStatus {
+        switch rawValue {
+            case 1: .reading
+            case 2: .planning
+            case 3: .completed
+            case 4: .paused
+            case 5: .dropped
+            case 6: .rereading
+            default: TachiyomiKit.TrackStatus.none
+        }
+    }
+
+    init(shared: TachiyomiKit.TrackStatus) {
+        self = switch shared {
+            case .reading: .reading
+            case .planning: .planning
+            case .completed: .completed
+            case .paused: .paused
+            case .dropped: .dropped
+            case .rereading: .rereading
+            default: TrackStatus(7)
+        }
     }
 }

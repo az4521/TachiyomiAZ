@@ -103,6 +103,15 @@ actor TrackerManager {
                 let state = try? await tracker.getState(trackId: item.id)
             else { continue }
 
+            // Persist what the service reported. These columns were never written on this side,
+            // so a title tracked here showed on Android as tracked with no status or progress.
+            CoreDataManager.shared.setTrackState(
+                trackerId: item.trackerId,
+                sourceId: sourceId,
+                mangaId: mangaId,
+                state: state
+            )
+
             // Check if we need to update based on chapter display mode
             var shouldUpdate = false
             if displayMode == .chapter {
