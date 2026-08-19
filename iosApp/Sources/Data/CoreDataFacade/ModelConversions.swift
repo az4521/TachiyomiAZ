@@ -66,12 +66,13 @@ extension DbManga {
 }
 
 extension CoreDataManager {
-    /// Chapters as the vendored UI expects them.
+    /// A title's chapters, in the terms the extension boundary uses.
     ///
-    /// This is upstream's async `getChapters` overload; the synchronous one returns the shared rows,
-    /// which is what the facade's own methods work with.
-    func getChapters(sourceId: String, mangaId: String) async -> [Chapter] {
-        getChapters(sourceId: sourceId, mangaId: mangaId, context: nil).map { $0.toChapter() }
+    /// This returned the Aidoku-shaped model until every caller converted it straight back with
+    /// `toNew()`. The synchronous overload returns the shared rows, which is what the facade's own
+    /// methods work with.
+    func getChapters(sourceId: String, mangaId: String) async -> [ExtensionRunner.Chapter] {
+        getChapters(sourceId: sourceId, mangaId: mangaId, context: nil).map { $0.toNewChapter() }
     }
 }
 

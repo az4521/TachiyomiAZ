@@ -279,9 +279,15 @@ extension DownloadManager {
 
         for chapter in allChapters {
             guard !chapter.locked else { continue }
-            let downloaded = await isChapterDownloaded(chapter: chapter.identifier)
+            let downloaded = await isChapterDownloaded(
+                chapter: ChapterIdentifier(
+                    sourceKey: manga.sourceKey,
+                    mangaKey: manga.key,
+                    chapterKey: chapter.key
+                )
+            )
             if !downloaded {
-                chaptersToDownload.append(chapter.toNew())
+                chaptersToDownload.append(chapter)
             }
         }
 
@@ -299,9 +305,15 @@ extension DownloadManager {
             guard !chapter.locked else { continue }
             let isUnread = readingHistory[chapter.id] == nil || readingHistory[chapter.id]?.page != -1
             guard isUnread else { continue }
-            let downloaded = await isChapterDownloaded(chapter: chapter.identifier)
+            let downloaded = await isChapterDownloaded(
+                chapter: ChapterIdentifier(
+                    sourceKey: manga.sourceKey,
+                    mangaKey: manga.key,
+                    chapterKey: chapter.key
+                )
+            )
             if !downloaded {
-                chaptersToDownload.append(chapter.toNew())
+                chaptersToDownload.append(chapter)
             }
         }
 

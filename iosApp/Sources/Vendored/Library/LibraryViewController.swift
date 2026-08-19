@@ -1389,7 +1389,6 @@ extension LibraryViewController {
                     mangaId: info.mangaId
                 )
                 let chapters = await CoreDataManager.shared.getChapters(sourceId: info.sourceId, mangaId: info.mangaId)
-                    .map { $0.toNew() }
 
                 let filters = CoreDataManager.shared.getMangaChapterFilters(
                     sourceId: info.sourceId,
@@ -1613,7 +1612,7 @@ extension LibraryViewController {
                             await HistoryManager.shared.addHistory(
                                 sourceId: manga.sourceId,
                                 mangaId: manga.id,
-                                chapters: chapters.map { $0.toNew() }
+                                chapters: chapters
                             )
                         }
 
