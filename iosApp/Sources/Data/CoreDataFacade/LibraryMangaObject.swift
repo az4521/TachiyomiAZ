@@ -6,9 +6,13 @@ import TachiyomiKit
 ///
 /// Upstream's `LibraryMangaObject` is a CoreData entity wrapping a `MangaObject` and carrying five
 /// timestamps. The shared schema has two of them -- `last_update` and `date_added` on the manga row
-/// -- because Android's library screen sorts by those. The rest (`lastOpened`, `lastRead`,
+/// -- because Android's library screen sorts by those. The rest (`lastOpened`,
 /// `lastUpdatedChapters`, `lastChapter`) drive this app's own ordering and have no column, so they
 /// are kept alongside rather than bolted onto a schema both apps share.
+///
+/// There was a `lastRead` here too. "Recently read" ordering comes from the history table now, the
+/// way Android does it, so the field had no reader -- and having one invited the assumption that
+/// something maintained it.
 ///
 /// Writes go through immediately, matching the rest of the facade.
 final class LibraryMangaObject {
@@ -67,11 +71,6 @@ final class LibraryMangaObject {
     var lastOpened: Date? {
         get { date("lastOpened") }
         set { setDate("lastOpened", newValue) }
-    }
-
-    var lastRead: Date? {
-        get { date("lastRead") }
-        set { setDate("lastRead", newValue) }
     }
 
     /// When new chapters were last found for this entry -- what the "updated" badge keys off.

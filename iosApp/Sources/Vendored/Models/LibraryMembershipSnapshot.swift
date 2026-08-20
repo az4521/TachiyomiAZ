@@ -14,6 +14,5 @@ struct LibraryMembershipSnapshot: Sendable {
     let lastUpdated: Date
     let lastUpdatedChapters: Date
     let lastChapter: Date?
-    let lastRead: Date?
     let dateAdded: Date
 }

@@ -103,13 +103,3 @@ extension CoreDataManager {
         }
     }
 }
-
-extension CoreDataManager {
-    /// Stamps when a title was last read, which is what "recently read" ordering sorts on.
-    ///
-    /// Android's schema has no `last_read` column on the manga row -- reading times live in the
-    /// history table, per chapter -- so this is kept alongside, like the other library timestamps.
-    func setRead(sourceId: String, mangaId: String, date: Date? = nil, context: Any? = nil) {
-        getLibraryManga(sourceId: sourceId, mangaId: mangaId)?.lastRead = date ?? Date()
-    }
-}

@@ -459,8 +459,6 @@ actor TrackerManager {
             var completed: [String] = []
             var progressed: [String: Int] = [:]
 
-            var lastRead = Date.distantPast
-
             for (chapterKey, progress) in result {
                 let existingHistory = CoreDataManager.shared.getHistory(
                     sourceId: manga.sourceKey,
@@ -476,8 +474,6 @@ actor TrackerManager {
                 if progress.completed {
                     if !(existingHistory?.completed ?? false) {
                         completed.append(chapterKey)
-                        let readDate = progress.date ?? Date.now
-                        lastRead = readDate > lastRead ? readDate : lastRead
                         CoreDataManager.shared.setCompleted(
                             sourceId: manga.sourceKey,
                             mangaId: manga.key,
@@ -489,7 +485,6 @@ actor TrackerManager {
                 } else if progress.page != 0 {
                     progressed[chapterKey] = progress.page
                     let readDate = progress.date ?? Date.now
-                    lastRead = readDate > lastRead ? readDate : lastRead
                     CoreDataManager.shared.setProgress(
                         progress.page,
                         sourceId: manga.sourceKey,
@@ -502,16 +497,9 @@ actor TrackerManager {
                 }
             }
 
-            // mark manga as read only if history was updated
-            if !completed.isEmpty || !progressed.isEmpty {
-                CoreDataManager.shared.setRead(
-                    sourceId: manga.sourceKey,
-                    mangaId: manga.key,
-                    date: lastRead,
-                    context: context
-                )
-            }
-
+            // Nothing stamps the manga itself. `setCompleted` and `setProgress` above write the
+            // history rows, and "recently read" ordering reads those, so a title synced from a
+            // tracker takes its place in that order from the same history every other title does.
             try? context.save()
 
             return (completed, progressed)

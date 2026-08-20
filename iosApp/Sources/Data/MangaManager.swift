@@ -441,7 +441,6 @@ final class MangaManager {
                     lastUpdated: object.lastUpdated ?? .distantPast,
                     lastUpdatedChapters: object.lastUpdatedChapters ?? .distantPast,
                     lastChapter: object.lastChapter,
-                    lastRead: object.lastRead,
                     dateAdded: object.dateAdded ?? .distantPast
                 )
             )
