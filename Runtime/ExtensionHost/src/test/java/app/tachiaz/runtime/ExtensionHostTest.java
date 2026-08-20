@@ -5,6 +5,8 @@ import android.os.Build;
 import android.util.Base64;
 import android.util.Log;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.Map;
 
 public final class ExtensionHostTest {
     private ExtensionHostTest() {
@@ -19,6 +21,13 @@ public final class ExtensionHostTest {
         assertContains(ping, "\"result\":\"pong\"");
         assertEquals("true", MiniJson.parseObject(ping).get("success"));
         assertEquals("pong", MiniJson.parseObject(ping).get("result"));
+        List<Map<String, String>> chapters = MiniJson.parseObjectArray(
+            "[{\"url\":\"/chapter/2\",\"memo\":\"{\\\"token\\\":2}\"}," +
+                "{\"url\":\"/chapter/1\",\"memo\":null}]"
+        );
+        assertEquals("/chapter/2", chapters.get(0).get("url"));
+        assertEquals("{\"token\":2}", chapters.get(0).get("memo"));
+        assertEquals("/chapter/1", chapters.get(1).get("url"));
         assertEquals(
             "https://example.test/manga/one?q=hello%20world",
             Uri.parse("https://example.test")

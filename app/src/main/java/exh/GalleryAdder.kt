@@ -96,7 +96,11 @@ class GalleryAdder {
             }
 
             // Fetch and copy details
-            val newManga = runAsObservable({ source.getMangaUpdate(manga, emptyList(), fetchDetails = true, fetchChapters = false).manga }).toBlocking().first()
+            val oldChapters = db.getChapters(manga)
+            val newManga =
+                runAsObservable({
+                    source.getMangaUpdate(manga, oldChapters, fetchDetails = true, fetchChapters = false).manga
+                }).toBlocking().first()
             manga.copyFrom(newManga)
             manga.initialized = true
 
@@ -113,7 +117,9 @@ class GalleryAdder {
                     if (source is EHentai) {
                         source.fetchChapterList(manga, throttleFunc)
                     } else {
-                        runAsObservable({ source.getMangaUpdate(manga, emptyList(), fetchDetails = false, fetchChapters = true).chapters })
+                        runAsObservable({
+                            source.getMangaUpdate(manga, oldChapters, fetchDetails = false, fetchChapters = true).chapters
+                        })
                     }
                 chapterListObs.map {
                     syncChaptersWithSource(db, it, manga, source)

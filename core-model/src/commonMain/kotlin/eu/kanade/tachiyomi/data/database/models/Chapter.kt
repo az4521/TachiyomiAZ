@@ -1,7 +1,7 @@
 package eu.kanade.tachiyomi.data.database.models
 
-import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.JavaSerializable
+import eu.kanade.tachiyomi.source.model.SChapter
 
 interface Chapter : SChapter, JavaSerializable {
     var id: Long?
@@ -17,6 +17,10 @@ interface Chapter : SChapter, JavaSerializable {
     var date_fetch: Long
 
     var source_order: Int
+
+    /** The extension-owned memo in its wire format, for platform bridges such as the iOS JVM host. */
+    val memoJson: String
+        get() = memo.toString()
 
     val isRecognizedNumber: Boolean
         get() = chapter_number >= 0f

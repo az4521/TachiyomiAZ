@@ -17,6 +17,8 @@ public struct ExtensionHostRequest: Codable, Sendable {
     public let mangaURL: String?
     public let mangaTitle: String?
     public let mangaMemo: String?
+    /// JSON-encoded TachiyomiXChapter array, in the order returned by the source.
+    public let mangaChapters: String?
     public let chapterURL: String?
     public let chapterName: String?
     public let chapterMemo: String?
@@ -41,6 +43,7 @@ public struct ExtensionHostRequest: Codable, Sendable {
         mangaURL: String? = nil,
         mangaTitle: String? = nil,
         mangaMemo: String? = nil,
+        mangaChapters: String? = nil,
         chapterURL: String? = nil,
         chapterName: String? = nil,
         chapterMemo: String? = nil,
@@ -64,6 +67,7 @@ public struct ExtensionHostRequest: Codable, Sendable {
         self.mangaURL = mangaURL
         self.mangaTitle = mangaTitle
         self.mangaMemo = mangaMemo
+        self.mangaChapters = mangaChapters
         self.chapterURL = chapterURL
         self.chapterName = chapterName
         self.chapterMemo = chapterMemo

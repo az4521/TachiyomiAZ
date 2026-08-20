@@ -353,7 +353,13 @@ class LegacyBackupManager(context: Context, version: Int = CURRENT_VERSION) : Ab
         source: Source,
         manga: Manga
     ): Manga {
-        val networkManga = source.getMangaUpdate(manga, emptyList(), fetchDetails = true, fetchChapters = false).manga
+        val networkManga =
+            source.getMangaUpdate(
+                manga,
+                databaseHelper.getChapters(manga),
+                fetchDetails = true,
+                fetchChapters = false
+            ).manga
         manga.copyFrom(networkManga)
         manga.favorite = true
         manga.initialized = true

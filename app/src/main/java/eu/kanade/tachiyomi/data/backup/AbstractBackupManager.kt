@@ -54,7 +54,12 @@ abstract class AbstractBackupManager(protected val context: Context) {
             if (source is EHentai) {
                 source.fetchChapterList(manga, throttleManager::throttle).awaitSingle()
             } else {
-                source.getMangaUpdate(manga, emptyList(), fetchDetails = false, fetchChapters = true).chapters
+                source.getMangaUpdate(
+                    manga,
+                    databaseHelper.getChapters(manga),
+                    fetchDetails = false,
+                    fetchChapters = true
+                ).chapters
             }
         val syncedChapters = syncChaptersWithSource(databaseHelper, fetchedChapters, manga, source)
         if (syncedChapters.first.isNotEmpty()) {

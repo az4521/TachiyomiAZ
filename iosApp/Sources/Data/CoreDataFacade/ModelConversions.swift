@@ -81,10 +81,14 @@ extension DbChapter {
             key: url,
             title: name,
             chapterNumber: chapter_number < 0 ? nil : chapter_number,
+            dateUploaded: date_upload > 0
+                ? Date(timeIntervalSince1970: Double(date_upload) / 1_000)
+                : nil,
             scanlators: scanlator.map { [$0] },
             url: URL(string: url),
             thumbnail: nil,
-            locked: false
+            locked: false,
+            memo: memoJson
         )
     }
 }

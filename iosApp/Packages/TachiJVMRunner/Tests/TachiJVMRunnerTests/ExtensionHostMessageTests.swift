@@ -10,7 +10,8 @@ final class ExtensionHostMessageTests: XCTestCase {
             sourceId: "2499283573021220255",
             jarPath: "/tmp/fixture.jar",
             entryClass: "fixture.EchoExtension",
-            userAgent: "TachiyomiAZ-Test"
+            userAgent: "TachiyomiAZ-Test",
+            mangaChapters: "[{\"url\":\"/chapter/2\"},{\"url\":\"/chapter/1\"}]"
         )
 
         let data = try JSONEncoder().encode(request)
@@ -23,5 +24,9 @@ final class ExtensionHostMessageTests: XCTestCase {
         XCTAssertEqual(object["sourceId"], "2499283573021220255")
         XCTAssertEqual(object["entryClass"], "fixture.EchoExtension")
         XCTAssertEqual(object["userAgent"], "TachiyomiAZ-Test")
+        XCTAssertEqual(
+            object["mangaChapters"],
+            "[{\"url\":\"/chapter/2\"},{\"url\":\"/chapter/1\"}]"
+        )
     }
 }

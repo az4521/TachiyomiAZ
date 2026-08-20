@@ -891,6 +891,21 @@ actor JVMSourceRuntime {
         mangaTitle: String,
         mangaMemo: String? = nil
     ) async throws -> TachiyomiXMangaUpdate {
+        let oldChapters: [TachiyomiXChapter]
+        if let sourceId {
+            // The shared query orders by source_order. Do not reuse a view's manga.chapters:
+            // that array may currently be sorted by number or upload date for display.
+            oldChapters = await CoreDataManager.shared.getChapters(
+                sourceId: SourceIdentity.key(for: sourceId),
+                mangaId: mangaURL
+            ).map(\.tachiyomiXChapter)
+        } else {
+            oldChapters = []
+        }
+        let encodedChapters = String(
+            decoding: try JSONEncoder().encode(oldChapters),
+            as: UTF8.self
+        )
         let response = try await dispatch(
             .init(
                 operation: "getMangaUpdate",
@@ -898,7 +913,8 @@ actor JVMSourceRuntime {
                 sourceId: sourceId.map(String.init),
                 mangaURL: mangaURL,
                 mangaTitle: mangaTitle,
-                mangaMemo: mangaMemo
+                mangaMemo: mangaMemo,
+                mangaChapters: encodedChapters
             )
         )
         try requireSuccess(response)
@@ -1980,6 +1996,19 @@ private extension TachiyomiXChapter {
                 $0.isEmpty ? nil : [$0]
             },
             url: URL(string: url),
+            memo: memo
+        )
+    }
+}
+
+private extension ExtensionRunner.Chapter {
+    var tachiyomiXChapter: TachiyomiXChapter {
+        TachiyomiXChapter(
+            url: key,
+            name: title ?? "",
+            chapterNumber: chapterNumber,
+            scanlator: scanlators?.joined(separator: ", "),
+            dateUpload: dateUploaded.map { Int64($0.timeIntervalSince1970 * 1_000) } ?? 0,
             memo: memo
         )
     }

@@ -102,7 +102,12 @@ class MigrationPresenter(
                 val chapters =
                     try {
                         withIOContext {
-                            source.getMangaUpdate(manga, emptyList(), fetchDetails = false, fetchChapters = true).chapters
+                            source.getMangaUpdate(
+                                manga,
+                                db.getChapters(manga),
+                                fetchDetails = false,
+                                fetchChapters = true
+                            ).chapters
                         }
                     } catch (e: Throwable) {
                         // Matches the previous onErrorReturn { emptyList() }.

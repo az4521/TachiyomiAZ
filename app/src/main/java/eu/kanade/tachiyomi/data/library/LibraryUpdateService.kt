@@ -369,7 +369,12 @@ class LibraryUpdateService(
         val updateMetadata = preferences.autoUpdateMetadata()
 
         val mangaUpdate =
-            source.getMangaUpdate(manga, emptyList(), fetchDetails = updateMetadata, fetchChapters = true)
+            source.getMangaUpdate(
+                manga,
+                db.getChapters(manga),
+                fetchDetails = updateMetadata,
+                fetchChapters = true
+            )
         try {
             manga.saveMangaUpdate(mangaUpdate.manga, db, coverCache, updateMetadata)
         } catch (e: Throwable) {
@@ -388,7 +393,13 @@ class LibraryUpdateService(
 
             // Update manga details metadata
             try {
-                val update = source.getMangaUpdate(manga, emptyList(), fetchDetails = true, fetchChapters = false)
+                val update =
+                    source.getMangaUpdate(
+                        manga,
+                        db.getChapters(manga),
+                        fetchDetails = true,
+                        fetchChapters = false
+                    )
                 manga.saveMangaUpdate(update.manga, db, coverCache, updateMetadata = true)
                 // Sources may hand back chapters even though they weren't asked for.
                 syncChaptersFromUpdate(db, update, manga, source)
@@ -410,7 +421,13 @@ class LibraryUpdateService(
             val source = sourceManager.get(manga.source) ?: return@forEach
 
             try {
-                val update = source.getMangaUpdate(manga, emptyList(), fetchDetails = true, fetchChapters = false)
+                val update =
+                    source.getMangaUpdate(
+                        manga,
+                        db.getChapters(manga),
+                        fetchDetails = true,
+                        fetchChapters = false
+                    )
                 val sManga = update.manga
                 manga.prepUpdateCover(coverCache, sManga, true)
                 // Only the cover is wanted here, but the memo is source-internal metadata that

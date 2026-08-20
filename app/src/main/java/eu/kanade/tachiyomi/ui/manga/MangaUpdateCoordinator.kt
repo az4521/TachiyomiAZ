@@ -115,7 +115,13 @@ class MangaUpdateCoordinator(
     }
 
     private suspend fun fetch(): Fetch {
-        val update = source.getMangaUpdate(manga, emptyList(), fetchDetails = true, fetchChapters = true)
+        val update =
+            source.getMangaUpdate(
+                manga,
+                db.getChapters(manga),
+                fetchDetails = true,
+                fetchChapters = true
+            )
         return Fetch(update, syncChaptersFromUpdate(db, update, manga, source))
     }
 

@@ -26,6 +26,22 @@ public struct TachiyomiXChapter: Codable, Sendable, Equatable {
     public let dateUpload: Int64
     /// Opaque JSON object owned by the extension library.
     public let memo: String?
+
+    public init(
+        url: String,
+        name: String,
+        chapterNumber: Float?,
+        scanlator: String?,
+        dateUpload: Int64,
+        memo: String?
+    ) {
+        self.url = url
+        self.name = name
+        self.chapterNumber = chapterNumber
+        self.scanlator = scanlator
+        self.dateUpload = dateUpload
+        self.memo = memo
+    }
 }
 
 public struct TachiyomiXMangaUpdate: Codable, Sendable, Equatable {
@@ -201,8 +217,13 @@ public extension JVMRuntime {
         sourceId: Int64? = nil,
         mangaURL: String,
         mangaTitle: String,
-        mangaMemo: String? = nil
+        mangaMemo: String? = nil,
+        mangaChapters: [TachiyomiXChapter] = []
     ) throws -> TachiyomiXMangaUpdate {
+        let encodedChapters = String(
+            decoding: try JSONEncoder().encode(mangaChapters),
+            as: UTF8.self
+        )
         let response = try checkedDispatch(
             ExtensionHostRequest(
                 operation: "getMangaUpdate",
@@ -210,7 +231,8 @@ public extension JVMRuntime {
                 sourceId: sourceId.map(String.init),
                 mangaURL: mangaURL,
                 mangaTitle: mangaTitle,
-                mangaMemo: mangaMemo
+                mangaMemo: mangaMemo,
+                mangaChapters: encodedChapters
             )
         )
         return try decodeResult(response, as: TachiyomiXMangaUpdate.self)

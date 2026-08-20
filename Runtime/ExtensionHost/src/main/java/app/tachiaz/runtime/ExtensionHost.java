@@ -1039,6 +1039,7 @@ public final class ExtensionHost {
             defaultValue(request.get("mangaTitle"), "")
         );
         restoreMemo(manga, request.get("mangaMemo"));
+        List<Object> chapters = restoreChapters(request.get("mangaChapters"), loader);
 
         Object update = invokeSuspend(
             source,
@@ -1050,7 +1051,7 @@ public final class ExtensionHost {
                 boolean.class
             },
             manga,
-            new ArrayList<>(),
+            chapters,
             true,
             true
         );
@@ -1060,6 +1061,37 @@ public final class ExtensionHost {
             null,
             null
         );
+    }
+
+    private static List<Object> restoreChapters(String json, ClassLoader loader)
+        throws Exception {
+        List<Object> chapters = new ArrayList<>();
+        Class<?> chapterClass = Class.forName(
+            "eu.kanade.tachiyomi.source.model.SChapterImpl",
+            true,
+            loader
+        );
+        for (Map<String, String> stored : MiniJson.parseObjectArray(json)) {
+            Object chapter = chapterClass.getDeclaredConstructor().newInstance();
+            setter(chapter, "setUrl", String.class, defaultValue(stored.get("url"), ""));
+            setter(chapter, "setName", String.class, defaultValue(stored.get("name"), ""));
+            setter(
+                chapter,
+                "setChapterNumber",
+                float.class,
+                Float.parseFloat(defaultValue(stored.get("chapterNumber"), "-1"))
+            );
+            setter(chapter, "setScanlator", String.class, stored.get("scanlator"));
+            setter(
+                chapter,
+                "setDateUpload",
+                long.class,
+                Long.parseLong(defaultValue(stored.get("dateUpload"), "0"))
+            );
+            restoreMemo(chapter, stored.get("memo"));
+            chapters.add(chapter);
+        }
+        return chapters;
     }
 
     private static String getPageList(Map<String, String> request)

@@ -171,7 +171,13 @@ class FullBackupManager(context: Context) : AbstractBackupManager(context) {
         manga.favorite = true
 
         return if (online && source != null) {
-            val networkManga = source.getMangaUpdate(manga, emptyList(), fetchDetails = true, fetchChapters = false).manga
+            val networkManga =
+                source.getMangaUpdate(
+                    manga,
+                    databaseHelper.getChapters(manga),
+                    fetchDetails = true,
+                    fetchChapters = false
+                ).manga
             manga.copyFrom(networkManga)
             manga.initialized = true
             manga.id = insertManga(manga)

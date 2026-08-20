@@ -1,6 +1,8 @@
 package app.tachiaz.runtime;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 final class MiniJson {
@@ -73,6 +75,74 @@ final class MiniJson {
                 throw new IllegalArgumentException(
                     "Expected ',' between JSON fields"
                 );
+            }
+        }
+    }
+
+    /** Parses the request's JSON array of flat chapter objects without taking a JSON dependency. */
+    static List<Map<String, String>> parseObjectArray(String json) {
+        List<Map<String, String>> result = new ArrayList<>();
+        if (json == null || json.trim().isEmpty()) {
+            return result;
+        }
+
+        int index = skipWhitespace(json, 0);
+        if (index >= json.length() || json.charAt(index) != '[') {
+            throw new IllegalArgumentException("Expected a JSON array");
+        }
+        index++;
+
+        while (true) {
+            index = skipWhitespace(json, index);
+            if (index >= json.length()) {
+                throw new IllegalArgumentException("Unterminated JSON array");
+            }
+            if (json.charAt(index) == ']') {
+                return result;
+            }
+            if (json.charAt(index) != '{') {
+                throw new IllegalArgumentException("Expected a JSON object in array");
+            }
+
+            int start = index;
+            int depth = 0;
+            boolean quoted = false;
+            boolean escaped = false;
+            while (index < json.length()) {
+                char character = json.charAt(index++);
+                if (quoted) {
+                    if (escaped) {
+                        escaped = false;
+                    } else if (character == '\\') {
+                        escaped = true;
+                    } else if (character == '"') {
+                        quoted = false;
+                    }
+                    continue;
+                }
+                if (character == '"') {
+                    quoted = true;
+                } else if (character == '{') {
+                    depth++;
+                } else if (character == '}' && --depth == 0) {
+                    break;
+                }
+            }
+            if (depth != 0 || quoted) {
+                throw new IllegalArgumentException("Unterminated JSON object in array");
+            }
+            result.add(parseObject(json.substring(start, index)));
+
+            index = skipWhitespace(json, index);
+            if (index >= json.length()) {
+                throw new IllegalArgumentException("Unterminated JSON array");
+            }
+            char separator = json.charAt(index++);
+            if (separator == ']') {
+                return result;
+            }
+            if (separator != ',') {
+                throw new IllegalArgumentException("Expected ',' between JSON array items");
             }
         }
     }

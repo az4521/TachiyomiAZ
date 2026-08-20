@@ -82,6 +82,7 @@ interface Source {
      * Default delegates to [getMangaDetails] / [getChapterList] so 1.5 sources continue to work.
      *
      * @since tachiyomix 1.6
+     * @param chapters the previously stored chapters, in the order the source listed them.
      */
     suspend fun getMangaUpdate(
         manga: SManga,
