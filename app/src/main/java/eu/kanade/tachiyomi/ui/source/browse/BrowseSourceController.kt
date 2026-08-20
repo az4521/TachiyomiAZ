@@ -122,6 +122,14 @@ open class BrowseSourceController(bundle: Bundle) :
     private var recycler: RecyclerView? = null
 
     /**
+     * Scroll anchor retained while Conductor destroys and recreates this controller's view.
+     * Cached source pages are replayed into a new adapter, so restoration must wait until the
+     * adapter contains the anchor again. The offset preserves partially visible rows as well.
+     */
+    private var pendingScrollPosition: Int? = null
+    private var pendingScrollOffset = 0
+
+    /**
      * Subscription for the number of manga per row.
      */
     private var numColumnsJob: Job? = null
@@ -172,6 +180,7 @@ open class BrowseSourceController(bundle: Bundle) :
     }
 
     override fun onDestroyView(view: View) {
+        saveScrollPosition()
         numColumnsJob?.cancel()
         adapter = null
         snack = null
@@ -479,6 +488,7 @@ open class BrowseSourceController(bundle: Bundle) :
             resetProgressItem()
         }
         adapter.onLoadMoreComplete(mangas)
+        restoreScrollPositionIfPossible(adapter)
     }
 
     /**
@@ -649,10 +659,41 @@ open class BrowseSourceController(bundle: Bundle) :
      * Shows the progress bar.
      */
     private fun showProgressBar() {
+        // Explicit requests replace the current result set, so its scroll anchor is no longer
+        // meaningful. View recreation does not go through this method and keeps the anchor.
+        pendingScrollPosition = null
+        pendingScrollOffset = 0
         binding.emptyView.hide()
         binding.progress.visible()
         snack?.dismiss()
         snack = null
+    }
+
+    private fun saveScrollPosition() {
+        // If replay has not reached an earlier anchor yet, keep that anchor instead of replacing
+        // it with the temporary top position from the partially rebuilt list.
+        if (pendingScrollPosition != null) return
+
+        val recycler = recycler ?: return
+        val layoutManager = recycler.layoutManager as? LinearLayoutManager ?: return
+        val position = layoutManager.findFirstVisibleItemPosition()
+        if (position == RecyclerView.NO_POSITION) return
+
+        pendingScrollPosition = position
+        pendingScrollOffset =
+            layoutManager.findViewByPosition(position)?.let {
+                layoutManager.getDecoratedTop(it) - recycler.paddingTop
+            } ?: 0
+    }
+
+    private fun restoreScrollPositionIfPossible(adapter: FlexibleAdapter<IFlexible<*>>) {
+        val position = pendingScrollPosition ?: return
+        if (adapter.itemCount <= position) return
+
+        val layoutManager = recycler?.layoutManager as? LinearLayoutManager ?: return
+        layoutManager.scrollToPositionWithOffset(position, pendingScrollOffset)
+        pendingScrollPosition = null
+        pendingScrollOffset = 0
     }
 
     /**
