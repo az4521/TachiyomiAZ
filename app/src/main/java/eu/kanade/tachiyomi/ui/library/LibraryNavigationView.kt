@@ -97,19 +97,15 @@ constructor(context: Context, attrs: AttributeSet? = null) :
         override val footer = Item.Separator()
 
         override fun initModels() { // j2k changes
-            try {
-                downloaded.state = preferences.filterDownloaded().get()
-                unread.state = preferences.filterUnread().get()
-                completed.state = preferences.filterCompleted().get()
-                if (Injekt.get<TrackManager>().hasLoggedServices()) {
-                    tracked.state = preferences.filterTracked().get()
-                } else {
-                    tracked.state = STATE_IGNORE
-                }
-                lewd.state = preferences.filterLewd().get()
-            } catch (e: Exception) {
-                preferences.upgradeFilters()
+            downloaded.state = preferences.filterDownloaded().get()
+            unread.state = preferences.filterUnread().get()
+            completed.state = preferences.filterCompleted().get()
+            if (Injekt.get<TrackManager>().hasLoggedServices()) {
+                tracked.state = preferences.filterTracked().get()
+            } else {
+                tracked.state = STATE_IGNORE
             }
+            lewd.state = preferences.filterLewd().get()
         }
 
         override fun onItemClicked(item: Item) { // j2k changes

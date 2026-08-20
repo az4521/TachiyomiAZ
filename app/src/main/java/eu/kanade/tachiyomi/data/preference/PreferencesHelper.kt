@@ -48,6 +48,11 @@ class PreferencesHelper(val context: Context) : DownloadPreferences {
         get() = removeAfterReadSlots()
 
     private val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+
+    init {
+        migrateLibraryPreferences()
+    }
+
     val flowPrefs = FlowSharedPreferences(prefs)
 
     private val defaultDownloadsDir =
@@ -246,7 +251,7 @@ class PreferencesHelper(val context: Context) : DownloadPreferences {
 
     fun librarySortingMode() = flowPrefs.getInt(Keys.librarySortingMode, 0)
 
-    fun librarySortingAscending() = flowPrefs.getBoolean("library_sorting_ascending", true)
+    fun librarySortingAscending() = flowPrefs.getBoolean(Keys.librarySortingAscending, true)
 
     fun automaticExtUpdates() = flowPrefs.getBoolean(Keys.automaticExtUpdates, true)
 
@@ -306,14 +311,118 @@ class PreferencesHelper(val context: Context) : DownloadPreferences {
 
     fun skipPreMigration() = flowPrefs.getBoolean(Keys.skipPreMigration, false)
 
-    fun upgradeFilters() {
-        val filterDl = flowPrefs.getBoolean(Keys.filterDownloaded, false).get()
-        val filterUn = flowPrefs.getBoolean(Keys.filterUnread, false).get()
-        val filterCm = flowPrefs.getBoolean(Keys.filterCompleted, false).get()
-        filterDownloaded().set(if (filterDl) 1 else 0)
-        filterUnread().set(if (filterUn) 1 else 0)
-        filterCompleted().set(if (filterCm) 1 else 0)
+    /**
+     * Normalizes library preferences written by older AZ and J2K-derived builds before any
+     * typed preference reads occur. SharedPreferences retains the old value type across an APK
+     * update, so asking FlowSharedPreferences for an Int when the key still contains a Boolean or
+     * String otherwise returns the default (or throws, depending on the call path).
+     *
+     * This is intentionally idempotent instead of version-gated: the native migration version
+     * numbers diverged between the upstream variants, while inspecting the stored type tells us
+     * exactly whether conversion is needed.
+     */
+    private fun migrateLibraryPreferences() {
+        val stored = prefs.all
+        val editor = prefs.edit()
+        var changed = false
+
+        listOf(
+            Keys.filterDownloaded,
+            Keys.filterUnread,
+            Keys.filterCompleted,
+            Keys.filterTracked,
+            Keys.filterLewd
+        ).forEach { key ->
+            val oldValue = stored[key] ?: return@forEach
+            val state = oldValue.toLibraryFilterState() ?: return@forEach
+            if (oldValue !is Int) {
+                editor.remove(key).putInt(key, state)
+                changed = true
+            }
+        }
+
+        stored[Keys.librarySortingMode]?.let { oldValue ->
+            val (mode, ascending) = oldValue.toLibrarySort() ?: return@let
+            if (oldValue !is Int) {
+                editor.remove(Keys.librarySortingMode).putInt(Keys.librarySortingMode, mode)
+                changed = true
+            }
+            if (ascending != null && Keys.librarySortingAscending !in stored) {
+                editor.remove(Keys.librarySortingAscending)
+                    .putBoolean(Keys.librarySortingAscending, ascending)
+                changed = true
+            }
+        }
+
+        stored[Keys.librarySortingAscending]?.let { oldValue ->
+            val ascending = oldValue.toBooleanPreference() ?: return@let
+            if (oldValue !is Boolean) {
+                editor.remove(Keys.librarySortingAscending)
+                    .putBoolean(Keys.librarySortingAscending, ascending)
+                changed = true
+            }
+        }
+
+        if (changed) editor.apply()
     }
+
+    private fun Any.toLibraryFilterState(): Int? =
+        when (this) {
+            is Int -> takeIf { it in 0..2 }
+            is Number -> toInt().takeIf { it in 0..2 }
+            is Boolean -> if (this) 1 else 0
+            is String ->
+                trim().toIntOrNull()?.takeIf { it in 0..2 }
+                    ?: when (trim().uppercase(Locale.ROOT)) {
+                        "FALSE", "IGNORE" -> 0
+                        "TRUE", "INCLUDE" -> 1
+                        "EXCLUDE" -> 2
+                        else -> null
+                    }
+            else -> null
+        }
+
+    private fun Any.toLibrarySort(): Pair<Int, Boolean?>? {
+        if (this is Int) return this to null
+        if (this is Number) return toInt() to null
+        if (this !is String) return null
+
+        trim().toIntOrNull()?.let { return it to null }
+        val values = split(',').map { it.trim().uppercase(Locale.ROOT) }
+        val mode =
+            when (values.firstOrNull()) {
+                "ALPHABETICAL", "TITLE" -> 0
+                "LAST_READ" -> 1
+                "LAST_CHECKED", "CHAPTER_FETCH_DATE", "DATE_FETCHED" -> 2
+                "UNREAD", "UNREAD_COUNT" -> 3
+                "TOTAL", "TOTAL_CHAPTERS" -> 4
+                "SOURCE" -> 5
+                "DRAG_AND_DROP" -> 6
+                "LAST_MANGA_UPDATE", "LATEST_CHAPTER" -> 7
+                "DATE_ADDED" -> 8
+                else -> return null
+            }
+        val ascending =
+            when (values.getOrNull(1)) {
+                "ASC", "ASCENDING" -> true
+                "DESC", "DESCENDING" -> false
+                else -> null
+            }
+        return mode to ascending
+    }
+
+    private fun Any.toBooleanPreference(): Boolean? =
+        when (this) {
+            is Boolean -> this
+            is Number -> toInt() != 0
+            is String ->
+                when (trim().uppercase(Locale.ROOT)) {
+                    "TRUE", "1", "ASC", "ASCENDING" -> true
+                    "FALSE", "0", "DESC", "DESCENDING" -> false
+                    else -> null
+                }
+            else -> null
+        }
 
     // <--
 

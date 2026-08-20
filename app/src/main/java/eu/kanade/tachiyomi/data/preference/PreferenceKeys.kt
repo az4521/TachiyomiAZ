@@ -135,6 +135,8 @@ object PreferenceKeys {
 
     const val librarySortingMode = "library_sorting_mode"
 
+    const val librarySortingAscending = "library_sorting_ascending"
+
     const val automaticExtUpdates = "automatic_ext_updates"
 
     const val allowNsfwSource = "allow_nsfw_source"
