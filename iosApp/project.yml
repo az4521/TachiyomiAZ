@@ -31,9 +31,14 @@ packages:
     path: Packages/ExtensionRunner
   # Versions matched to tachiyomiazios so the vendored UI compiles against what it was written
   # for. Nuke is also the image cache, which is why covers behave the same here as there.
+  # Exact, not a range. The .xcodeproj is generated and gitignored, so Package.resolved is never
+  # committed and every checkout resolves from scratch -- a range means CI silently takes whatever
+  # 13.x is newest that day. It took one using `isolated deinit`, a Swift 6.2 feature, which the
+  # macos-15 runner's toolchain rejects; local builds passed only because an untracked lockfile
+  # was holding them at this version anyway. Pinning states what was already true.
   Nuke:
     url: https://github.com/kean/Nuke
-    majorVersion: 13.0.0
+    exactVersion: 13.2.0
   Gifu:
     url: https://github.com/kaishin/Gifu.git
     majorVersion: 3.4.0
