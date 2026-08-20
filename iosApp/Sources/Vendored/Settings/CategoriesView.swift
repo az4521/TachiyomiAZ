@@ -16,8 +16,8 @@ struct CategoriesView: View {
     @State private var groupTitles: [String] = []
 
     init() {
-        self._categories = State(initialValue: CoreDataManager.shared.getCategoryTitles())
-        self._groupTitles = State(initialValue: CoreDataManager.shared.getCategories(groupsOnly: true).compactMap { $0.title })
+        self._categories = State(initialValue: SharedDataStore.shared.getCategoryTitles())
+        self._groupTitles = State(initialValue: SharedDataStore.shared.getCategories(groupsOnly: true).compactMap { $0.title })
     }
 
     var body: some View {
@@ -99,11 +99,10 @@ struct CategoriesView: View {
 
         for offset in sourceIndices.reversed() {
             let category = categories[offset]
-            CoreDataManager.shared.moveCategory(title: category, toPosition: adjustedDestination)
+            SharedDataStore.shared.moveCategory(title: category, toPosition: adjustedDestination)
         }
 
-        categories = CoreDataManager.shared.getCategoryTitles()
-        CoreDataManager.shared.save()
+        categories = SharedDataStore.shared.getCategoryTitles()
         NotificationCenter.default.post(name: .updateCategories, object: nil)
     }
 
@@ -160,10 +159,9 @@ extension CategoriesView {
     func addCategory(title: String) {
         if !title.isEmpty, title.lowercased() != "none", !categories.contains(title), !groupTitles.contains(title) {
             Task {
-                await CoreDataManager.shared.container.performBackgroundTask { context in
-                    CoreDataManager.shared.createCategory(title: title, context: context)
+                await DatabaseContainer.shared.performBackgroundTask { context in
+                    SharedDataStore.shared.createCategory(title: title, context: context)
                     do {
-                        try context.save()
                     } catch {
                         LogManager.logger.error("Failed to save data when adding category: \(error)")
                     }
@@ -175,10 +173,9 @@ extension CategoriesView {
     }
 
     func removeCategory(title: String) async -> Bool {
-        await CoreDataManager.shared.container.performBackgroundTask { context in
-            CoreDataManager.shared.removeCategory(title: title, context: context)
+        await DatabaseContainer.shared.performBackgroundTask { context in
+            SharedDataStore.shared.removeCategory(title: title, context: context)
             do {
-                try context.save()
                 var locked = UserDefaults.standard.stringArray(forKey: "Library.lockedCategories") ?? []
                 if let oldIndex = locked.firstIndex(of: title) {
                     locked.remove(at: oldIndex)
@@ -197,11 +194,10 @@ extension CategoriesView {
             showRenameFailedAlert = true
         } else {
             Task {
-                let success = await CoreDataManager.shared.container.performBackgroundTask { context in
-                    let success = CoreDataManager.shared.renameCategory(title: title, newTitle: newTitle, context: context)
+                let success = await DatabaseContainer.shared.performBackgroundTask { context in
+                    let success = SharedDataStore.shared.renameCategory(title: title, newTitle: newTitle, context: context)
                     guard success else { return false }
                     do {
-                        try context.save()
                         var locked = UserDefaults.standard.stringArray(forKey: "Library.lockedCategories") ?? []
                         if let oldIndex = locked.firstIndex(of: title) {
                             locked[oldIndex] = newTitle
@@ -214,7 +210,7 @@ extension CategoriesView {
                     }
                 }
                 if success {
-                    categories = CoreDataManager.shared.getCategoryTitles()
+                    categories = SharedDataStore.shared.getCategoryTitles()
                     NotificationCenter.default.post(name: .updateCategories, object: nil)
                 } else {
                     showRenameFailedAlert = true

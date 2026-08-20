@@ -191,20 +191,19 @@ extension FilterGroupCreateView {
             allCategoryAndGroupTitles,
             sourceKeys,
             filters
-        ) = await CoreDataManager.shared.container.performBackgroundTask { @Sendable context in
-            let categories = CoreDataManager.shared.getCategoryTitles(context: context)
-            let allCategoryAndGroupTitles = CoreDataManager.shared.getCategoryTitles(excludeFilterGroups: false, context: context)
+        ) = await DatabaseContainer.shared.performBackgroundTask { @Sendable context in
+            let categories = SharedDataStore.shared.getCategoryTitles(context: context)
+            let allCategoryAndGroupTitles = SharedDataStore.shared.getCategoryTitles(excludeFilterGroups: false, context: context)
 
             var sourceKeys: Set<String> = []
-            for object in CoreDataManager.shared.getLibraryManga(context: context) {
+            for object in SharedDataStore.shared.getLibraryManga(context: context) {
                 guard let manga = object.manga else { continue }
                 sourceKeys.insert(manga.sourceId)
             }
 
             var filters: [LibraryFilter] = []
             if let editingGroupTitle {
-                filters = CoreDataManager.shared
-                    .getFilterGroups(context: context)
+                filters = FilterGroupStore.get()
                     .first { $0.title == editingGroupTitle }?
                     .filters ?? []
             }
@@ -258,21 +257,21 @@ extension FilterGroupCreateView {
         let title = title.trim()
         let filters = self.filters
         if let editingGroupTitle {
-            await CoreDataManager.shared.container.performBackgroundTask { @Sendable _ in
-                var groups = CoreDataManager.shared.getFilterGroups()
+            await DatabaseContainer.shared.performBackgroundTask { @Sendable _ in
+                var groups = FilterGroupStore.get()
                 guard let index = groups.firstIndex(where: { $0.title == editingGroupTitle }) else { return }
                 groups[index] = FilterGroup(
                     title: title.isEmpty ? editingGroupTitle : title,
                     filters: filters
                 )
-                CoreDataManager.shared.setFilterGroups(groups)
+                FilterGroupStore.set(groups)
             }
         } else {
             do {
-                await CoreDataManager.shared.container.performBackgroundTask { @Sendable _ in
-                    var groups = CoreDataManager.shared.getFilterGroups()
+                await DatabaseContainer.shared.performBackgroundTask { @Sendable _ in
+                    var groups = FilterGroupStore.get()
                     groups.append(FilterGroup(title: title, filters: filters))
-                    CoreDataManager.shared.setFilterGroups(groups)
+                    FilterGroupStore.set(groups)
                 }
                 NotificationCenter.default.post(name: .updateCategories, object: nil)
             } catch {

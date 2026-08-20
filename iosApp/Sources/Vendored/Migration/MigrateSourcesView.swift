@@ -92,8 +92,8 @@ extension MigrateSourcesView {
 
 extension MigrateSourcesView {
     func loadSources() async {
-        manga = await CoreDataManager.shared.container.performBackgroundTask { context in
-            let objects = CoreDataManager.shared.getLibraryManga(context: context)
+        manga = await DatabaseContainer.shared.performBackgroundTask { context in
+            let objects = SharedDataStore.shared.getLibraryManga(context: context)
             var manga: [String: [ExtensionRunner.Manga]] = [:]
             for object in objects {
                 guard let mangaObject = object.manga else { continue }

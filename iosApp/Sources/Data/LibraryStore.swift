@@ -68,6 +68,7 @@ final class LibraryStore: ObservableObject {
 
     /// Non-optional now that the handle is shared, so the `guard let handler` dance below is gone.
     var handler: IosDatabaseHandler { Database.handler }
+    private lazy var repository = LibraryRepository(db: handler)
     private let syncPlatform = IOSChapterSyncPlatform()
 
     func load() async {
@@ -77,42 +78,36 @@ final class LibraryStore: ObservableObject {
         // No category is seeded. "Uncategorized" is not a row -- it is the library screen's name
         // for entries belonging to no category -- so creating a "Default" row alongside it produced
         // two tabs meaning the same thing, one of which nothing was ever filed under.
-        categories = handler.getCategories()
-        manga = handler.getLibraryMangas()
+        categories = repository.categories()
+        manga = repository.entries()
     }
 
     func reload() async {
-        categories = handler.getCategories()
-        manga = handler.getLibraryMangas()
+        categories = repository.categories()
+        manga = repository.entries()
     }
 
     // MARK: - Membership
 
     func contains(url: String, sourceId: Int64) -> Bool {
-        return handler.getManga(url: url, sourceId: sourceId)?.favorite == true
+        repository.contains(url: url, sourceId: sourceId)
     }
 
     func add(manga sourceManga: TachiyomiXManga, source: SourceDescriptor) async {
-
-        let existing = handler.getManga(url: sourceManga.url, sourceId: source.id)
-        let record = existing ?? MangaImpl()
-        record.url = sourceManga.url
-        record.title = sourceManga.title
-        record.source = source.id
-        record.thumbnail_url = sourceManga.thumbnailURL
-        record.author = sourceManga.author
-        record.artist = sourceManga.artist
-        record.description_ = sourceManga.description
-        record.genre = sourceManga.genre
-        record.status = Int32(sourceManga.status)
-        record.favorite = true
-        record.initialized = true
-        if existing == nil {
-            record.date_added = Int64(Date().timeIntervalSince1970 * 1000)
-            handler.insertManga(manga: record)
-        } else {
-            handler.updateMangaFavorite(manga: record)
-        }
+        repository.addFavorite(
+            url: sourceManga.url,
+            title: sourceManga.title,
+            sourceId: source.id,
+            thumbnailUrl: sourceManga.thumbnailURL,
+            author: sourceManga.author,
+            artist: sourceManga.artist,
+            description: sourceManga.description,
+            genre: sourceManga.genre,
+            status: Int32(sourceManga.status),
+            fetchOnce: false,
+            memoJson: nil,
+            dateAdded: Int64(Date().timeIntervalSince1970 * 1000)
+        )
         await reload()
     }
 
@@ -127,43 +122,27 @@ final class LibraryStore: ObservableObject {
     /// caller adding many titles at once should pass `false` and reload once at the end -- the
     /// same reason `remove(urls:)` exists.
     func addFromRunner(_ manga: ExtensionRunner.Manga, sourceId: Int64, reload: Bool = true) async {
-        let existing = handler.getManga(url: manga.key, sourceId: sourceId)
-        let record = existing ?? MangaImpl()
-        record.url = manga.key
-        record.title = manga.title
-        record.source = sourceId
-        record.thumbnail_url = manga.cover
-        record.author = manga.authors?.joined(separator: ", ")
-        record.artist = manga.artists?.joined(separator: ", ")
-        record.description_ = manga.description
-        record.genre = manga.tags?.joined(separator: ", ")
-        record.status = manga.status.tachiyomiXValue
-        record.update_strategy = manga.updateStrategy == .never
-            ? UpdateStrategy.onlyFetchOnce
-            : UpdateStrategy.alwaysUpdate
-        if let memo = manga.memo {
-            MemoJsonKt.setMangaMemoJson(manga: record, memoJson: memo)
-        }
-        record.favorite = true
-        record.initialized = true
-        if existing == nil {
-            record.date_added = Int64(Date().timeIntervalSince1970 * 1000)
-            handler.insertManga(manga: record)
-        } else {
-            handler.updateMangaFavorite(manga: record)
-        }
+        repository.addFavorite(
+            url: manga.key,
+            title: manga.title,
+            sourceId: sourceId,
+            thumbnailUrl: manga.cover,
+            author: manga.authors?.joined(separator: ", "),
+            artist: manga.artists?.joined(separator: ", "),
+            description: manga.description,
+            genre: manga.tags?.joined(separator: ", "),
+            status: manga.status.tachiyomiXValue,
+            fetchOnce: manga.updateStrategy == .never,
+            memoJson: manga.memo,
+            dateAdded: Int64(Date().timeIntervalSince1970 * 1000)
+        )
         if reload {
             await self.reload()
         }
     }
 
     func remove(url: String, sourceId: Int64) async {
-        guard let record = handler.getManga(url: url, sourceId: sourceId) else { return }
-        record.favorite = false
-        // Drops the cached cover, as the other app does when a title leaves the library. Without
-        // it a removed title's cover stayed in the image cache for the life of the install.
-        MangaExtensionsKt.removeCovers(record, coverCache: CoverStoreBridge.shared)
-        handler.updateMangaFavorite(manga: record)
+        repository.remove(url: url, sourceId: sourceId, coverStore: CoverStoreBridge.shared)
         await reload()
     }
 
@@ -180,43 +159,28 @@ final class LibraryStore: ObservableObject {
     /// killed it. One transaction, one reload.
     func remove(urls: [(url: String, sourceId: Int64)]) async {
         guard !urls.isEmpty else { return }
-        let handler = self.handler
-        handler.inTransaction {
-            for entry in urls {
-                guard let record = handler.getManga(url: entry.url, sourceId: entry.sourceId) else {
-                    continue
-                }
-                record.favorite = false
-                MangaExtensionsKt.removeCovers(record, coverCache: CoverStoreBridge.shared)
-                handler.updateMangaFavorite(manga: record)
-            }
-        }
+        repository.removeAll(
+            urls: urls.map(\.url),
+            sourceIds: urls.map { KotlinLong(longLong: $0.sourceId) },
+            coverStore: CoverStoreBridge.shared
+        )
         await reload()
     }
 
     // MARK: - Categories
 
     func addCategory(named name: String) async {
-        let trimmed = name.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty else { return }
-        // Category.create is the shared factory; it assigns the next order itself.
-        let category = CategoryCompanion.shared.create(name: trimmed)
-        category.order = Int32(handler.getCategories().count)
-        handler.insertCategory(category: category)
+        guard repository.addCategory(name: name) != nil else { return }
         await reload()
     }
 
     func renameCategory(_ category: MangaCategory, to name: String) async {
-        let trimmed = name.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty else { return }
-        category.name = trimmed
-        // insertCategory upserts on the primary key, so this is the rename path too.
-        handler.insertCategory(category: category)
+        guard repository.renameCategory(category: category, name: name) else { return }
         await reload()
     }
 
     func deleteCategory(_ category: MangaCategory) async {
-        handler.deleteCategory(category: category)
+        repository.deleteCategory(category: category)
         await reload()
     }
 

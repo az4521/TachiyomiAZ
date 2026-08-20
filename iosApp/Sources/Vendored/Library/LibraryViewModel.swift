@@ -226,10 +226,10 @@ extension LibraryViewModel {
     }
 
     func refreshCategories(skipDataLoad: Bool = false) async {
-        (categories, filterGroups) = await CoreDataManager.shared.container.performBackgroundTask { @Sendable context in
+        (categories, filterGroups) = await DatabaseContainer.shared.performBackgroundTask { @Sendable context in
             (
-                CoreDataManager.shared.getCategoryTitles(context: context),
-                CoreDataManager.shared.getFilterGroups(context: context)
+                SharedDataStore.shared.getCategoryTitles(context: context),
+                FilterGroupStore.get()
             )
         }
         if !skipDataLoad {
@@ -249,11 +249,11 @@ extension LibraryViewModel {
         )
         let previouslyHadUncategorizedManga = hasUncategorizedManga
         if refreshCategoryAvailability {
-            hasUncategorizedManga = await CoreDataManager.shared.container
+            hasUncategorizedManga = await DatabaseContainer.shared
                 .performBackgroundTask { @Sendable context in
                 // Answered by the library query itself. This walked every library entry and ran a
                 // category lookup per entry -- two queries each, on every single library load.
-                CoreDataManager.shared.hasUncategorizedLibraryManga()
+                SharedDataStore.shared.hasUncategorizedLibraryManga()
             }
             normalizeCurrentCategory()
         }
@@ -294,7 +294,7 @@ extension LibraryViewModel {
             manga,
             sourceKeys,
             unappliedFilters
-        ) = await CoreDataManager.shared.container.performBackgroundTask { @Sendable [sortMethod, sortAscending, pinType, refreshEligible] context in
+        ) = await DatabaseContainer.shared.performBackgroundTask { @Sendable [sortMethod, sortAscending, pinType, refreshEligible] context in
             var pinnedManga: [MangaInfo] = []
             var manga: [MangaInfo] = []
             var sourceKeys: Set<String> = []
@@ -308,12 +308,12 @@ extension LibraryViewModel {
             // used to run a category lookup per library entry.
             let libraryObjects: [LibraryMangaObject] = if let currentCategory {
                 if currentCategory.isEmpty {
-                    CoreDataManager.shared.getUncategorizedLibraryManga()
+                    SharedDataStore.shared.getUncategorizedLibraryManga()
                 } else {
-                    CoreDataManager.shared.getLibraryManga(category: currentCategory)
+                    SharedDataStore.shared.getLibraryManga(category: currentCategory)
                 }
             } else {
-                CoreDataManager.shared.getLibraryManga()
+                SharedDataStore.shared.getLibraryManga()
             }
 
             let actuallyEmpty = libraryObjects.isEmpty
@@ -332,7 +332,7 @@ extension LibraryViewModel {
 
             // Two queries for the whole library, rather than the two per entry this used to run
             // inside the loop below -- the single biggest cost of loading the library screen.
-            let categoriesByManga = CoreDataManager.shared.libraryCategoryNames()
+            let categoriesByManga = SharedDataStore.shared.libraryCategoryNames()
 
             main: for libraryObject in sortedObjects {
                 guard
@@ -370,7 +370,7 @@ extension LibraryViewModel {
                             unappliedFilters.append(filter)
                             continue
                         case .tracking:
-                            condition = CoreDataManager.shared.hasTrack(
+                            condition = SharedDataStore.shared.hasTrack(
                                 sourceId: info.sourceId,
                                 mangaId: info.mangaId,
                                 context: context
@@ -379,7 +379,7 @@ extension LibraryViewModel {
                             unappliedFilters.append(filter)
                             continue
                         case .started:
-                            condition = CoreDataManager.shared.hasHistory(
+                            condition = SharedDataStore.shared.hasHistory(
                                 sourceId: info.sourceId,
                                 mangaId: info.mangaId,
                                 context: context
@@ -566,13 +566,13 @@ extension LibraryViewModel {
         ) { group in
             for identifier in identifiers {
                 group.addTask {
-                    let count = await CoreDataManager.shared.container.performBackgroundTask { context in
-                        let filters = CoreDataManager.shared.getMangaChapterFilters(
+                    let count = await DatabaseContainer.shared.performBackgroundTask { context in
+                        let filters = SharedDataStore.shared.getMangaChapterFilters(
                             sourceId: identifier.sourceKey,
                             mangaId: identifier.mangaKey,
                             context: context
                         )
-                        return CoreDataManager.shared.unreadCount(
+                        return SharedDataStore.shared.unreadCount(
                             sourceId: identifier.sourceKey,
                             mangaId: identifier.mangaKey,
                             lang: filters.language,
@@ -647,9 +647,9 @@ extension LibraryViewModel {
 
         // Use one grouped store query. Issuing multiple Core Data requests for
         // every title makes a history refresh scale with the number of manga.
-        let allUnreadCounts = await CoreDataManager.shared.container
+        let allUnreadCounts = await DatabaseContainer.shared
             .performBackgroundTask { @Sendable context in
-                CoreDataManager.shared.libraryUnreadCounts(
+                SharedDataStore.shared.libraryUnreadCounts(
                     context: context
                 )
             }
@@ -685,13 +685,13 @@ extension LibraryViewModel {
     }
 
     func fetchUnreads(for identifier: MangaIdentifier) async {
-        let unreadCount = await CoreDataManager.shared.container.performBackgroundTask { @Sendable context in
-            let filters = CoreDataManager.shared.getMangaChapterFilters(
+        let unreadCount = await DatabaseContainer.shared.performBackgroundTask { @Sendable context in
+            let filters = SharedDataStore.shared.getMangaChapterFilters(
                 sourceId: identifier.sourceKey,
                 mangaId: identifier.mangaKey,
                 context: context
             )
-            return CoreDataManager.shared.unreadCount(
+            return SharedDataStore.shared.unreadCount(
                 sourceId: identifier.sourceKey,
                 mangaId: identifier.mangaKey,
                 lang: filters.language,
@@ -943,7 +943,7 @@ extension LibraryViewModel {
 
     func addToCurrentCategory(manga: [MangaInfo]) async {
         guard let currentCategory, isInRealCategory else { return }
-        await CoreDataManager.shared.addCategoriesToManga(
+        await SharedDataStore.shared.addCategoriesToManga(
             manga.map(\.identifier),
             categories: [currentCategory]
         )
@@ -957,7 +957,7 @@ extension LibraryViewModel {
         manga.removeAll { identifiers.contains($0.identifier) }
         storedPinnedManga?.removeAll { identifiers.contains($0.identifier) }
         storedManga?.removeAll { identifiers.contains($0.identifier) }
-        await CoreDataManager.shared.removeCategoriesFromManga(
+        await SharedDataStore.shared.removeCategoriesFromManga(
             Array(identifiers),
             categories: [currentCategory]
         )

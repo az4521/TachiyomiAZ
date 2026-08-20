@@ -273,7 +273,7 @@ actor DownloadManager {
 extension DownloadManager {
     /// Download all chapters for a manga.
     func downloadAll(manga: ExtensionRunner.Manga) async {
-        let allChapters = await CoreDataManager.shared.getChapters(sourceId: manga.sourceKey, mangaId: manga.key)
+        let allChapters = await SharedDataStore.shared.getChapters(sourceId: manga.sourceKey, mangaId: manga.key)
 
         var chaptersToDownload: [ExtensionRunner.Chapter] = []
 
@@ -296,8 +296,8 @@ extension DownloadManager {
 
     /// Download unread chapters for a manga.
     func downloadUnread(manga: ExtensionRunner.Manga) async {
-        let readingHistory = await CoreDataManager.shared.getReadingHistory(sourceId: manga.sourceKey, mangaId: manga.key)
-        let allChapters = await CoreDataManager.shared.getChapters(sourceId: manga.sourceKey, mangaId: manga.key)
+        let readingHistory = await SharedDataStore.shared.getReadingHistory(sourceId: manga.sourceKey, mangaId: manga.key)
+        let allChapters = await SharedDataStore.shared.getChapters(sourceId: manga.sourceKey, mangaId: manga.key)
 
         var chaptersToDownload: [ExtensionRunner.Chapter] = []
 
@@ -507,8 +507,8 @@ extension DownloadManager {
                         title: firstComicInfo.series,
                         coverUrl: mangaDirectory.appendingPathComponent("cover.png").absoluteString,
                         isInLibrary: await withCheckedContinuation { continuation in
-                            CoreDataManager.shared.container.performBackgroundTask { context in
-                                let isInLibrary = CoreDataManager.shared.hasLibraryManga(
+                            DatabaseContainer.shared.performBackgroundTask { context in
+                                let isInLibrary = SharedDataStore.shared.hasLibraryManga(
                                     sourceId: sourceId,
                                     mangaId: extraData?.mangaKey ?? mangaId,
                                     context: context
@@ -520,14 +520,14 @@ extension DownloadManager {
                     )
                 } else {
                     await withCheckedContinuation { continuation in
-                        CoreDataManager.shared.container.performBackgroundTask { context in
+                        DatabaseContainer.shared.performBackgroundTask { context in
                             // First try direct lookup with the directory name
-                            var mangaObject = CoreDataManager.shared.getManga(
+                            var mangaObject = SharedDataStore.shared.getManga(
                                 sourceId: sourceId,
                                 mangaId: mangaId,
                                 context: context
                             )
-                            var isInLibrary = CoreDataManager.shared.hasLibraryManga(
+                            var isInLibrary = SharedDataStore.shared.hasLibraryManga(
                                 sourceId: sourceId,
                                 mangaId: mangaId,
                                 context: context
@@ -535,14 +535,14 @@ extension DownloadManager {
 
                             // If not found, try to find a manga whose sanitized ID matches the directory name
                             if mangaObject == nil {
-                                let allMangaForSource = CoreDataManager.shared.getManga(context: context)
+                                let allMangaForSource = SharedDataStore.shared.getManga(context: context)
                                     .filter { $0.sourceKey == sourceId }
 
                                 for candidateManga in allMangaForSource {
                                     let candidateId = candidateManga.key
                                     if candidateId.directoryName == mangaId {
                                         mangaObject = candidateManga
-                                        isInLibrary = CoreDataManager.shared.hasLibraryManga(
+                                        isInLibrary = SharedDataStore.shared.hasLibraryManga(
                                             sourceId: sourceId,
                                             mangaId: candidateId,
                                             context: context

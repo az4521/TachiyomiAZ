@@ -29,8 +29,8 @@ mimics `NSPersistentContainer` so ~100 `performBackgroundTask` call sites need n
 
 **Persistence.** The fork's CoreData stack is not vendored. `:core-database` is already the store and
 the Android app reads it through the same generated queries, so a second stack would give the two
-apps schemas that drift. `Sources/Data/CoreDataFacade/` keeps upstream's method names and runs
-SQLDelight underneath.
+apps schemas that drift. `Sources/Data/SharedData/` contains only model/source-key translation and
+small UI-facing adapters over shared KMP repositories; it owns no persistence state.
 
 **The manager layer.** `MangaManager`, `HistoryManager` and `TrackerManager` drive chapter syncing
 and library updates. This port takes those rules from `:core-domain` (`syncChaptersWithSource`,

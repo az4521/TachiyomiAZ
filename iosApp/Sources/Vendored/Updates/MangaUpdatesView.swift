@@ -148,9 +148,9 @@ struct MangaUpdatesView: View {
 
 extension MangaUpdatesView {
     private func loadNewEntries() async {
-        let newUpdates = await CoreDataManager.shared.container.performBackgroundTask { context in
-            CoreDataManager.shared.getRecentMangaUpdates(limit: limit, offset: offset, context: context).compactMap {
-                if let mangaObj = CoreDataManager.shared.getManga(
+        let newUpdates = await DatabaseContainer.shared.performBackgroundTask { context in
+            SharedDataStore.shared.getRecentMangaUpdates(limit: limit, offset: offset, context: context).compactMap {
+                if let mangaObj = SharedDataStore.shared.getManga(
                     sourceId: $0.sourceId ?? "",
                     mangaId: $0.mangaId ?? "",
                     context: context
@@ -241,7 +241,7 @@ extension MangaUpdatesView {
     private func setOpened(manga: ExtensionRunner.Manga) {
         if !UserDefaults.standard.bool(forKey: "General.incognitoMode") {
             Task {
-                await CoreDataManager.shared.setOpened(sourceId: manga.sourceKey, mangaId: manga.key)
+                await SharedDataStore.shared.setOpened(sourceId: manga.sourceKey, mangaId: manga.key)
                 NotificationCenter.default.post(name: Notification.Name("updateLibrary"), object: nil)
             }
         }
@@ -269,12 +269,11 @@ extension MangaUpdatesView {
         }
 
         Task {
-            await CoreDataManager.shared.container.performBackgroundTask { context in
-                CoreDataManager.shared.removeMangaUpdates(
+            await DatabaseContainer.shared.performBackgroundTask { context in
+                SharedDataStore.shared.removeMangaUpdates(
                     updates: updates,
                     context: context
                 )
-                try? context.save()
             }
         }
     }

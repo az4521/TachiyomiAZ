@@ -663,11 +663,6 @@ extension Settings {
                     value: .button(.init())
                 ),
                 .init(
-                    key: "Advanced.migrateHistory",
-                    title: "Migrate Chapter History",
-                    value: .button(.init())
-                ),
-                .init(
                     key: "Advanced.resetSettings",
                     title: NSLocalizedString("RESET_SETTINGS"),
                     value: .button(.init())

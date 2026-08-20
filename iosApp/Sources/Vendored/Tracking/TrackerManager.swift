@@ -91,13 +91,13 @@ actor TrackerManager {
         let mangaId = manga.mangaKey
         let uniqueKey = "\(sourceId).\(mangaId)"
         let displayMode = ChapterTitleDisplayMode(
-            flags: CoreDataManager.shared.getMangaChapterFilters(
+            flags: SharedDataStore.shared.getMangaChapterFilters(
                 sourceId: sourceId,
                 mangaId: mangaId
             ).flags
         )
-        let trackItems: [TrackItem] = await CoreDataManager.shared.container.performBackgroundTask { @Sendable context in
-            CoreDataManager.shared.getTracks(
+        let trackItems: [TrackItem] = await DatabaseContainer.shared.performBackgroundTask { @Sendable context in
+            SharedDataStore.shared.getTracks(
                 sourceId: sourceId,
                 mangaId: mangaId,
                 context: context
@@ -114,7 +114,7 @@ actor TrackerManager {
 
             // Persist what the service reported. These columns were never written on this side,
             // so a title tracked here showed on Android as tracked with no status or progress.
-            CoreDataManager.shared.setTrackState(
+            SharedDataStore.shared.setTrackState(
                 trackerId: item.trackerId,
                 sourceId: sourceId,
                 mangaId: mangaId,
@@ -217,8 +217,8 @@ actor TrackerManager {
     }
 
     func setProgress(sourceKey: String, mangaKey: String, chapters: [ExtensionRunner.Chapter], progress: ChapterReadProgress) async {
-        let trackItems: [TrackItem] = await CoreDataManager.shared.container.performBackgroundTask { context in
-            CoreDataManager.shared.getTracks(
+        let trackItems: [TrackItem] = await DatabaseContainer.shared.performBackgroundTask { context in
+            SharedDataStore.shared.getTracks(
                 sourceId: sourceKey,
                 mangaId: mangaKey,
                 context: context
@@ -247,14 +247,14 @@ actor TrackerManager {
 
     /// Register a new track item to a manga and save to the data store.
     func register(tracker: Tracker, manga: ExtensionRunner.Manga, item: TrackSearchItem) async {
-        let (highestReadNumber, earliestReadDate) = await CoreDataManager.shared.container.performBackgroundTask { context in
+        let (highestReadNumber, earliestReadDate) = await DatabaseContainer.shared.performBackgroundTask { context in
             (
-                CoreDataManager.shared.getHighestReadNumber(
+                SharedDataStore.shared.getHighestReadNumber(
                     sourceId: manga.sourceKey,
                     mangaId: manga.key,
                     context: context
                 ),
-                CoreDataManager.shared.getEarliestReadDate(
+                SharedDataStore.shared.getEarliestReadDate(
                     sourceId: manga.sourceKey,
                     mangaId: manga.key,
                     context: context
@@ -290,8 +290,8 @@ actor TrackerManager {
 
     /// Saves a TrackItem to the data store.
     private func saveTrackItem(item: TrackItem) async {
-        await CoreDataManager.shared.container.performBackgroundTask { @Sendable context in
-            CoreDataManager.shared.createTrack(
+        await DatabaseContainer.shared.performBackgroundTask { @Sendable context in
+            SharedDataStore.shared.createTrack(
                 id: item.id,
                 trackerId: item.trackerId,
                 sourceId: item.sourceId,
@@ -301,7 +301,6 @@ actor TrackerManager {
                 context: context
             )
             do {
-                try context.save()
             } catch {
                 LogManager.logger.error("TrackManager.saveTrackItem(item:): \(error)")
             }
@@ -312,15 +311,15 @@ actor TrackerManager {
 
     /// Removes the TrackItem from the data store.
     func removeTrackItem(item: TrackItem) async {
-        await CoreDataManager.shared.container.performBackgroundTask { @Sendable context in
+        await DatabaseContainer.shared.performBackgroundTask { @Sendable context in
             self.removeTrackItem(item: item, context: context)
         }
     }
 
     /// Sets the chapter offset for a track item.
     func setTrackChapterOffset(item: TrackItem, chapterOffset: Int) async {
-        await CoreDataManager.shared.container.performBackgroundTask { context in
-            CoreDataManager.shared.setTrackChapterOffset(
+        await DatabaseContainer.shared.performBackgroundTask { context in
+            SharedDataStore.shared.setTrackChapterOffset(
                 trackerId: item.trackerId,
                 sourceId: item.sourceId,
                 mangaId: item.mangaId,
@@ -328,7 +327,6 @@ actor TrackerManager {
                 context: context
             )
             do {
-                try context.save()
             } catch {
                 LogManager.logger.error("TrackManager.setTrackChapterOffset(item:chapterOffset:): \(error)")
             }
@@ -337,14 +335,13 @@ actor TrackerManager {
     }
 
     nonisolated func removeTrackItem(item: TrackItem, context: DatabaseContainer.Context) {
-        CoreDataManager.shared.removeTrack(
+        SharedDataStore.shared.removeTrack(
             trackerId: item.trackerId,
             sourceId: item.sourceId,
             mangaId: item.mangaId,
             context: context
         )
         do {
-            try context.save()
         } catch {
             LogManager.logger.error("TrackManager.removeTrackItem(item:): \(error)")
         }
@@ -354,7 +351,7 @@ actor TrackerManager {
     /// Checks if a manga is being tracked
     @MainActor
     func isTracking(sourceId: String, mangaId: String) -> Bool {
-        CoreDataManager.shared.hasTrack(sourceId: sourceId, mangaId: mangaId)
+        SharedDataStore.shared.hasTrack(sourceId: sourceId, mangaId: mangaId)
     }
 
     /// Checks if there is a tracker that can be added to the given manga.
@@ -415,8 +412,8 @@ actor TrackerManager {
         // fetch remote history from linked page trackers
         var result: [String: ChapterReadProgress] = [:]
 
-        let trackItems: [TrackItem] = await CoreDataManager.shared.container.performBackgroundTask { context in
-            CoreDataManager.shared.getTracks(
+        let trackItems: [TrackItem] = await DatabaseContainer.shared.performBackgroundTask { context in
+            SharedDataStore.shared.getTracks(
                 sourceId: manga.sourceKey,
                 mangaId: manga.key,
                 context: context
@@ -455,12 +452,12 @@ actor TrackerManager {
         guard !result.isEmpty else { return }
 
         // create local history
-        let (completed, progressed) = await CoreDataManager.shared.container.performBackgroundTask { [result] context in
+        let (completed, progressed) = await DatabaseContainer.shared.performBackgroundTask { [result] context in
             var completed: [String] = []
             var progressed: [String: Int] = [:]
 
             for (chapterKey, progress) in result {
-                let existingHistory = CoreDataManager.shared.getHistory(
+                let existingHistory = SharedDataStore.shared.getHistory(
                     sourceId: manga.sourceKey,
                     mangaId: manga.key,
                     chapterId: chapterKey,
@@ -474,7 +471,7 @@ actor TrackerManager {
                 if progress.completed {
                     if !(existingHistory?.completed ?? false) {
                         completed.append(chapterKey)
-                        CoreDataManager.shared.setCompleted(
+                        SharedDataStore.shared.setCompleted(
                             sourceId: manga.sourceKey,
                             mangaId: manga.key,
                             chapterIds: [chapterKey],
@@ -485,7 +482,7 @@ actor TrackerManager {
                 } else if progress.page != 0 {
                     progressed[chapterKey] = progress.page
                     let readDate = progress.date ?? Date.now
-                    CoreDataManager.shared.setProgress(
+                    SharedDataStore.shared.setProgress(
                         progress.page,
                         sourceId: manga.sourceKey,
                         mangaId: manga.key,
@@ -500,7 +497,6 @@ actor TrackerManager {
             // Nothing stamps the manga itself. `setCompleted` and `setProgress` above write the
             // history rows, and "recently read" ordering reads those, so a title synced from a
             // tracker takes its place in that order from the same history every other title does.
-            try? context.save()
 
             return (completed, progressed)
         }
@@ -557,13 +553,13 @@ extension TrackerManager {
 
 extension TrackerManager {
     private func getChapters(manga: ExtensionRunner.Manga) async -> [ExtensionRunner.Chapter] {
-        let inLibrary = await CoreDataManager.shared.container.performBackgroundTask { context in
-            CoreDataManager.shared.hasLibraryManga(sourceId: manga.sourceKey, mangaId: manga.key, context: context)
+        let inLibrary = await DatabaseContainer.shared.performBackgroundTask { context in
+            SharedDataStore.shared.hasLibraryManga(sourceId: manga.sourceKey, mangaId: manga.key, context: context)
         }
         if inLibrary {
             // load data from db
-            return await CoreDataManager.shared.container.performBackgroundTask { context in
-                CoreDataManager.shared.getChapters(
+            return await DatabaseContainer.shared.performBackgroundTask { context in
+                SharedDataStore.shared.getChapters(
                     sourceId: manga.sourceKey,
                     mangaId: manga.key,
                     context: context
@@ -606,8 +602,8 @@ extension TrackerManager {
         let currentHighestRead = if let currentHighestRead {
             currentHighestRead
         } else {
-            await CoreDataManager.shared.container.performBackgroundTask { context in
-                CoreDataManager.shared.getHighestReadNumber(
+            await DatabaseContainer.shared.performBackgroundTask { context in
+                SharedDataStore.shared.getHighestReadNumber(
                     sourceId: manga.sourceKey,
                     mangaId: manga.key,
                     context: context
@@ -617,7 +613,7 @@ extension TrackerManager {
 
         // Check for display mode
         let displayMode = ChapterTitleDisplayMode(
-            flags: CoreDataManager.shared.getMangaChapterFilters(
+            flags: SharedDataStore.shared.getMangaChapterFilters(
                 sourceId: manga.sourceKey,
                 mangaId: manga.key
             ).flags

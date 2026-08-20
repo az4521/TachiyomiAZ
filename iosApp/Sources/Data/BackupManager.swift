@@ -8,7 +8,7 @@ import UIKit
 ///
 /// Format is the point: a backup taken here restores on TachiyomiAZ for Android and vice versa,
 /// which an app-specific JSON blob would not. `TachibkBackupCodec` does the encoding, and every
-/// read and write of the data itself goes through `CoreDataManager` -- so the tables backed up are
+/// read and write of the data itself goes through `SharedDataStore` -- so the tables backed up are
 /// the shared ones both apps use.
 ///
 /// Restore merges rather than replaces, and what "merge" means is not decided here: `:core-domain`
@@ -174,7 +174,7 @@ final class BackupManager {
 
         if outcome.error == nil {
             // Unread badges are cached, and a restore changes read state under them.
-            LibraryBadgeCache.save(CoreDataManager.shared.libraryUnreadCounts(), kind: .unread)
+            LibraryBadgeCache.save(SharedDataStore.shared.libraryUnreadCounts(), kind: .unread)
         }
 
         NotificationCenter.default.post(name: .updateHistory, object: "backupRestore")
@@ -220,146 +220,34 @@ final class BackupManager {
     ) -> RestoreOutcome {
         let handler = Database.handler
         var outcome = RestoreOutcome()
-
-        handler.inTransaction {
-            restoreCategories(backup.backupCategories, handler: handler)
-
-            var restored: [Int64] = []
-            for entry in backup.backupManga {
-                progress.advance()
-                guard let manga = restoreManga(entry, handler: handler) else { continue }
-                restored.append(entry.source)
-
-                restoreChapters(entry, manga: manga, handler: handler)
-                restoreCategoryMembership(
-                    entry,
-                    manga: manga,
-                    backupCategories: backup.backupCategories,
-                    handler: handler
-                )
-                restoreTracks(entry, manga: manga, handler: handler)
-                progress.advance()
-            }
-
-            outcome.missingSources = missingSourceNames(
-                backup,
-                restored: restored,
-                installedSources: installedSources
-            )
-
-            // A backup with titles in it that produced no rows at all did not partly work -- every
-            // one had a source id this app could not read, which means the file is not what it
-            // claims to be. Reported rather than passed off as a restore that changed nothing.
-            if !backup.backupManga.isEmpty && restored.isEmpty {
-                outcome.error = NSLocalizedString("BACKUP_NO_RESTORABLE_ENTRIES")
-            }
-        }
-
-        return outcome
-    }
-
-    /// Adds the categories the backup has and this database does not.
-    ///
-    /// Which ones those are comes from `mergeBackupCategories`, which matches by name: ids are
-    /// assigned per database, so the same "Reading" category has a different id on every device and
-    /// matching on id would duplicate every category on every restore.
-    nonisolated private static func restoreCategories(
-        _ categories: [TachiyomiKit.BackupCategory],
-        handler: IosDatabaseHandler
-    ) {
-        BackupRestorer.shared.restoreCategories(db: handler, backupCategories: categories)
-    }
-
-    /// Writes one backup entry, merged onto the stored row if there is one.
-    ///
-    /// The row is returned so the chapter, category and tracker passes can address it without
-    /// looking it up again. `getMangaImpl` is the shared model's own conversion -- the columns are
-    /// no longer copied across by hand here, which is what used to lose `viewer` and
-    /// `chapter_flags` on the way in.
-    nonisolated private static func restoreManga(
-        _ entry: TachiyomiKit.BackupManga,
-        handler: IosDatabaseHandler
-    ) -> DbManga? {
-        guard SourceIdentity.key(for: entry.source) != nil || entry.source != 0 else { return nil }
-
-        // `restoreMangaNoFetch` is the other app's no-fetch restore path, which is what this is:
-        // nothing here asks the source for anything. `initialized` used to be forced false here so
-        // the next open would refetch details; that is not what the other app does, and a
-        // difference in a shared table is worth less than the two agreeing.
-        let record = entry.getMangaImpl()
-        let stored = handler.getManga(url: record.url, sourceId: record.source) ?? MangaImpl()
-        BackupRestorer.shared.restoreMangaNoFetch(db: handler, manga: record, dbManga: stored)
-        return handler.getManga(url: record.url, sourceId: record.source)
-    }
-
-    /// Restores an entry's chapters and the read state that goes with them.
-    ///
-    /// Read state arrives in two places -- the chapter carries its bookmark and page, the history
-    /// list carries when it was last read -- and they are put back together before
-    /// `mergeBackupChapters` sees them, because that is the shape it and the database expect.
-    nonisolated private static func restoreChapters(
-        _ entry: TachiyomiKit.BackupManga,
-        manga: DbManga,
-        handler: IosDatabaseHandler
-    ) {
-        let chapters = entry.getChaptersImpl()
-        if !chapters.isEmpty {
-            BackupRestorer.shared.restoreChaptersForManga(db: handler, manga: manga, chapters: chapters)
-        }
-
-        // Runs even with no chapters in the backup: the title's chapters may already be stored from
-        // a library refresh, and the timestamps still belong on them.
-        BackupRestorer.shared.restoreHistoryForManga(db: handler, history: entry.history)
-    }
-
-    /// Puts the entry back in its categories, through the shared rule.
-    ///
-    /// Resolving membership takes two hops -- the stored order names a category *in the backup*,
-    /// and that category's name finds the one in this database -- and the one-hop version that
-    /// looks equivalent files titles under the wrong categories as soon as a restore adds one.
-    /// That is `BackupRestorer`'s to know, not this file's.
-    nonisolated private static func restoreCategoryMembership(
-        _ entry: TachiyomiKit.BackupManga,
-        manga: DbManga,
-        backupCategories: [TachiyomiKit.BackupCategory],
-        handler: IosDatabaseHandler
-    ) {
-        BackupRestorer.shared.restoreCategoriesForManga(
+        let report = BackupRestorer.shared.restoreBackupNoFetch(
             db: handler,
-            manga: manga,
-            categories: entry.categories,
-            backupCategories: backupCategories
-        )
-    }
-
-    /// Relinks tracked titles.
-    ///
-    /// A link that is already there is left alone rather than rewritten: the stored one carries the
-    /// progress this device has synced, and the backup's carries what the other device had.
-    nonisolated private static func restoreTracks(
-        _ entry: TachiyomiKit.BackupManga,
-        manga: DbManga,
-        handler: IosDatabaseHandler
-    ) {
-        guard !entry.tracking.isEmpty else { return }
-
-        // The other app's behaviour, which this now follows in two ways it did not: a link already
-        // here takes the backup's ids rather than being skipped, and its progress moves to
-        // whichever is further along. Links for services that are not signed in are left out --
-        // this app used to restore them all, which put rows in the database pointing at accounts
-        // it could not reach.
-        BackupRestorer.shared.restoreTrackForManga(
-            db: handler,
-            manga: manga,
-            tracks: entry.getTrackingImpl(),
-            // Kotlin's `Boolean` comes back boxed through a lambda.
+            backup: backup,
+            canRestoreSource: { sourceId in
+                KotlinBoolean(bool: sourceId.int64Value != 0)
+            },
             isLogged: { syncId in
                 guard let id = TrackerSyncId.trackerId(for: syncId.int32Value) else {
                     return KotlinBoolean(bool: false)
                 }
                 return KotlinBoolean(bool: TrackerManager.getTracker(id: id)?.isLoggedIn ?? false)
+            },
+            onProgress: { completed, total in
+                progress.update(completed: Int(completed.int32Value), total: Int(total.int32Value))
             }
         )
+
+        let restored = report.restoredSourceIds.map(\.int64Value)
+        outcome.missingSources = missingSourceNames(
+            backup,
+            restored: restored,
+            installedSources: installedSources
+        )
+
+        if !backup.backupManga.isEmpty && report.restoredCount == 0 {
+            outcome.error = NSLocalizedString("BACKUP_NO_RESTORABLE_ENTRIES")
+        }
+        return outcome
     }
 
     /// How many steps a restore of this backup takes.
@@ -459,6 +347,15 @@ private final class RestoreProgress: @unchecked Sendable {
     func advance(_ steps: Int = 1) {
         guard total > 0, steps > 0 else { return }
         done = min(done + steps, total)
+        let percent = done * 100 / total
+        guard percent != lastPercent else { return }
+        lastPercent = percent
+        report(Float(done) / Float(total))
+    }
+
+    func update(completed: Int, total: Int) {
+        guard total > 0, completed >= 0 else { return }
+        done = min(completed, total)
         let percent = done * 100 / total
         guard percent != lastPercent else { return }
         lastPercent = percent

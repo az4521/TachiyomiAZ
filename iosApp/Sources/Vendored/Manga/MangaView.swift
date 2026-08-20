@@ -969,7 +969,7 @@ private struct RightNavbarButton: View, Equatable {
         editMode: Binding<EditMode>
     ) {
         self.bookmarked = viewModel.bookmarked
-        self.hasCategories = !CoreDataManager.shared.getCategoryTitles(sorted: false).isEmpty
+        self.hasCategories = !SharedDataStore.shared.getCategoryTitles(sorted: false).isEmpty
         self.url = viewModel.manga.url
         self.hasDownloads = viewModel.downloadStatus.contains(where: { $0.value == .finished })
         self.supportsMangaWebView =

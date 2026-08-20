@@ -65,7 +65,7 @@ class SourceSearchViewModel: ObservableObject {
                     filters: filters
                 )
                 guard !Task.isCancelled else { return }
-                await CoreDataManager.shared.cacheMangaSummaries(result.entries)
+                await SharedDataStore.shared.cacheMangaSummaries(result.entries)
                 await loadBookmarks(entries: result.entries)
                 hasMore = result.hasNextPage
                 entries = result.entries
@@ -91,7 +91,7 @@ class SourceSearchViewModel: ObservableObject {
                     filters: filters
                 )
                 guard !Task.isCancelled else { return }
-                await CoreDataManager.shared.cacheMangaSummaries(result.entries)
+                await SharedDataStore.shared.cacheMangaSummaries(result.entries)
                 await loadBookmarks(entries: result.entries)
                 hasMore = result.hasNextPage
 
@@ -111,9 +111,9 @@ class SourceSearchViewModel: ObservableObject {
     }
 
     func loadBookmarks(entries: [ExtensionRunner.Manga]) async {
-        let bookmarkedKeys: [String] = await CoreDataManager.shared.container.performBackgroundTask { context in
+        let bookmarkedKeys: [String] = await DatabaseContainer.shared.performBackgroundTask { context in
             var keys: [String] = []
-            for manga in entries where CoreDataManager.shared.hasLibraryManga(
+            for manga in entries where SharedDataStore.shared.hasLibraryManga(
                 sourceId: self.source.key,
                 mangaId: manga.key,
                 context: context

@@ -1384,13 +1384,13 @@ extension LibraryViewController {
         if UserDefaults.standard.bool(forKey: "Library.opensReaderView") {
             Task {
                 // get next chapter to read
-                let history = await CoreDataManager.shared.getReadingHistory(
+                let history = await SharedDataStore.shared.getReadingHistory(
                     sourceId: info.sourceId,
                     mangaId: info.mangaId
                 )
-                let chapters = await CoreDataManager.shared.getChapters(sourceId: info.sourceId, mangaId: info.mangaId)
+                let chapters = await SharedDataStore.shared.getChapters(sourceId: info.sourceId, mangaId: info.mangaId)
 
-                let filters = CoreDataManager.shared.getMangaChapterFilters(
+                let filters = SharedDataStore.shared.getMangaChapterFilters(
                     sourceId: info.sourceId,
                     mangaId: info.mangaId
                 )
@@ -1481,7 +1481,7 @@ extension LibraryViewController {
 
         if !UserDefaults.standard.bool(forKey: "General.incognitoMode") {
             Task {
-                await CoreDataManager.shared.setOpened(sourceId: info.sourceId, mangaId: info.mangaId)
+                await SharedDataStore.shared.setOpened(sourceId: info.sourceId, mangaId: info.mangaId)
                 await self.viewModel.mangaOpened(sourceId: info.sourceId, mangaId: info.mangaId)
                 self.updateDataSource()
             }
@@ -1607,7 +1607,7 @@ extension LibraryViewController {
                     Task {
                         for manga in mangaInfo {
                             let manga = manga.toManga()
-                            let chapters = await CoreDataManager.shared.getChapters(sourceId: manga.sourceKey, mangaId: manga.key)
+                            let chapters = await SharedDataStore.shared.getChapters(sourceId: manga.sourceKey, mangaId: manga.key)
 
                             await HistoryManager.shared.addHistory(
                                 sourceId: manga.sourceKey,
@@ -1626,7 +1626,7 @@ extension LibraryViewController {
                     Task {
                         for manga in mangaInfo {
                             let manga = manga.toManga()
-                            let chapters = await CoreDataManager.shared.getChapters(sourceId: manga.sourceKey, mangaId: manga.key)
+                            let chapters = await SharedDataStore.shared.getChapters(sourceId: manga.sourceKey, mangaId: manga.key)
 
                             await HistoryManager.shared.removeHistory(
                                 sourceId: manga.sourceKey,

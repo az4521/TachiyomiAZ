@@ -682,7 +682,7 @@ extension LocalFileManager {
         }
 
         // set cover image in coredata
-        return await CoreDataManager.shared.setCover(
+        return await SharedDataStore.shared.setCover(
             sourceId: LocalSourceRunner.sourceKey,
             mangaId: mangaId,
             coverUrl: newCoverURL.toAidokuImageUrl()?.absoluteString

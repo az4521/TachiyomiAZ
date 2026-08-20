@@ -48,7 +48,7 @@ extension DownloadedMangaView.ViewModel {
     }
 
     func loadHistory() async {
-        readingHistory = await CoreDataManager.shared.getReadingHistory(
+        readingHistory = await SharedDataStore.shared.getReadingHistory(
             sourceId: manga.sourceId,
             mangaId: manga.mangaId
         )
@@ -205,8 +205,8 @@ extension DownloadedMangaView.ViewModel {
     /// Fetch updated library status without affecting the view
     private func fetchUpdatedMangaLibraryStatus() async -> Bool {
         await withCheckedContinuation { continuation in
-            CoreDataManager.shared.container.performBackgroundTask { [manga] context in
-                let hasLibraryManga = CoreDataManager.shared.hasLibraryManga(
+            DatabaseContainer.shared.performBackgroundTask { [manga] context in
+                let hasLibraryManga = SharedDataStore.shared.hasLibraryManga(
                     sourceId: manga.sourceId,
                     mangaId: manga.mangaId,
                     context: context

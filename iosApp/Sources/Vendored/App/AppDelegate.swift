@@ -228,7 +228,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // persistent-history remote-change observer's performAndWait deadlocks the
         // launch (no window ever appears). Forcing first init on the main thread here
         // makes the main thread win the race deterministically.
-        _ = CoreDataManager.shared
+        _ = SharedDataStore.shared
 
         // check for icloud availability
         // https://developer.apple.com/documentation/foundation/filemanager/url(forubiquitycontaineridentifier:)
@@ -437,13 +437,6 @@ extension AppDelegate {
 
         LogManager.logger.info("Migrating settings from version \(settingsVersion ?? "none") to \(currentVersion ?? "unknown")")
 
-        // migrate history to 0.6 format
-        if settingsVersion == "0.5" {
-            Task.detached {
-                await self.migrateHistory()
-            }
-        }
-
         // migrate showNsfwSources setting
         if UserDefaults.standard.bool(forKey: "Browse.showNsfwSources") {
             UserDefaults.standard.setValue(["safe", "containsNsfw", "primarilyNsfw"], forKey: "Browse.contentRatings")
@@ -503,18 +496,6 @@ extension AppDelegate {
         }
 
         UserDefaults.standard.set(currentVersion, forKey: "Flag.currentVersion")
-    }
-
-    private func migrateHistory() async {
-        showLoadingIndicator(style: .progress)
-        try? await Task.sleep(nanoseconds: 500 * 1_000_000)
-        await CoreDataManager.shared.migrateChapterHistory(progress: { @Sendable progress in
-            Task { @MainActor in
-                self.indicatorProgress = progress
-            }
-        })
-        NotificationCenter.default.post(name: .updateLibrary, object: nil)
-        await hideLoadingIndicator()
     }
 
     // migration for 0.8.2
@@ -804,11 +785,11 @@ extension AppDelegate {
                 // Read straight through rather than as one inferred 4-tuple out of a closure:
                 // that form crashed the type checker ("failed to produce diagnostic").
                 let sourceKey = source.id
-                let historyObjects = CoreDataManager.shared.getHistory(sourceId: sourceKey)
-                let libraryMangaIds: [String] = CoreDataManager.shared
+                let historyObjects = SharedDataStore.shared.getHistory(sourceId: sourceKey)
+                let libraryMangaIds: [String] = SharedDataStore.shared
                     .getLibraryManga(sourceId: sourceKey)
                     .compactMap { $0.manga?.id }
-                let libraryChaptersIds: [(String, String)] = CoreDataManager.shared
+                let libraryChaptersIds: [(String, String)] = SharedDataStore.shared
                     .getChapters(sourceId: sourceKey)
                     .map { ($0.mangaId, $0.id) }
                 // ChapterIdentifier spells these mangaKey/chapterKey.
@@ -837,7 +818,7 @@ extension AppDelegate {
                 }
                 // Rewriting keys in place is a database operation, so it goes through the facade,
                 // which uses :core-database's updateMangaUrls for the manga side.
-                CoreDataManager.shared.migrateSourceIds(
+                SharedDataStore.shared.migrateSourceIds(
                     sourceId: source.id,
                     mangaIds: newMangaIds,
                     chapterIds: newChapterIds
@@ -851,8 +832,8 @@ extension AppDelegate {
         } else {
             // otherwise, we just show the migration view and let the user do it
             Task {
-                let sourceManga = await CoreDataManager.shared.container.performBackgroundTask { context in
-                    let objects = CoreDataManager.shared.getLibraryManga(sourceId: source.id, context: context)
+                let sourceManga = await DatabaseContainer.shared.performBackgroundTask { context in
+                    let objects = SharedDataStore.shared.getLibraryManga(sourceId: source.id, context: context)
                     return objects.compactMap { $0.manga?.toNewManga() }
                 }
                 if !sourceManga.isEmpty {

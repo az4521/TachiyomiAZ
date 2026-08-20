@@ -98,9 +98,9 @@ struct MangaScrollerView: View {
 
     func loadBookmarked() async {
         guard !entries.isEmpty else { return }
-        bookmarkedItems = await CoreDataManager.shared.container.performBackgroundTask { context in
+        bookmarkedItems = await DatabaseContainer.shared.performBackgroundTask { context in
             Set(entries.compactMap { manga in
-                CoreDataManager.shared.hasLibraryManga(
+                SharedDataStore.shared.hasLibraryManga(
                     sourceId: source.key,
                     mangaId: manga.key,
                     context: context

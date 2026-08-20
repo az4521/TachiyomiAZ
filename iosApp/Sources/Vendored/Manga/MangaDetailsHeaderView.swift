@@ -314,7 +314,7 @@ struct MangaDetailsHeaderView: View {
                     .onEnded { _ in
                         if
                             bookmarked,
-                            !CoreDataManager.shared.getCategoryTitles(sorted: false).isEmpty
+                            !SharedDataStore.shared.getCategoryTitles(sorted: false).isEmpty
                         {
                             longHeldBookmark = true
                             path.present(
@@ -458,8 +458,8 @@ struct MangaDetailsHeaderView: View {
     func toggleBookmarked() async {
         let sourceId = manga.sourceKey
         let mangaId = manga.key
-        let inLibrary = await CoreDataManager.shared.container.performBackgroundTask { context in
-            CoreDataManager.shared.hasLibraryManga(
+        let inLibrary = await DatabaseContainer.shared.performBackgroundTask { context in
+            SharedDataStore.shared.hasLibraryManga(
                 sourceId: sourceId,
                 mangaId: mangaId,
                 context: context

@@ -39,7 +39,7 @@ struct InsightsData {
                 thisMonth: pagesMonth,
                 thisYear: pagesYear,
                 // Relabelled from PAGE_*: upstream counts pages, recorded per reading session.
-                // The shared schema has no historical page count -- see CoreDataManager+Stats --
+                // The shared schema has no historical page count -- see SharedDataStore+Stats --
                 // so this figure is chapters read, and says so.
                 subtitle: NSLocalizedString("CHAPTER_PLURAL"),
                 singularSubtitle: NSLocalizedString("CHAPTER_SINGULAR")
@@ -62,11 +62,11 @@ struct InsightsData {
     }
 
     static func get() async -> InsightsData {
-        await CoreDataManager.shared.container.performBackgroundTask { context in
-            let (currentStreak, longestStreak) = CoreDataManager.shared.getStreakLengths(context: context)
-            let basicStats = CoreDataManager.shared.getBasicStats(context: context)
-            let chartData = CoreDataManager.shared.getChapterYearlyReadingData(context: context)
-            let heatmapData = CoreDataManager.shared.getReadingHeatmapData()
+        await DatabaseContainer.shared.performBackgroundTask { context in
+            let (currentStreak, longestStreak) = SharedDataStore.shared.getStreakLengths(context: context)
+            let basicStats = SharedDataStore.shared.getBasicStats(context: context)
+            let chartData = SharedDataStore.shared.getChapterYearlyReadingData(context: context)
+            let heatmapData = SharedDataStore.shared.getReadingHeatmapData()
             return InsightsData(
                 currentStreak: currentStreak,
                 longestStreak: longestStreak,

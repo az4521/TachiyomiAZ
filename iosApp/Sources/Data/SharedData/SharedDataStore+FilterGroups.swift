@@ -6,7 +6,7 @@ import Foundation
 /// `categories` table has no such column -- it is Android's, and Android has no filter groups -- so
 /// adding one would put this app's writes out of step with the database both apps share. They live
 /// in `UserDefaults` instead, which is where a UI-only preference belongs.
-extension CoreDataManager {
+enum FilterGroupStore {
     private static let filterGroupsKey = "Library.filterGroups"
 
     private struct StoredFilterGroup: Codable {
@@ -14,7 +14,7 @@ extension CoreDataManager {
         let filters: [LibraryFilter]
     }
 
-    func getFilterGroups(context: Any? = nil) -> [FilterGroup] {
+    static func get() -> [FilterGroup] {
         guard
             let data = UserDefaults.standard.data(forKey: Self.filterGroupsKey),
             let stored = try? JSONDecoder().decode([StoredFilterGroup].self, from: data)
@@ -22,7 +22,7 @@ extension CoreDataManager {
         return stored.map { FilterGroup(title: $0.title, filters: $0.filters) }
     }
 
-    func setFilterGroups(_ groups: [FilterGroup]) {
+    static func set(_ groups: [FilterGroup]) {
         let stored = groups.map { StoredFilterGroup(title: $0.title, filters: $0.filters) }
         guard let data = try? JSONEncoder().encode(stored) else { return }
         UserDefaults.standard.set(data, forKey: Self.filterGroupsKey)

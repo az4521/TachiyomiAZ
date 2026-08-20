@@ -63,8 +63,10 @@ final class LibraryMangaObject {
     var lastUpdated: Date? {
         get { row.last_update > 0 ? Date(timeIntervalSince1970: TimeInterval(row.last_update) / 1000) : nil }
         set {
-            row.last_update = Int64((newValue?.timeIntervalSince1970 ?? 0) * 1000)
-            Database.handler.updateLastUpdated(manga: row)
+            MangaRepository(db: Database.handler).updateLastUpdated(
+                manga: row,
+                timestamp: Int64((newValue?.timeIntervalSince1970 ?? 0) * 1000)
+            )
         }
     }
 
@@ -123,7 +125,7 @@ final class MangaObjectRef {
             MemoJsonKt.setMangaMemoJson(manga: row, memoJson: memo)
         }
         row.initialized = true
-        Database.handler.insertManga(manga: row)
+        MangaRepository(db: Database.handler).save(manga: row)
     }
 }
 

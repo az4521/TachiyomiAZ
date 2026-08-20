@@ -53,7 +53,7 @@ final class MangaManager {
         let update = try? await runtime.mangaDetails(
             source,
             manga: manga,
-            mangaInitialized: CoreDataManager.shared.sharedManga(
+            mangaInitialized: SharedDataStore.shared.sharedManga(
                 sourceId: manga.sourceKey,
                 mangaId: manga.key
             )?.initialized ?? false,
@@ -152,7 +152,7 @@ final class MangaManager {
 
     /// Sets which categories a title belongs to, and tells the library to refresh.
     func setCategories(sourceId: String, mangaId: String, categories: [String]) async {
-        await CoreDataManager.shared.setMangaCategories(
+        await SharedDataStore.shared.setMangaCategories(
             sourceId: sourceId,
             mangaId: mangaId,
             categories: categories
@@ -167,7 +167,7 @@ final class MangaManager {
 
     // Lifted from tachiyomiazios: writing a user-chosen cover into Documents/Covers and recording
     // the URL is filesystem work with no persistence decisions in it, so it comes across unchanged.
-    // The CoreDataManager.setCover it calls is this port's own, backed by the shared row.
+    // The SharedDataStore.setCover it calls is this port's own, backed by the shared row.
     // sets uploaded cover image and returns the new cover url
     func setCover(manga: ExtensionRunner.Manga, cover: PlatformImage) async -> String? {
         if manga.isLocal() {
@@ -205,7 +205,7 @@ final class MangaManager {
 
         // set cover in coredata
         let coverUrl = "aidoku-image:///Covers/\(targetUrl.lastPathComponent)"
-        await CoreDataManager.shared.setCover(
+        await SharedDataStore.shared.setCover(
             sourceId: manga.sourceKey,
             mangaId: manga.key,
             coverUrl: coverUrl
@@ -249,10 +249,10 @@ final class MangaManager {
             let identifier = MangaIdentifier(sourceKey: from.sourceKey, mangaKey: from.key)
             guard let destination = toSeries[identifier] ?? nil else { continue }
 
-            await CoreDataManager.shared.cacheMangaDetails(destination, includeChapters: false)
+            await SharedDataStore.shared.cacheMangaDetails(destination, includeChapters: false)
 
             if let chapters = withChapters[identifier] {
-                CoreDataManager.shared.setChapters(
+                SharedDataStore.shared.setChapters(
                     chapters,
                     sourceId: destination.sourceKey,
                     mangaId: destination.key
@@ -270,8 +270,8 @@ final class MangaManager {
 
             guard
                 let handler = library?.handler,
-                let previous = CoreDataManager.shared.sharedManga(sourceId: from.sourceKey, mangaId: from.key),
-                let next = CoreDataManager.shared.sharedManga(
+                let previous = SharedDataStore.shared.sharedManga(sourceId: from.sourceKey, mangaId: from.key),
+                let next = SharedDataStore.shared.sharedManga(
                     sourceId: destination.sourceKey,
                     mangaId: destination.key
                 ),
@@ -313,7 +313,7 @@ final class MangaManager {
     ) async {
         guard let library, let runtime else { return }
         let categoryId = category.flatMap { title in
-            CoreDataManager.shared.getCategory(title: title)?.id?.int32Value
+            SharedDataStore.shared.getCategory(title: title)?.id?.int32Value
         }
 
         // The tab bar shows the progress accessory at the bottom of the screen. Nothing was
@@ -419,7 +419,7 @@ final class MangaManager {
         // title this used to run. `libraryCategoryNames` is the same lookup the library screen
         // uses, so the two cannot disagree about what a title is filed under.
         let handler = Database.handler
-        let categoriesFor = CoreDataManager.shared.libraryCategoryNames()
+        let categoriesFor = SharedDataStore.shared.libraryCategoryNames()
         var objects: [MangaIdentifier: LibraryMangaObject] = [:]
         for row in handler.getLibraryMangas() {
             let identifier = MangaIdentifier(sourceKey: row.legacySourceId, mangaKey: row.url)

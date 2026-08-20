@@ -34,15 +34,15 @@ class CategorySelectViewController: UITableViewController {
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "UITableViewCell")
 
         Task {
-            (categories, selectedCategories) = await CoreDataManager.shared.container.performBackgroundTask { context in
-                let categories = CoreDataManager.shared.getCategoryTitles(context: context)
-                let inLibrary = CoreDataManager.shared.hasLibraryManga(
+            (categories, selectedCategories) = await DatabaseContainer.shared.performBackgroundTask { context in
+                let categories = SharedDataStore.shared.getCategoryTitles(context: context)
+                let inLibrary = SharedDataStore.shared.hasLibraryManga(
                     sourceId: self.manga.sourceKey,
                     mangaId: self.manga.key,
                     context: context
                 )
                 let selectedCategories: [String] = if inLibrary {
-                    CoreDataManager.shared.getCategories(
+                    SharedDataStore.shared.getCategories(
                         sourceId: self.manga.sourceKey,
                         mangaId: self.manga.key,
                         context: context
@@ -64,8 +64,8 @@ class CategorySelectViewController: UITableViewController {
     @objc func addCategory() {
         close()
         Task {
-            let inLibrary = await CoreDataManager.shared.container.performBackgroundTask { context in
-                CoreDataManager.shared.hasLibraryManga(
+            let inLibrary = await DatabaseContainer.shared.performBackgroundTask { context in
+                SharedDataStore.shared.hasLibraryManga(
                     sourceId: self.manga.sourceKey,
                     mangaId: self.manga.key,
                     context: context

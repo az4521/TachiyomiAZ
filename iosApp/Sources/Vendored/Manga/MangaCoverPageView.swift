@@ -105,8 +105,8 @@ struct MangaCoverPageView: View {
                 }
             }
             .task {
-                (hasEditedCover, inLibrary) = await CoreDataManager.shared.container.performBackgroundTask { [manga, inLibrary] context in
-                    let hasEditedCover = CoreDataManager.shared.hasEditedKey(
+                (hasEditedCover, inLibrary) = await DatabaseContainer.shared.performBackgroundTask { [manga, inLibrary] context in
+                    let hasEditedCover = SharedDataStore.shared.hasEditedKey(
                         sourceId: manga.sourceKey,
                         mangaId: manga.key,
                         key: .cover,
@@ -114,7 +114,7 @@ struct MangaCoverPageView: View {
                     )
                     var inLibrary = inLibrary
                     if inLibrary == nil {
-                        inLibrary = CoreDataManager.shared.hasLibraryManga(
+                        inLibrary = SharedDataStore.shared.hasLibraryManga(
                             sourceId: manga.sourceKey,
                             mangaId: manga.key,
                             context: context
@@ -156,7 +156,7 @@ struct MangaCoverPageView: View {
                         if coverImage != manga.cover {
                             Button {
                                 Task {
-                                    await CoreDataManager.shared.setCover(
+                                    await SharedDataStore.shared.setCover(
                                         sourceId: manga.sourceKey,
                                         mangaId: manga.key,
                                         coverUrl: coverImage

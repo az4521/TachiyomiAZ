@@ -133,9 +133,8 @@ struct SettingsTrackingView: View {
                             LogManager.logger.error("Unable to log out from \(tracker.name) tracker: \(error)")
                         }
                         // Remove all tracked items for this tracker
-                        await CoreDataManager.shared.container.performBackgroundTask { @Sendable context in
-                            CoreDataManager.shared.removeTracks(trackerId: tracker.id, context: context)
-                            try? context.save()
+                        await DatabaseContainer.shared.performBackgroundTask { @Sendable context in
+                            SharedDataStore.shared.removeTracks(trackerId: tracker.id, context: context)
                         }
                         NotificationCenter.default.post(name: .updateTrackers, object: nil)
                     }

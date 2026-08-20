@@ -237,9 +237,8 @@ extension HistoryView.ViewModel {
     // removes all history
     func clearHistory() {
         Task {
-            await CoreDataManager.shared.container.performBackgroundTask { context in
-                CoreDataManager.shared.clearHistory(context: context)
-                try? context.save()
+            await DatabaseContainer.shared.performBackgroundTask { context in
+                SharedDataStore.shared.clearHistory(context: context)
             }
             filteredHistory = [:]
             historyData = [:]
@@ -344,7 +343,7 @@ extension HistoryView.ViewModel {
             needsDetails: needsManga,
             needsChapters: true
         ) {
-            await CoreDataManager.shared.cacheMangaDetails(
+            await SharedDataStore.shared.cacheMangaDetails(
                 newManga,
                 includeChapters: true
             )
@@ -378,8 +377,8 @@ extension HistoryView.ViewModel {
     // fetch history objects from core data and process them into history entries
     // returns the number of history objects found (if less than limit then the end was reached)
     private nonisolated func processHistoryObjects(limit: Int, offset: Int) async -> Int {
-        let historyObj = await CoreDataManager.shared.container.performBackgroundTask { @Sendable context in
-            CoreDataManager.shared.getRecentHistory(limit: limit, offset: offset, context: context)
+        let historyObj = await DatabaseContainer.shared.performBackgroundTask { @Sendable context in
+            SharedDataStore.shared.getRecentHistory(limit: limit, offset: offset, context: context)
                 .map {
                     HistoryInfo(
                         sourceId: $0.sourceId,
@@ -415,14 +414,14 @@ extension HistoryView.ViewModel {
                 to: endDate
             ).day ?? 0
 
-            let (manga, chapter) = await CoreDataManager.shared.container.performBackgroundTask { context in
+            let (manga, chapter) = await DatabaseContainer.shared.performBackgroundTask { context in
                 (
-                    CoreDataManager.shared.getManga(
+                    SharedDataStore.shared.getManga(
                         sourceId: obj.sourceId,
                         mangaId: obj.mangaId,
                         context: context
                     ),
-                    CoreDataManager.shared.getChapter(
+                    SharedDataStore.shared.getChapter(
                         sourceId: obj.sourceId,
                         mangaId: obj.mangaId,
                         chapterId: obj.chapterId,

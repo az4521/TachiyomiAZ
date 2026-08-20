@@ -22,8 +22,8 @@ struct SettingsView: View {
     static let settings = Settings.settings
 
     init() {
-        self._categoriesOnly = State(initialValue: CoreDataManager.shared.getCategoryTitles())
-        self._categoriesAndGroups = State(initialValue: CoreDataManager.shared.getCategoryTitles(excludeFilterGroups: false))
+        self._categoriesOnly = State(initialValue: SharedDataStore.shared.getCategoryTitles())
+        self._categoriesAndGroups = State(initialValue: SharedDataStore.shared.getCategoryTitles(excludeFilterGroups: false))
     }
 }
 
@@ -127,8 +127,8 @@ extension SettingsView {
             search()
         }
         .onReceive(NotificationCenter.default.publisher(for: .updateCategories)) { _ in
-            categoriesOnly = CoreDataManager.shared.getCategoryTitles()
-            categoriesAndGroups = CoreDataManager.shared.getCategoryTitles(excludeFilterGroups: false)
+            categoriesOnly = SharedDataStore.shared.getCategoryTitles()
+            categoriesAndGroups = SharedDataStore.shared.getCategoryTitles(excludeFilterGroups: false)
             if
                 let selected = UserDefaults.standard.string(forKey: "Library.defaultCategory"),
                 !selected.isEmpty && selected != "none" && !categoriesOnly.contains(selected)
@@ -175,9 +175,8 @@ extension SettingsView {
                     message: NSLocalizedString("CLEAR_TRACKED_MANGA_TEXT")
                 ) {
                     Task {
-                        await CoreDataManager.shared.container.performBackgroundTask { context in
-                            CoreDataManager.shared.clearTracks(context: context)
-                            try? context.save()
+                        await DatabaseContainer.shared.performBackgroundTask { context in
+                            SharedDataStore.shared.clearTracks(context: context)
                         }
                     }
                 }
@@ -221,9 +220,8 @@ extension SettingsView {
                     message: NSLocalizedString("CLEAR_READ_HISTORY_TEXT")
                 ) {
                     Task {
-                        await CoreDataManager.shared.container.performBackgroundTask { context in
-                            CoreDataManager.shared.clearHistory(context: context)
-                            try? context.save()
+                        await DatabaseContainer.shared.performBackgroundTask { context in
+                            SharedDataStore.shared.clearHistory(context: context)
                         }
                         NotificationCenter.default.post(name: Notification.Name("updateHistory"), object: nil)
                     }
@@ -234,28 +232,10 @@ extension SettingsView {
                     message: NSLocalizedString("CLEAR_EXCLUDING_LIBRARY_TEXT")
                 ) {
                     Task {
-                        await CoreDataManager.shared.container.performBackgroundTask { context in
-                            CoreDataManager.shared.clearHistoryExcludingLibrary(context: context)
-                            try? context.save()
+                        await DatabaseContainer.shared.performBackgroundTask { context in
+                            SharedDataStore.shared.clearHistoryExcludingLibrary(context: context)
                         }
                         NotificationCenter.default.post(name: Notification.Name("updateHistory"), object: nil)
-                    }
-                }
-            case "Advanced.migrateHistory":
-                confirmAction(
-                    title: "Migrate Chapter History",
-                    // swiftlint:disable:next line_length
-                    message: "This will migrate leftover reading history from old versions that are not currently linked with stored chapters in the local database. This should've happened automatically upon updating, but if it didn't complete, it can be re-executed this way."
-                ) {
-                    Task {
-                        (UIApplication.shared.delegate as? AppDelegate)?.showLoadingIndicator(style: .progress)
-                        await CoreDataManager.shared.migrateChapterHistory { progress in
-                            Task { @MainActor in
-                                (UIApplication.shared.delegate as? AppDelegate)?.indicatorProgress = progress
-                            }
-                        }
-                        NotificationCenter.default.post(name: Notification.Name("updateLibrary"), object: nil)
-                        await (UIApplication.shared.delegate as? AppDelegate)?.hideLoadingIndicator()
                     }
                 }
             case "Advanced.resetSettings":
@@ -274,14 +254,13 @@ extension SettingsView {
                     clearNetworkCache()
                     resetSettings()
                     Task {
-                        await CoreDataManager.shared.container.performBackgroundTask { context in
-                            CoreDataManager.shared.clearLibrary(context: context)
-                            CoreDataManager.shared.clearManga(context: context)
-                            CoreDataManager.shared.clearHistory(context: context)
-                            CoreDataManager.shared.clearChapters(context: context)
-                            CoreDataManager.shared.clearCategories(context: context)
-                            CoreDataManager.shared.clearTracks(context: context)
-                            try? context.save()
+                        await DatabaseContainer.shared.performBackgroundTask { context in
+                            SharedDataStore.shared.clearLibrary(context: context)
+                            SharedDataStore.shared.clearManga(context: context)
+                            SharedDataStore.shared.clearHistory(context: context)
+                            SharedDataStore.shared.clearChapters(context: context)
+                            SharedDataStore.shared.clearCategories(context: context)
+                            SharedDataStore.shared.clearTracks(context: context)
                         }
                         SourceManager.shared.clearSources()
                         SourceManager.shared.clearSourceLists()

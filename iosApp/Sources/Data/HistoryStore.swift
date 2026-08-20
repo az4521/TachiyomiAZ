@@ -35,19 +35,19 @@ final class HistoryStore: ObservableObject {
     @Published private(set) var isLoading = false
 
     private unowned let library: LibraryStore
+    private lazy var repository = HistoryRepository(db: library.handler)
 
     init(library: LibraryStore) {
         self.library = library
     }
 
     func load() async {
-        let handler = library.handler
         isLoading = true
         defer { isLoading = false }
 
         // getRecentMangaLimit returns MangaChapterHistory rows: the manga, the chapter and when it
         // was last read, already joined and ordered by the shared query.
-        let recent = handler.getRecentMangaLimit(date: 0, limit: 300, search: "")
+        let recent = repository.recent(limit: 300)
         entries = recent.map { row in
             let manga = row.manga
             let chapter = row.chapter
@@ -73,40 +73,22 @@ final class HistoryStore: ObservableObject {
         chapter: TachiyomiXChapter,
         source: SourceDescriptor
     ) async {
-        let handler = library.handler
-
-        guard let stored = handler.getManga(url: manga.url, sourceId: source.id) else { return }
-
-        let existingChapters = handler.getChapters(manga: stored)
-        guard let storedChapter = existingChapters.first(where: { $0.url == chapter.url }),
-              let chapterId = storedChapter.id else { return }
-
-        let now = Int64(Date().timeIntervalSince1970 * 1000)
-        if let existing = handler.getHistoryByChapterUrl(chapterUrl: chapter.url) {
-            existing.last_read = now
-            handler.updateHistoryLastRead(history: existing)
-        } else {
-            // History links to the chapter, not the manga -- the manga is reached through it.
-            let entry = HistoryImpl()
-            entry.chapter_id = chapterId.int64Value
-            entry.last_read = now
-            handler.insertHistory(history: entry)
-        }
+        guard repository.record(
+            mangaUrl: manga.url,
+            sourceId: source.id,
+            chapterUrl: chapter.url,
+            readAt: Int64(Date().timeIntervalSince1970 * 1000)
+        ) else { return }
         await load()
     }
 
     func clearAll() async {
-        let handler = library.handler
-        handler.deleteHistory()
+        repository.clear()
         await load()
     }
 
     func remove(_ entry: RecentReadEntry) async {
-        let handler = library.handler
-        if let history = handler.getHistoryByChapterUrl(chapterUrl: entry.chapterUrl) {
-            history.last_read = 0
-            handler.updateHistoryLastRead(history: history)
-        }
+        repository.remove(chapterUrl: entry.chapterUrl)
         await load()
     }
 }

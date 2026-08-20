@@ -15,7 +15,7 @@ actor KomgaApi {
     /// `useChapters` setting decides whenever the title is not explicitly showing chapter numbers,
     /// which is what it already did for the default mode.
     func shouldUseChapters(sourceKey: String, mangaKey: String) -> Bool {
-        let flags = CoreDataManager.shared.getMangaChapterFilters(
+        let flags = SharedDataStore.shared.getMangaChapterFilters(
             sourceId: sourceKey,
             mangaId: mangaKey
         ).flags

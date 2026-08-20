@@ -103,7 +103,7 @@ final class KavitaTracker: EnhancedTracker, PageTracker {
     func removeTrackItems(source: ExtensionRunner.Source) async {
         // Every link this tracker holds against the server this source talks to. The id carries
         // the source key, so the source being removed is what decides which rows go.
-        CoreDataManager.shared.removeTracks(trackerId: id) { storedId in
+        SharedDataStore.shared.removeTracks(trackerId: id) { storedId in
             (try? self.getIdParts(from: storedId))?.sourceKey == source.key
         }
     }

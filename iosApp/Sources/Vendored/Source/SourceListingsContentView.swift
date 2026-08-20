@@ -171,15 +171,15 @@ struct SourceListingsContentView: View {
             let result = try await resultTask.value
             guard !Task.isCancelled else { return }
 
-            await CoreDataManager.shared.cacheMangaSummaries(result.entries)
+            await SharedDataStore.shared.cacheMangaSummaries(result.entries)
 
             hasMore = result.hasNextPage
             listingLoadState = hasMore ? .notLoading : .allLoaded
             page += 1
 
-            let bookmarkedKeys: [String] = await CoreDataManager.shared.container.performBackgroundTask { context in
+            let bookmarkedKeys: [String] = await DatabaseContainer.shared.performBackgroundTask { context in
                 result.entries.compactMap { manga in
-                    CoreDataManager.shared.hasLibraryManga(
+                    SharedDataStore.shared.hasLibraryManga(
                         sourceId: self.source.key,
                         mangaId: manga.key,
                         context: context

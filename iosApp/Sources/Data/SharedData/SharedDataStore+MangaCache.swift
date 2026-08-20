@@ -7,7 +7,7 @@ import TachiyomiKit
 /// Android keeps chapter filter state packed into `chapter_flags` on the manga row, which is what
 /// `ChapterFilters.flags` carries. It has no per-manga language or scanlator filter columns -- a
 /// Tachiyomi source is single-language -- so those come back nil rather than being invented.
-extension CoreDataManager {
+extension SharedDataStore {
     struct ChapterFilters {
         let flags: Int
         let language: String?
@@ -15,8 +15,14 @@ extension CoreDataManager {
     }
 
     func getMangaChapterFilters(sourceId: String, mangaId: String, context: Any? = nil) -> ChapterFilters {
-        ChapterFilters(
-            flags: Int(sharedManga(sourceId: sourceId, mangaId: mangaId)?.chapter_flags ?? 0),
+        let flags: Int
+        if let source = SourceIdentity.numericId(sourceId) {
+            flags = Int(mangaRepository.chapterFlags(url: mangaId, sourceId: source))
+        } else {
+            flags = 0
+        }
+        return ChapterFilters(
+            flags: flags,
             language: nil,
             scanlators: nil
         )
@@ -25,32 +31,18 @@ extension CoreDataManager {
     /// Records the titles a browse request returned, so they are known rows before the user opens
     /// one. Existing rows are left alone: a summary carries less than the details already stored.
     func cacheMangaSummaries(_ manga: [ExtensionRunner.Manga]) async {
-        let handler = self.handler
-        handler.inTransaction {
-            for item in manga {
-                guard
-                    let source = SourceIdentity.numericId(item.sourceKey),
-                    handler.getManga(url: item.key, sourceId: source) == nil
-                else { continue }
-                handler.insertManga(manga: item.toShared(source: source))
-            }
+        let records = manga.compactMap { item -> DbManga? in
+            guard let source = SourceIdentity.numericId(item.sourceKey) else { return nil }
+            return item.toShared(source: source)
         }
+        mangaRepository.cacheSummaries(mangas: records)
     }
 
     /// Writes the full details a source returned over the stored row, keeping the flags and
     /// favourite state the user owns.
     func cacheMangaDetails(_ manga: ExtensionRunner.Manga, includeChapters: Bool) async {
         guard let source = SourceIdentity.numericId(manga.sourceKey) else { return }
-        let record = manga.toShared(source: source)
-        if let existing = handler.getManga(url: manga.key, sourceId: source) {
-            record.id = existing.id
-            record.favorite = existing.favorite
-            record.chapter_flags = existing.chapter_flags
-            record.viewer = existing.viewer
-            record.date_added = existing.date_added
-        }
-        record.initialized = true
-        handler.insertManga(manga: record)
+        _ = mangaRepository.cacheDetails(manga: manga.toShared(source: source))
 
         // `includeChapters` was accepted and ignored, so opening a title stored the manga row and
         // dropped its chapters. Nothing else writes them outside a library refresh, which left
@@ -70,10 +62,6 @@ extension CoreDataManager {
         )
     }
 
-    func lastOpened(sourceId: String, mangaId: String) -> Date? {
-        let stamp = UserDefaults.standard.double(forKey: "Library.lastOpened.\(sourceId).\(mangaId)")
-        return stamp > 0 ? Date(timeIntervalSince1970: stamp) : nil
-    }
 }
 
 /// Fields the user has overridden on a title, and the cover they chose.
@@ -81,7 +69,7 @@ extension CoreDataManager {
 /// Android's schema records neither: it has no "edited" bitmask and no user-cover column, because
 /// the Android app does not offer per-title editing. Both live in `UserDefaults` here so the shared
 /// rows stay exactly what both apps expect.
-extension CoreDataManager {
+extension SharedDataStore {
     private static func editedKeysKey(_ sourceId: String, _ mangaId: String) -> String {
         "Manga.editedKeys.\(sourceId).\(mangaId)"
     }
@@ -94,10 +82,12 @@ extension CoreDataManager {
     /// Sets a title's cover, returning the previous one so the caller can offer to restore it.
     @discardableResult
     func setCover(sourceId: String, mangaId: String, coverUrl: String?, original: Bool = false) async -> String? {
-        guard let record = sharedManga(sourceId: sourceId, mangaId: mangaId) else { return nil }
-        let previous = record.thumbnail_url
-        record.thumbnail_url = coverUrl
-        handler.insertManga(manga: record)
+        guard let source = SourceIdentity.numericId(sourceId) else { return nil }
+        guard let update = mangaRepository.updateCover(
+            url: mangaId,
+            sourceId: source,
+            coverUrl: coverUrl
+        ) else { return nil }
 
         let key = Self.editedKeysKey(sourceId, mangaId)
         var edited = EditedKeys(rawValue: Int32(UserDefaults.standard.integer(forKey: key)))
@@ -108,6 +98,6 @@ extension CoreDataManager {
         }
         UserDefaults.standard.set(Int(edited.rawValue), forKey: key)
 
-        return previous
+        return update.previousCoverUrl
     }
 }

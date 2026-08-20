@@ -12,7 +12,7 @@ import TachiyomiKit
 ///
 /// Anything the shared schema does not record comes back empty rather than invented.
 
-extension CoreDataManager {
+extension SharedDataStore {
     /// A title's chapters, in the terms the extension boundary uses.
     ///
     /// This returned the Aidoku-shaped model until every caller converted it straight back with

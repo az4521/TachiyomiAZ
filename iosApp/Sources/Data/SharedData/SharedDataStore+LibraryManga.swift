@@ -3,7 +3,7 @@ import TachiyomiKit
 
 /// The library, which in the shared schema is the `favorite` flag on a manga row rather than a
 /// separate table. `LibraryManga` is the shared read model, carrying the unread/last-read columns.
-extension CoreDataManager {
+extension SharedDataStore {
     /// Library entries, optionally limited to one category.
     ///
     /// The category filter is free. `getLibraryMangas` returns one row per manga-category pairing
@@ -14,7 +14,7 @@ extension CoreDataManager {
     /// running a `getCategoriesForManga` query against each one. That is one query per row per
     /// category switch, and it is why switching tabs on a large library stalled.
     func getLibraryManga(category: String? = nil, context: Any? = nil) -> [LibraryMangaObject] {
-        let rows = handler.getLibraryMangas()
+        let rows = libraryRepository.entries()
         guard let category else { return rows.map(Self.libraryObject) }
         guard let id = getCategory(title: category)?.id?.int32Value else { return [] }
         return rows.filter { $0.category == id }.map(Self.libraryObject)
@@ -27,7 +27,7 @@ extension CoreDataManager {
     /// name the UI gives to this case rather than a row. So an uncategorised entry is exactly a
     /// row whose `category` is 0, with no per-manga query needed to find out.
     func getUncategorizedLibraryManga(context: Any? = nil) -> [LibraryMangaObject] {
-        handler.getLibraryMangas().filter { $0.category == 0 }.map(Self.libraryObject)
+        libraryRepository.uncategorizedEntries().map(Self.libraryObject)
     }
 
     /// Whether anything in the library belongs to no category.
@@ -35,7 +35,7 @@ extension CoreDataManager {
     /// Drives whether the library shows an "Uncategorized" tab at all, so it runs on every load.
     /// `contains` stops at the first hit rather than building the whole list.
     func hasUncategorizedLibraryManga(context: Any? = nil) -> Bool {
-        handler.getLibraryMangas().contains { $0.category == 0 }
+        libraryRepository.hasUncategorizedEntries()
     }
 
     /// Every library title's category names, in two queries for the whole library.
@@ -48,19 +48,13 @@ extension CoreDataManager {
     /// Titles in no category are absent rather than present with an empty list; callers asking for
     /// one get `nil` and can treat it as empty.
     func libraryCategoryNames(context: Any? = nil) -> [MangaIdentifier: [String]] {
-        let namesById = Dictionary(
-            handler.getCategories().compactMap { category in
-                category.id.map { (Int32($0.int32Value), category.name) }
-            },
-            uniquingKeysWith: { first, _ in first }
-        )
-
         var result: [MangaIdentifier: [String]] = [:]
-        // One row per manga-category pairing, so a title in three categories arrives three times.
-        for row in handler.getLibraryMangas() where row.category != 0 {
-            guard let name = namesById[row.category] else { continue }
-            let identifier = MangaIdentifier(sourceKey: row.legacySourceId, mangaKey: row.url)
-            result[identifier, default: []].append(name)
+        for membership in libraryRepository.categoryMemberships() {
+            let identifier = MangaIdentifier(
+                sourceKey: SourceIdentity.key(for: membership.sourceId),
+                mangaKey: membership.url
+            )
+            result[identifier] = membership.names
         }
         return result
     }
@@ -76,7 +70,7 @@ extension CoreDataManager {
 
     func getLibraryManga(sourceId: String, context: Any? = nil) -> [LibraryMangaObject] {
         guard let source = SourceIdentity.numericId(sourceId) else { return [] }
-        return handler.getLibraryMangas()
+        return libraryRepository.entries()
             .filter { $0.source == source }
             .map { LibraryMangaObject(row: $0, sourceId: sourceId, mangaId: $0.url) }
     }
@@ -94,12 +88,6 @@ extension CoreDataManager {
     }
 
     func clearLibrary(context: Any? = nil) {
-        let handler = self.handler
-        handler.inTransaction {
-            for manga in handler.getFavoriteMangas() {
-                manga.favorite = false
-                handler.updateMangaFavorite(manga: manga)
-            }
-        }
+        libraryRepository.clear()
     }
 }

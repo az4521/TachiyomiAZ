@@ -32,7 +32,7 @@ class LibraryFilterSortTest {
      * silently hides the library.
      */
     @Test
-    fun `a tri-state filter includes, excludes, or ignores`() {
+    fun `a tri-state filter includes excludes or ignores`() {
         assertTrue(FilterState.passes(FilterState.IGNORE, matches = true))
         assertTrue(FilterState.passes(FilterState.IGNORE, matches = false))
         assertTrue(FilterState.passes(FilterState.INCLUDE, matches = true))
@@ -87,7 +87,7 @@ class LibraryFilterSortTest {
     }
 
     @Test
-    fun `titles sort alphabetically, ignoring case`() {
+    fun `titles sort alphabetically ignoring case`() {
         val list = listOf(entry(id = 1, title = "beta"), entry(id = 2, title = "Alpha"))
         val sorted = list.sortedWith(LibraryFilterSort.comparator(LibrarySortMode.ALPHA, ascending = true))
         assertEquals(listOf("Alpha", "beta"), sorted.map { it.title })

@@ -13,6 +13,7 @@ import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.domain.library.LibraryFilterSort
 import eu.kanade.tachiyomi.domain.migration.MigrationFlags
+import eu.kanade.tachiyomi.domain.migration.migrateMangaData
 import eu.kanade.tachiyomi.source.LocalSource
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.SourceManager
@@ -479,56 +480,19 @@ class LibraryPresenter(
     ) {
         val flags = preferences.migrateFlags().get()
         val migrateChapters = MigrationFlags.hasChapters(flags)
-        val migrateCategories = MigrationFlags.hasCategories(flags)
-        val migrateTracks = MigrationFlags.hasTracks(flags)
 
         db.inTransaction {
-            // Update chapters read
+            // Fetching and source-specific chapter normalization remain platform work. Once the
+            // destination rows exist, the actual migration is the shared rule used by iOS too.
             if (migrateChapters) {
                 try {
                     syncChaptersWithSource(db, sourceChapters, manga, source)
                 } catch (e: Exception) {
                     // Worst case, chapters won't be synced
                 }
+            }
 
-                val prevMangaChapters = db.getChapters(prevManga)
-                val maxChapterRead =
-                    prevMangaChapters.filter { it.read }.maxByOrNull { it.chapter_number }?.chapter_number
-                if (maxChapterRead != null) {
-                    val dbChapters = db.getChapters(manga)
-                    for (chapter in dbChapters) {
-                        if (chapter.isRecognizedNumber && chapter.chapter_number <= maxChapterRead) {
-                            chapter.read = true
-                        }
-                    }
-                    db.insertChapters(dbChapters)
-                }
-            }
-            // Update categories
-            if (migrateCategories) {
-                val categories = db.getCategoriesForManga(prevManga)
-                val mangaCategories = categories.map { MangaCategory.create(manga, it) }
-                db.setMangaCategories(mangaCategories, listOf(manga))
-            }
-            // Update track
-            if (migrateTracks) {
-                val tracks = db.getTracks(prevManga)
-                for (track in tracks) {
-                    track.id = null
-                    track.manga_id = manga.id!!
-                }
-                db.insertTracks(tracks)
-            }
-            // Update favorite status
-            if (replace) {
-                prevManga.favorite = false
-                db.updateMangaFavorite(prevManga)
-            }
-            manga.favorite = true
-            db.updateMangaFavorite(manga)
-
-            // SearchPresenter#networkToLocalManga may have updated the manga title, so ensure db gets updated title
-            db.updateMangaTitle(manga)
+            migrateMangaData(db, prevManga, manga, flags, replace)
         }
     }
 

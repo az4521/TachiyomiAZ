@@ -5,7 +5,7 @@ import TachiyomiKit
 /// Reading progress, as the vendored reader records it.
 ///
 /// Upstream's version writes CoreData directly and keeps a separate `ReadingSession` entity. This
-/// one goes through `CoreDataManager`, so progress lands in the shared `chapters` and `history`
+/// one goes through `SharedDataStore`, so progress lands in the shared `chapters` and `history`
 /// tables that the Android app reads.
 ///
 /// Sessions have no table of their own here. Android records time spent per chapter in
@@ -37,7 +37,7 @@ final class HistoryManager {
         scrollPosition: Double? = nil,
         completed: Bool
     ) async {
-        CoreDataManager.shared.setProgress(
+        SharedDataStore.shared.setProgress(
             progress,
             sourceId: chapter.sourceKey,
             mangaId: chapter.mangaKey,
@@ -54,7 +54,7 @@ final class HistoryManager {
     func addSession(chapterIdentifier: ChapterIdentifier, data: ReadingSessionData) async {
         let seconds = data.endDate.timeIntervalSince(data.startDate)
         guard seconds > 0 else { return }
-        CoreDataManager.shared.addReadTime(
+        SharedDataStore.shared.addReadTime(
             seconds: Int64(seconds),
             sourceId: chapterIdentifier.sourceKey,
             mangaId: chapterIdentifier.mangaKey,
@@ -80,7 +80,7 @@ final class HistoryManager {
         skipTracker: Tracker? = nil,
         defersDownloadCleanup: Bool = false
     ) async {
-        let written = CoreDataManager.shared.setCompleted(
+        let written = SharedDataStore.shared.setCompleted(
             sourceId: sourceId,
             mangaId: mangaId,
             chapterIds: chapters.map(\.key),
@@ -129,7 +129,7 @@ final class HistoryManager {
     }
 
     func removeHistory(sourceId: String, mangaId: String, chapterIds: [String]) async {
-        await CoreDataManager.shared.removeHistory(
+        await SharedDataStore.shared.removeHistory(
             sourceId: sourceId,
             mangaId: mangaId,
             chapterIds: chapterIds
@@ -143,7 +143,7 @@ final class HistoryManager {
     }
 
     func removeHistory(sourceId: String, mangaId: String) async {
-        CoreDataManager.shared.removeHistory(sourceId: sourceId, mangaId: mangaId)
+        SharedDataStore.shared.removeHistory(sourceId: sourceId, mangaId: mangaId)
         NotificationCenter.default.post(
             name: .historyRemoved,
             object: MangaIdentifier(sourceKey: sourceId, mangaKey: mangaId)

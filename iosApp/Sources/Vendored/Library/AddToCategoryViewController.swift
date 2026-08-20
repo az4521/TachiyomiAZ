@@ -52,8 +52,8 @@ class AddToCategoryViewController: BaseTableViewController {
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "UITableViewCell")
 
         Task {
-            categories = await CoreDataManager.shared.container.performBackgroundTask { context in
-                CoreDataManager.shared.getCategoryTitles(context: context)
+            categories = await DatabaseContainer.shared.performBackgroundTask { context in
+                SharedDataStore.shared.getCategoryTitles(context: context)
             }
             updateDataSource()
         }
@@ -66,7 +66,7 @@ class AddToCategoryViewController: BaseTableViewController {
     @objc func done() {
         close()
         Task {
-            await CoreDataManager.shared.addCategoriesToManga(
+            await SharedDataStore.shared.addCategoriesToManga(
                 manga.map(\.identifier),
                 categories: selectedCategories
             )

@@ -39,7 +39,7 @@ final class ChapterObject {
         get { row.read }
         set {
             row.read = newValue
-            Database.handler.updateChapterProgress(chapter: row)
+            ChapterRepository(db: Database.handler).saveProgress(chapter: row)
         }
     }
 
@@ -47,7 +47,7 @@ final class ChapterObject {
         get { row.bookmark }
         set {
             row.bookmark = newValue
-            Database.handler.updateChapterProgress(chapter: row)
+            ChapterRepository(db: Database.handler).saveProgress(chapter: row)
         }
     }
 

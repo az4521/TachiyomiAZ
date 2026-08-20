@@ -6,24 +6,25 @@ import TachiyomiKit
 /// Upstream keys a track by a string `trackerId`; the shared schema uses Android's numeric
 /// `sync_id`, and `TrackerSyncId` is the mapping between them -- pinned to Android's numbers so a
 /// title tracked on one app is recognised by the other.
-extension CoreDataManager {
+extension SharedDataStore {
     func getTracks(context: Any? = nil) -> [Track] {
-        handler.getAllTracks()
+        trackRepository.all()
     }
 
     func getTracks(sourceId: String, mangaId: String, context: Any? = nil) -> [Track] {
-        guard let manga = sharedManga(sourceId: sourceId, mangaId: mangaId) else { return [] }
-        return handler.getTracks(manga: manga)
+        guard let source = SourceIdentity.numericId(sourceId) else { return [] }
+        return trackRepository.forManga(url: mangaId, sourceId: source)
     }
 
     func getTracks(trackerId: String, context: Any? = nil) -> [Track] {
         guard let sync = TrackerSyncId.syncId(for: trackerId) else { return [] }
-        return handler.getAllTracks().filter { $0.sync_id == sync }
+        return trackRepository.forService(syncId: sync)
     }
 
     func getTrack(trackerId: String, sourceId: String, mangaId: String, context: Any? = nil) -> Track? {
         guard let sync = TrackerSyncId.syncId(for: trackerId) else { return nil }
-        return getTracks(sourceId: sourceId, mangaId: mangaId).first { $0.sync_id == sync }
+        guard let source = SourceIdentity.numericId(sourceId) else { return nil }
+        return trackRepository.find(url: mangaId, sourceId: source, syncId: sync)
     }
 
     func hasTrack(sourceId: String, mangaId: String, context: Any? = nil) -> Bool {
@@ -37,9 +38,9 @@ extension CoreDataManager {
     func removeTrack(trackerId: String, sourceId: String, mangaId: String, context: Any? = nil) {
         guard
             let sync = TrackerSyncId.syncId(for: trackerId),
-            let manga = sharedManga(sourceId: sourceId, mangaId: mangaId)
+            let source = SourceIdentity.numericId(sourceId)
         else { return }
-        handler.deleteTrackForManga(manga: manga, syncId: sync)
+        trackRepository.remove(url: mangaId, sourceId: source, syncId: sync)
     }
 
     /// Deletion is per-manga in the shared schema, so removing a tracker means walking the manga it
@@ -50,7 +51,7 @@ extension CoreDataManager {
     }
 
     func clearTracks(context: Any? = nil) {
-        remove(syncIds: Set(handler.getAllTracks().map(\.sync_id)))
+        remove(syncIds: Set(trackRepository.all().map(\.sync_id)))
     }
 
     /// Removes a tracker's links whose stored id satisfies `matches`.
@@ -62,38 +63,16 @@ extension CoreDataManager {
     /// `matches` escapes because the deletion runs inside a database transaction block.
     func removeTracks(trackerId: String, where matches: @escaping (String) -> Bool) {
         guard let sync = TrackerSyncId.syncId(for: trackerId) else { return }
-        let handler = self.handler
-        let byId = Dictionary(
-            handler.getMangas().compactMap { manga in manga.id.map { ($0.int64Value, manga) } },
-            uniquingKeysWith: { first, _ in first }
-        )
-        handler.inTransaction {
-            for track in handler.getAllTracks() where track.sync_id == sync {
-                let storedId = TrackerSyncId.usesTrackingUrlAsId(syncId: sync)
-                    ? track.tracking_url
-                    : String(track.media_id)
-                guard matches(storedId), let manga = byId[track.manga_id_] else { continue }
-                handler.deleteTrackForManga(manga: manga, syncId: sync)
-            }
-        }
+        let removing = trackRepository.remoteLinks(syncId: sync).map(\.remoteId).filter(matches)
+        trackRepository.removeRemoteIds(syncId: sync, remoteIds: removing)
     }
 
     private func remove(syncIds: Set<Int32>) {
-        let handler = self.handler
-        let byId = Dictionary(
-            handler.getMangas().compactMap { manga in manga.id.map { (Int64($0.int64Value), manga) } },
-            uniquingKeysWith: { first, _ in first }
-        )
-        handler.inTransaction {
-            for track in handler.getAllTracks() where syncIds.contains(track.sync_id) {
-                guard let manga = byId[track.manga_id_] else { continue }
-                handler.deleteTrackForManga(manga: manga, syncId: track.sync_id)
-            }
-        }
+        trackRepository.removeServices(syncIds: syncIds.map { KotlinInt(int: $0) })
     }
 }
 
-extension CoreDataManager {
+extension SharedDataStore {
     /// Links a title to a tracker, writing a row into the shared `manga_sync` table.
     ///
     /// `sync_id` comes from `TrackerSyncId`, so the row is the one the Android app would have
@@ -110,24 +89,15 @@ extension CoreDataManager {
     ) -> Track? {
         guard
             let sync = TrackerSyncId.syncId(for: trackerId),
-            let manga = sharedManga(sourceId: sourceId, mangaId: mangaId),
-            let mangaRowId = manga.id?.int64Value
+            let source = SourceIdentity.numericId(sourceId)
         else { return nil }
-
-        let track = TrackImpl()
-        track.manga_id_ = mangaRowId
-        track.sync_id = sync
-        track.title = title ?? ""
-        // The enhanced trackers' id is a composite string, which does not fit the integer column;
-        // it goes where Android puts it instead.
-        if TrackerSyncId.usesTrackingUrlAsId(syncId: sync) {
-            track.media_id = 0
-            track.tracking_url = id
-        } else {
-            track.media_id = Int64(id) ?? 0
-            track.tracking_url = ""
-        }
-        handler.insertTrack(track: track)
+        guard let track = trackRepository.create(
+            remoteId: id,
+            syncId: sync,
+            mangaUrl: mangaId,
+            sourceId: source,
+            title: title
+        ) else { return nil }
 
         setTrackChapterOffset(
             trackerId: trackerId,
@@ -157,8 +127,8 @@ extension CoreDataManager {
     ) {
         guard
             let sync = TrackerSyncId.syncId(for: trackerId),
-            let manga = sharedManga(sourceId: sourceId, mangaId: mangaId),
-            let track = handler.getTracks(manga: manga).first(where: { $0.sync_id == sync })
+            let source = SourceIdentity.numericId(sourceId),
+            let track = trackRepository.find(url: mangaId, sourceId: source, syncId: sync)
         else { return }
 
         if let status = state.status,
@@ -175,7 +145,7 @@ extension CoreDataManager {
         if let finished = state.finishReadDate {
             track.finished_reading_date = Int64(finished.timeIntervalSince1970 * 1000)
         }
-        handler.insertTrack(track: track)
+        trackRepository.save(track: track)
     }
 
     /// Android's `manga_sync` has no offset column -- it is this app's own adjustment for sources
@@ -193,9 +163,4 @@ extension CoreDataManager {
         )
     }
 
-    func trackChapterOffset(trackerId: String, sourceId: String, mangaId: String) -> Int {
-        UserDefaults.standard.integer(
-            forKey: "Tracking.chapterOffset.\(trackerId).\(sourceId).\(mangaId)"
-        )
-    }
 }

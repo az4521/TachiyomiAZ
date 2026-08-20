@@ -17,7 +17,7 @@ final actor LocalFileDataManager {
     public nonisolated let unownedExecutor: UnownedSerialExecutor
 
     init() {
-        context = CoreDataManager.shared.container.newBackgroundContext()
+        context = DatabaseContainer.shared.newBackgroundContext()
         context.automaticallyMergesChangesFromParent = true
         context.mergePolicy = NSMergePolicy(merge: .mergeByPropertyObjectTrumpMergePolicyType)
         self.objectExecutor = ObjectActorSerialExecutor(context: context)
@@ -216,7 +216,6 @@ extension LocalFileDataManager {
             // remove manga object
             context.delete(mangaObject)
 
-            try? context.save()
         }
 
         return mangaPath
@@ -246,7 +245,6 @@ extension LocalFileDataManager {
         // remove chapter object
         context.delete(object)
 
-        try? context.save()
 
         // only report the file for removal if no other chapters still reference it
         // (epub chapters share a single archive file)
@@ -354,7 +352,6 @@ extension LocalFileDataManager {
         }
         object.fileInfo = fileInfo
 
-        try? context.save()
     }
 
     func createChapter(
@@ -411,7 +408,6 @@ extension LocalFileDataManager {
 
         mangaObject.addToChapters(chapterObject)
 
-        try? context.save()
     }
 }
 

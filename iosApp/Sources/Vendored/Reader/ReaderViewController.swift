@@ -405,8 +405,8 @@ class ReaderViewController: BaseObservingViewController {
         let sourceId = manga.sourceKey
         let mangaId = manga.key
         let chapterId = chapter.key
-        let (completed, progress) = await CoreDataManager.shared.container.performBackgroundTask { @Sendable context in
-            CoreDataManager.shared.getProgress(
+        let (completed, progress) = await DatabaseContainer.shared.performBackgroundTask { @Sendable context in
+            SharedDataStore.shared.getProgress(
                 sourceId: sourceId,
                 mangaId: mangaId,
                 chapterId: chapterId,
@@ -459,7 +459,7 @@ class ReaderViewController: BaseObservingViewController {
             }
         }
 
-        let (completed, startPage) = CoreDataManager.shared.getProgress(
+        let (completed, startPage) = SharedDataStore.shared.getProgress(
             sourceId: source?.key ?? manga.sourceKey,
             mangaId: manga.key,
             chapterId: chapter.key
@@ -616,12 +616,12 @@ extension ReaderViewController {
                 // use given default reading mode
                 if let defaultReadingMode {
                     readingMode = defaultReadingMode
-                } else if CoreDataManager.shared.hasManga(
+                } else if SharedDataStore.shared.hasManga(
                     sourceId: source?.key ?? manga.sourceKey,
                     mangaId: manga.key
                 ) {
                     // fall back to stored manga viewer
-                    let sourceMode = CoreDataManager.shared.getMangaSourceReadingMode(
+                    let sourceMode = SharedDataStore.shared.getMangaSourceReadingMode(
                         sourceId: source?.key ?? manga.sourceKey,
                         mangaId: manga.key
                     )

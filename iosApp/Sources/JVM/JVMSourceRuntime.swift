@@ -651,7 +651,7 @@ actor JVMSourceRuntime {
         sourceId: Int64,
         manga: ExtensionRunner.Manga
     ) async throws -> URL {
-        let initialized = await CoreDataManager.shared.sharedManga(
+        let initialized = await SharedDataStore.shared.sharedManga(
             sourceId: SourceIdentity.key(for: sourceId),
             mangaId: manga.key
         )?.initialized ?? false
@@ -926,7 +926,7 @@ actor JVMSourceRuntime {
         if let sourceId {
             // The shared query orders by source_order. Do not reuse a view's manga.chapters:
             // that array may currently be sorted by number or upload date for display.
-            oldChapters = await CoreDataManager.shared.getChapters(
+            oldChapters = await SharedDataStore.shared.getChapters(
                 sourceId: SourceIdentity.key(for: sourceId),
                 mangaId: mangaURL
             ).map(\.tachiyomiXChapter)
@@ -1756,7 +1756,7 @@ actor TachiyomiXSourceRunner: ExtensionRunner.Runner {
         needsChapters: Bool
     ) async throws -> ExtensionRunner.Manga {
         try await performSourceOperation("manga update") {
-            let initialized = await CoreDataManager.shared.sharedManga(
+            let initialized = await SharedDataStore.shared.sharedManga(
                 sourceId: sourceKey,
                 mangaId: manga.key
             )?.initialized ?? false

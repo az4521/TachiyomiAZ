@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.data.backup.full
 
 import eu.kanade.tachiyomi.data.backup.full.models.BackupCategory
+import eu.kanade.tachiyomi.data.backup.full.models.Backup
 import eu.kanade.tachiyomi.data.backup.full.models.BackupHistory
 import eu.kanade.tachiyomi.data.backup.full.models.BackupManga
 import eu.kanade.tachiyomi.data.database.DatabaseHandler
@@ -12,6 +13,7 @@ import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.domain.backup.mergeBackupCategories
 import eu.kanade.tachiyomi.domain.backup.mergeBackupChapters
 import eu.kanade.tachiyomi.domain.backup.mergeBackupManga
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlin.math.max
 
 /**
@@ -36,7 +38,71 @@ import kotlin.math.max
  * What stays with the caller: deciding whether a title's source is installed, fetching details for
  * new entries, and reporting progress. Those need the network and the extension list.
  */
+@OptIn(ExperimentalSerializationApi::class)
 object BackupRestorer {
+    /** Result of a complete no-network restore. */
+    data class RestoreReport(
+        val restoredSourceIds: List<Long>,
+        val skippedSourceIds: List<Long>
+    ) {
+        val restoredCount: Int get() = restoredSourceIds.size
+    }
+
+    /**
+     * Restores a complete backup without consulting a source.
+     *
+     * File access, source downloads and UI progress stay with the platform. The ordering and the
+     * transaction do not: categories must exist before membership is restored, and a partially
+     * written backup must never be committed. This used to be a second orchestration loop in
+     * Swift around the shared per-entry helpers below.
+     */
+    fun restoreBackupNoFetch(
+        db: DatabaseHandler,
+        backup: Backup,
+        canRestoreSource: (Long) -> Boolean = { true },
+        isLogged: (Int) -> Boolean = { true },
+        onProgress: (Int, Int) -> Unit = { _, _ -> }
+    ): RestoreReport {
+        val restored = mutableListOf<Long>()
+        val skipped = mutableListOf<Long>()
+        val total = backup.backupManga.size * 2
+        var completed = 0
+
+        db.inTransaction {
+            restoreCategories(db, backup.backupCategories)
+
+            for (entry in backup.backupManga) {
+                if (!canRestoreSource(entry.source)) {
+                    skipped += entry.source
+                    completed += 2
+                    onProgress(completed, total)
+                    continue
+                }
+
+                val manga = entry.getMangaImpl()
+                val stored = db.getManga(manga.url, manga.source) ?: Manga.create(manga.url, manga.title, manga.source)
+                restoreMangaNoFetch(db, manga, stored)
+                completed++
+                onProgress(completed, total)
+
+                val written = db.getManga(manga.url, manga.source)
+                if (written == null) {
+                    skipped += entry.source
+                    completed++
+                    onProgress(completed, total)
+                    continue
+                }
+
+                restoreRelated(db, entry, written, backup.backupCategories, isLogged)
+                restored += entry.source
+                completed++
+                onProgress(completed, total)
+            }
+        }
+
+        return RestoreReport(restored, skipped)
+    }
+
     /**
      * Adds the categories the backup has and this database does not.
      *

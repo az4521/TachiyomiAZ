@@ -2,20 +2,14 @@ import Foundation
 
 /// Stands in for `NSPersistentContainer` so the vendored UI's background-write blocks compile.
 ///
-/// Upstream wraps every write in `container.performBackgroundTask { context in ...; context.save() }`
-/// -- CoreData's way of batching changes on a private queue and flushing them at the end. SQLDelight
-/// has no such buffer: a statement is written when it runs. So the shape is preserved and the
-/// meaning is not: the block runs off the main thread, and `save()` is a no-op because the work is
-/// already durable by the time it is called.
+/// Upstream wraps writes in managed-object-context background blocks. SQLDelight statements are
+/// durable when they run, so this type preserves only the useful private-queue dispatch behavior.
 ///
 /// This exists so the ~100 call sites that use this idiom need no edits. It is not a general
 /// CoreData emulation: there is no object graph, no faulting, and no rollback.
 final class DatabaseContainer: @unchecked Sendable {
-    /// The `context` handed to the block. Carries no state -- it is passed back into facade methods,
-    /// which ignore it -- and exists to satisfy the `try context.save()` the blocks end with.
-    final class Context: @unchecked Sendable {
-        func save() throws {}
-    }
+    /// Compatibility token passed into vendored call sites; it intentionally carries no state.
+    final class Context: @unchecked Sendable {}
 
     private let queue = DispatchQueue(label: "app.tachiyomiaz.database.write", qos: .userInitiated)
 
@@ -31,10 +25,6 @@ final class DatabaseContainer: @unchecked Sendable {
     func performBackgroundTask(_ block: @escaping @Sendable (Context) -> Void) {
         queue.async { block(Context()) }
     }
-}
-
-extension CoreDataManager {
-    var container: DatabaseContainer { DatabaseContainer.shared }
 }
 
 extension DatabaseContainer {

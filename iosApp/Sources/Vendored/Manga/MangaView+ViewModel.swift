@@ -67,7 +67,7 @@ extension MangaView {
             self.manga = manga
 
             self.chapterTitleDisplayMode = .init(
-                flags: CoreDataManager.shared.getMangaChapterFilters(
+                flags: SharedDataStore.shared.getMangaChapterFilters(
                     sourceId: manga.sourceKey,
                     mangaId: manga.key
                 ).flags
@@ -301,7 +301,7 @@ extension MangaView.ViewModel {
         if getNextChapter() == .allRead {
             markedOpened = true
             Task {
-                await CoreDataManager.shared.setOpened(sourceId: manga.sourceKey, mangaId: manga.key)
+                await SharedDataStore.shared.setOpened(sourceId: manga.sourceKey, mangaId: manga.key)
                 NotificationCenter.default.post(name: .openedManga, object: manga.identifier)
             }
         }
@@ -314,13 +314,13 @@ extension MangaView.ViewModel {
 
         // A title becomes a known database record as soon as its details
         // screen is opened, even if the source request later fails.
-        await CoreDataManager.shared.cacheMangaSummaries([manga])
+        await SharedDataStore.shared.cacheMangaSummaries([manga])
 
-        if let cachedManga = CoreDataManager.shared.getManga(sourceId: self.manga.sourceKey, mangaId: self.manga.key) {
+        if let cachedManga = SharedDataStore.shared.getManga(sourceId: self.manga.sourceKey, mangaId: self.manga.key) {
             self.manga = self.manga.copy(from: cachedManga)
         }
 
-        let filters = CoreDataManager.shared.getMangaChapterFilters(
+        let filters = SharedDataStore.shared.getMangaChapterFilters(
             sourceId: manga.sourceKey,
             mangaId: manga.key
         )
@@ -339,14 +339,14 @@ extension MangaView.ViewModel {
     func fetchData() async {
         let sourceKey = manga.sourceKey
         let mangaId = manga.key
-        let storedState = await CoreDataManager.shared.container.performBackgroundTask { @Sendable context in
+        let storedState = await DatabaseContainer.shared.performBackgroundTask { @Sendable context in
             (
-                inLibrary: CoreDataManager.shared.hasLibraryManga(
+                inLibrary: SharedDataStore.shared.hasLibraryManga(
                     sourceId: sourceKey,
                     mangaId: mangaId,
                     context: context
                 ),
-                chapters: CoreDataManager.shared.getChapters(
+                chapters: SharedDataStore.shared.getChapters(
                     sourceId: sourceKey,
                     mangaId: mangaId,
                     context: context
@@ -377,7 +377,7 @@ extension MangaView.ViewModel {
                 )
                 manga = newManga
                 chapters = filteredChapters()
-                await CoreDataManager.shared.cacheMangaDetails(
+                await SharedDataStore.shared.cacheMangaDetails(
                     newManga,
                     includeChapters: true
                 )
@@ -444,8 +444,8 @@ extension MangaView.ViewModel {
 
         // sync progress from regular trackers if auto sync enabled
         if UserDefaults.standard.bool(forKey: "Tracking.autoSyncFromTracker") {
-            let trackItems: [TrackItem] = await CoreDataManager.shared.container.performBackgroundTask { @Sendable [manga] context in
-                CoreDataManager.shared.getTracks(
+            let trackItems: [TrackItem] = await DatabaseContainer.shared.performBackgroundTask { @Sendable [manga] context in
+                SharedDataStore.shared.getTracks(
                     sourceId: manga.sourceKey,
                     mangaId: manga.key,
                     context: context
@@ -472,8 +472,8 @@ extension MangaView.ViewModel {
         let sourceKey = source.key
         let mangaKey = manga.key
 
-        let inLibrary = await CoreDataManager.shared.container.performBackgroundTask { @Sendable context in
-            CoreDataManager.shared.hasLibraryManga(sourceId: sourceKey, mangaId: mangaKey, context: context)
+        let inLibrary = await DatabaseContainer.shared.performBackgroundTask { @Sendable context in
+            SharedDataStore.shared.hasLibraryManga(sourceId: sourceKey, mangaId: mangaKey, context: context)
         }
 
         do {
@@ -487,13 +487,11 @@ extension MangaView.ViewModel {
             // update manga in db
             if inLibrary {
                 let resultManga: ExtensionRunner.Manga? =
-                    await CoreDataManager.shared.container.performBackgroundTask { [
-                        newManga,
-                        chapterLangFilter,
-                        chapterScanlatorFilter
+                    await DatabaseContainer.shared.performBackgroundTask { [
+                        newManga
                     ] context -> ExtensionRunner.Manga? in
                         guard
-                            let libraryObject = CoreDataManager.shared.getLibraryManga(
+                            let libraryObject = SharedDataStore.shared.getLibraryManga(
                                 sourceId: sourceKey,
                                 mangaId: mangaKey,
                                 context: context
@@ -507,26 +505,13 @@ extension MangaView.ViewModel {
                         mangaObject.load(from: newManga)
 
                         if let chapters = newManga.chapters {
-                            let newChapters = CoreDataManager.shared.setChapters(
+                            let newChapters = SharedDataStore.shared.setChapters(
                                 chapters,
                                 sourceId: sourceKey,
                                 mangaId: mangaKey,
                                 context: context
                             )
                             if !newChapters.isEmpty {
-                                // add manga updates
-                                for chapter in newChapters
-                                where
-                                    chapterLangFilter != nil ? chapter.lang == chapterLangFilter : true
-                                    && !chapterScanlatorFilter.isEmpty ? chapterScanlatorFilter.contains(chapter.scanlator ?? "") : true
-                                {
-                                    CoreDataManager.shared.createMangaUpdate(
-                                        sourceId: sourceKey,
-                                        mangaId: mangaKey,
-                                        chapterObject: chapter,
-                                        context: context
-                                    )
-                                }
                                 libraryObject.lastChapter = chapters.compactMap { $0.dateUploaded }.max()
                                 libraryObject.lastUpdatedChapters = Date.now
                             }
@@ -539,7 +524,6 @@ extension MangaView.ViewModel {
                             libraryObject.lastOpened = now.addingTimeInterval(1) // ensure item isn't re-pinned, since it's already open
                         }
 
-                        try? context.save()
 
                         return mangaObject.toNewManga()
                     }
@@ -555,7 +539,7 @@ extension MangaView.ViewModel {
 
                 NotificationCenter.default.post(name: .updateManga, object: newManga.identifier)
             } else {
-                await CoreDataManager.shared.cacheMangaDetails(
+                await SharedDataStore.shared.cacheMangaDetails(
                     newManga,
                     includeChapters: true
                 )
@@ -596,8 +580,8 @@ extension MangaView.ViewModel {
     private func loadBookmarked() async {
         let sourceKey = manga.sourceKey
         let mangaId = manga.key
-        let inLibrary = await CoreDataManager.shared.container.performBackgroundTask { @Sendable context in
-            CoreDataManager.shared.hasLibraryManga(
+        let inLibrary = await DatabaseContainer.shared.performBackgroundTask { @Sendable context in
+            SharedDataStore.shared.hasLibraryManga(
                 sourceId: sourceKey,
                 mangaId: mangaId,
                 context: context
@@ -607,7 +591,7 @@ extension MangaView.ViewModel {
     }
 
     private func loadHistory() async {
-        readingHistory = await CoreDataManager.shared.getReadingHistory(
+        readingHistory = await SharedDataStore.shared.getReadingHistory(
             sourceId: manga.sourceKey,
             mangaId: manga.key
         )
@@ -616,10 +600,10 @@ extension MangaView.ViewModel {
     private func loadChapterBookmarks() async {
         let sourceKey = manga.sourceKey
         let mangaKey = manga.key
-        chapterBookmarks = await CoreDataManager.shared.container.performBackgroundTask {
+        chapterBookmarks = await DatabaseContainer.shared.performBackgroundTask {
             @Sendable context in
             Set(
-                CoreDataManager.shared.getChapters(
+                SharedDataStore.shared.getChapters(
                     sourceId: sourceKey,
                     mangaId: mangaKey,
                     context: context
@@ -686,9 +670,9 @@ extension MangaView.ViewModel {
     ) async {
         let sourceKey = manga.sourceKey
         let mangaKey = manga.key
-        let changed = await CoreDataManager.shared.container.performBackgroundTask {
+        let changed = await DatabaseContainer.shared.performBackgroundTask {
             @Sendable context in
-            guard let object = CoreDataManager.shared.getChapter(
+            guard let object = SharedDataStore.shared.getChapter(
                 sourceId: sourceKey,
                 mangaId: mangaKey,
                 chapterId: chapter.key,
@@ -698,7 +682,6 @@ extension MangaView.ViewModel {
             }
             object.bookmarked = bookmarked
             do {
-                try context.save()
                 return true
             } catch {
                 return false
@@ -950,7 +933,7 @@ extension MangaView.ViewModel {
     /// rewritten here. The old version built the value from scratch and erased them.
     private func generateChapterFlags() -> Int {
         // Read the stored value first: this screen does not offer every part of the column.
-        var flags = CoreDataManager.shared.getMangaChapterFilters(
+        var flags = SharedDataStore.shared.getMangaChapterFilters(
             sourceId: manga.sourceKey,
             mangaId: manga.key
         ).flags
@@ -964,7 +947,7 @@ extension MangaView.ViewModel {
     private func saveFilters() async {
         // The language and scanlator filters have no column, so only the flags are persisted --
         // which is what the facade wrote even when a whole model was handed to it.
-        await CoreDataManager.shared.updateMangaDetails(
+        await SharedDataStore.shared.updateMangaDetails(
             manga: manga,
             chapterFlags: generateChapterFlags()
         )

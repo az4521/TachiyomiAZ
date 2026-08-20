@@ -26,7 +26,7 @@ struct FilterGroupsView: View {
     @Namespace private var transitionNamespace
 
     init() {
-        let groups = CoreDataManager.shared.getFilterGroups()
+        let groups = FilterGroupStore.get()
         self._groups = State(initialValue: groups)
     }
 
@@ -88,7 +88,7 @@ struct FilterGroupsView: View {
             Text(NSLocalizedString("RENAME_CATEGORY_FAIL_INFO"))
         }
         .onReceive(NotificationCenter.default.publisher(for: .updateCategories)) { _ in
-            groups = CoreDataManager.shared.getFilterGroups()
+            groups = FilterGroupStore.get()
         }
     }
 
@@ -120,21 +120,19 @@ struct FilterGroupsView: View {
 
         for offset in sourceIndices.reversed() {
             let group = groups[offset]
-            CoreDataManager.shared.moveCategory(title: group.title, toPosition: adjustedDestination)
+            SharedDataStore.shared.moveCategory(title: group.title, toPosition: adjustedDestination)
         }
 
-        groups = CoreDataManager.shared.getFilterGroups()
-        CoreDataManager.shared.save()
+        groups = FilterGroupStore.get()
         NotificationCenter.default.post(name: .updateCategories, object: nil)
     }
 }
 
 extension FilterGroupsView {
     func removeGroup(title: String) async -> Bool {
-        await CoreDataManager.shared.container.performBackgroundTask { context in
-            CoreDataManager.shared.removeCategory(title: title, context: context)
+        await DatabaseContainer.shared.performBackgroundTask { context in
+            SharedDataStore.shared.removeCategory(title: title, context: context)
             do {
-                try context.save()
                 return true
             } catch {
                 LogManager.logger.error("FilterGroupsView.removeGroup(title: \(title)): \(error)")
@@ -148,11 +146,10 @@ extension FilterGroupsView {
             showRenameFailedAlert = true
         } else {
             Task {
-                let success = await CoreDataManager.shared.container.performBackgroundTask { context in
-                    let success = CoreDataManager.shared.renameCategory(title: title, newTitle: newTitle, context: context)
+                let success = await DatabaseContainer.shared.performBackgroundTask { context in
+                    let success = SharedDataStore.shared.renameCategory(title: title, newTitle: newTitle, context: context)
                     guard success else { return false }
                     do {
-                        try context.save()
                         return true
                     } catch {
                         LogManager.logger.error("FilterGroupsView.renameGroup(title: \(title), newTitle: \(newTitle)): \(error)")
@@ -160,7 +157,7 @@ extension FilterGroupsView {
                     }
                 }
                 if success {
-                    groups = CoreDataManager.shared.getFilterGroups()
+                    groups = FilterGroupStore.get()
                     NotificationCenter.default.post(name: .updateCategories, object: nil)
                 } else {
                     showRenameFailedAlert = true

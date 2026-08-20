@@ -45,12 +45,14 @@ final class MangaUpdateObject {
     }
 }
 
-extension CoreDataManager {
+extension SharedDataStore {
+    private var updateRepository: UpdateRepository { UpdateRepository(db: handler) }
+
     func getRecentMangaUpdates(limit: Int, offset: Int, context: Any? = nil) -> [MangaUpdateObject] {
         // A window wide enough to cover what the screen pages through; the query is ordered by
         // fetch date, so the slice below takes the newest.
         let since = Int64(Date().addingTimeInterval(-60 * 60 * 24 * 365).timeIntervalSince1970 * 1000)
-        let recent = handler.getRecentChapters(date: since)
+        let recent = updateRepository.recentChapters(since: since)
 
         let items: [MangaUpdateObject] = recent.map { entry in
             let manga = entry.manga
