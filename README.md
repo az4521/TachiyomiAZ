@@ -9,6 +9,19 @@ For legal purposes this is an EMAIL AND FREE DOUJINSHI READER APP, NOT TO BE USE
 
 plz don't sue me
 
+## licence
+
+Two licences, because the two apps come from different places.
+
+- **Everything except `iosApp/`** — Apache-2.0, in [`LICENSE`](LICENSE). The
+  Android app derives from Tachiyomi; the shared Kotlin modules were written here.
+- **`iosApp/`** — **GPL-3.0**, in [`iosApp/LICENSE`](iosApp/LICENSE). Most of the
+  iOS app is [Aidoku](https://github.com/Aidoku/Aidoku) by Skitty, which is
+  GPL-3.0, so the app containing it is too. Anyone given the IPA is entitled to
+  the corresponding source under those terms.
+
+[`iosApp/NOTICE.md`](iosApp/NOTICE.md) says what came from where.
+
 ## features
 - material design 1 (sidebar + hamburger)
 - Get Recommendations From MyAnimeList And Anilist
