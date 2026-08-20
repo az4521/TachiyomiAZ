@@ -700,7 +700,7 @@ actor JVMSourceRuntime {
                 sourceId: String(sourceId),
                 chapterURL: chapter.key,
                 chapterName: chapter.title ?? "",
-                chapterNumber: chapter.chapterNumber.map(String.init),
+                chapterNumber: chapter.chapterNumber.map { String($0) },
                 chapterScanlator: chapter.scanlators?.joined(separator: ", "),
                 chapterDateUpload: String(
                     chapter.dateUploaded.map {
@@ -979,7 +979,7 @@ actor JVMSourceRuntime {
                 sourceId: sourceId.map(String.init),
                 chapterURL: chapterURL,
                 chapterName: chapterName,
-                chapterNumber: chapterNumber.map(String.init),
+                chapterNumber: chapterNumber.map { String($0) },
                 chapterScanlator: chapterScanlator,
                 chapterDateUpload: String(chapterDateUpload),
                 chapterMemo: chapterMemo
