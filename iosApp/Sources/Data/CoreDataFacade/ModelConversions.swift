@@ -47,7 +47,7 @@ extension ExtensionRunner.Manga {
         record.update_strategy = updateStrategy == .never
             ? UpdateStrategy.onlyFetchOnce
             : UpdateStrategy.alwaysUpdate
-        MemoJsonKt.setMangaMemoJson(record, memoJson: memo)
+        MemoJsonKt.setMangaMemoJson(manga: record, memoJson: memo)
         return record
     }
 }

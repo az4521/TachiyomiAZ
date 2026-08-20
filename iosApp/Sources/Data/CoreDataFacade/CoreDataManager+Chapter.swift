@@ -135,7 +135,7 @@ extension CoreDataManager {
             s.scanlator = chapter.scanlators?.joined(separator: ", ")
             s.date_upload = Int64((chapter.dateUploaded?.timeIntervalSince1970 ?? 0) * 1000)
             if let number = chapter.chapterNumber { s.chapter_number = number }
-            MemoJsonKt.setChapterMemoJson(s, memoJson: chapter.memo)
+            MemoJsonKt.setChapterMemoJson(chapter: s, memoJson: chapter.memo)
             return s
         }
 

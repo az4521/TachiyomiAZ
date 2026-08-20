@@ -120,7 +120,7 @@ final class MangaObjectRef {
             ? UpdateStrategy.onlyFetchOnce
             : UpdateStrategy.alwaysUpdate
         if let memo = manga.memo {
-            MemoJsonKt.setMangaMemoJson(row, memoJson: memo)
+            MemoJsonKt.setMangaMemoJson(manga: row, memoJson: memo)
         }
         row.initialized = true
         Database.handler.insertManga(manga: row)

@@ -142,7 +142,7 @@ final class LibraryStore: ObservableObject {
             ? UpdateStrategy.onlyFetchOnce
             : UpdateStrategy.alwaysUpdate
         if let memo = manga.memo {
-            MemoJsonKt.setMangaMemoJson(record, memoJson: memo)
+            MemoJsonKt.setMangaMemoJson(manga: record, memoJson: memo)
         }
         record.favorite = true
         record.initialized = true
@@ -310,7 +310,7 @@ final class LibraryStore: ObservableObject {
                     ).load(from: updatedManga)
                 } else {
                     if let memo = updatedManga.memo {
-                        MemoJsonKt.setMangaMemoJson(entry, memoJson: memo)
+                        MemoJsonKt.setMangaMemoJson(manga: entry, memoJson: memo)
                         handler.insertManga(manga: entry)
                     }
                 }
@@ -321,7 +321,7 @@ final class LibraryStore: ObservableObject {
                     s.scanlator = chapter.scanlator
                     s.date_upload = chapter.dateUpload
                     if let number = chapter.chapterNumber { s.chapter_number = number }
-                    MemoJsonKt.setChapterMemoJson(s, memoJson: chapter.memo)
+                    MemoJsonKt.setChapterMemoJson(chapter: s, memoJson: chapter.memo)
                     return s
                 }
                 // A source that returned nothing has nothing to diff. Counted as a failure rather
