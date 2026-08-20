@@ -11,13 +11,35 @@ on:
   push:
     branches:
       - 'master'
-    paths-ignore:
-      - 'app/**'
-      - '.github/workflows/build.yml'
+    paths:
+      - 'iosApp/**'
+      - 'Runtime/**'
+      - 'shared-ios/**'
+      - 'core-model/**'
+      - 'core-database/**'
+      - 'core-domain/**'
+      - 'buildSrc/**'
+      - 'gradle/**'
+      - 'gradlew'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle.properties'
+      - '.github/workflows/ios.yml'
   pull_request:
-    paths-ignore:
-      - 'app/**'
-      - '.github/workflows/build.yml'
+    paths:
+      - 'iosApp/**'
+      - 'Runtime/**'
+      - 'shared-ios/**'
+      - 'core-model/**'
+      - 'core-database/**'
+      - 'core-domain/**'
+      - 'buildSrc/**'
+      - 'gradle/**'
+      - 'gradlew'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle.properties'
+      - '.github/workflows/ios.yml'
   workflow_dispatch:
 
 concurrency:
