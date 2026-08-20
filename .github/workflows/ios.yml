@@ -76,9 +76,110 @@ jobs:
           path: iosApp/Vendor/jars
           retention-days: 1
 
+  # The JVM the app links against, built from source because no published one will do.
+  #
+  # `TJRBridge.cpp` calls `tachiyomiaz_lookup_static_symbol`, which upstream OpenJDK does not
+  # have: `add-openjdk-static-lookup.sh` appends it to `symbol_keeper.cpp` before the JDK is
+  # compiled. Downloading openjdk-mobile's prebuilt runtime therefore produces a tree that
+  # compiles and then fails to link, which is what happened here for as long as CI has existed --
+  # the error was simply behind an earlier one.
+  #
+  # Cached on everything that feeds the build, so this runs once per change to the recipe and is
+  # a cache hit on every other commit. Kept on macos-14 with Xcode 15.4 and a JDK 24 boot
+  # compiler, which is the combination this build is known to work under; the IPA job that
+  # consumes the result is on a current runner.
+  openjdk:
+    name: OpenJDK runtime
+    runs-on: macos-14
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Restore runtime cache
+        id: runtime-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            iosApp/Vendor/jvm/OpenJDK.xcframework
+            iosApp/Vendor/jvm/java_bundle-device
+            iosApp/Vendor/jvm/java_bundle-simulator
+            iosApp/Vendor/jvm/.ios-runtime
+          key: openjdk-ios-src-${{ runner.arch }}-${{ hashFiles('iosApp/Scripts/build-openjdk-ios15.sh', 'iosApp/Scripts/add-openjdk-static-lookup.sh', 'iosApp/Scripts/patches/openjdk-mobile-ios-runtime.patch', 'iosApp/Scripts/OpenJDK.exports') }}
+
+      - name: Select Xcode
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "15.4"
+
+      # The pinned OpenJDK Mobile revision was built upstream with JDK 24. A newer boot compiler
+      # exposes PreviewFeature metadata that makes the interim langtools build fail under its
+      # mandatory -Werror.
+      - name: Set up Java 24 boot JDK
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
+        with:
+          distribution: temurin
+          java-version: "24"
+
+      - name: Build the runtime
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        run: |
+          brew install autoconf make
+          export PATH="$(brew --prefix make)/libexec/gnubin:$PATH"
+          bash iosApp/Scripts/build-openjdk-ios15.sh
+
+      # The link error this whole job exists to prevent, caught here rather than half an hour
+      # later in the IPA build.
+      - name: Verify the static symbol lookup
+        run: |
+          shopt -s nullglob
+          # The simulator slice is named for the architectures in it, so it is matched rather
+          # than spelled out.
+          archives=(
+            iosApp/Vendor/jvm/OpenJDK.xcframework/ios-arm64/libdevice.a
+            iosApp/Vendor/jvm/OpenJDK.xcframework/ios-*-simulator/libsim.a
+          )
+          if (( ${#archives[@]} != 2 )); then
+            echo "Expected one device and one simulator archive; found ${#archives[@]}." >&2
+            find iosApp/Vendor/jvm/OpenJDK.xcframework -name '*.a' -print >&2
+            exit 1
+          fi
+          for archive in "${archives[@]}"; do
+            if ! xcrun nm -gjU "$archive" | grep -Fx _tachiyomiaz_lookup_static_symbol >/dev/null
+            then
+              echo "$archive does not define _tachiyomiaz_lookup_static_symbol." >&2
+              exit 1
+            fi
+          done
+
+      - name: Save runtime cache
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            iosApp/Vendor/jvm/OpenJDK.xcframework
+            iosApp/Vendor/jvm/java_bundle-device
+            iosApp/Vendor/jvm/java_bundle-simulator
+            iosApp/Vendor/jvm/.ios-runtime
+          key: ${{ steps.runtime-cache.outputs.cache-primary-key }}
+
+      - name: Upload the runtime
+        uses: actions/upload-artifact@v4
+        with:
+          name: openjdk-ios
+          path: |
+            iosApp/Vendor/jvm/OpenJDK.xcframework
+            iosApp/Vendor/jvm/java_bundle-device
+            iosApp/Vendor/jvm/java_bundle-simulator
+            iosApp/Vendor/jvm/.ios-runtime
+          retention-days: 1
+
   ipa:
     name: Unsigned IPA
-    needs: runtime
+    needs: [runtime, openjdk]
     runs-on: macos-26
 
     steps:
@@ -97,25 +198,13 @@ jobs:
           name: jvm-runtime-jars
           path: iosApp/Vendor/jars
 
-      # A pinned, checksummed download rather than a build -- fast even on a cache miss, but
-      # cached anyway because it is 140MB and the runner pays for the transfer in wall time.
-      - name: Restore OpenJDK
-        id: openjdk-cache
-        uses: actions/cache/restore@v4
+      # Built by the openjdk job, not downloaded: the prebuilt runtime lacks the static symbol
+      # lookup this app links against.
+      - name: Download OpenJDK
+        uses: actions/download-artifact@v4
         with:
+          name: openjdk-ios
           path: iosApp/Vendor/jvm
-          key: openjdk-ios-${{ hashFiles('iosApp/Scripts/bootstrap-openjdk-ios.sh') }}
-
-      - name: Bootstrap OpenJDK
-        if: steps.openjdk-cache.outputs.cache-hit != 'true'
-        run: bash iosApp/Scripts/bootstrap-openjdk-ios.sh
-
-      - name: Save OpenJDK
-        if: steps.openjdk-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: iosApp/Vendor/jvm
-          key: ${{ steps.openjdk-cache.outputs.cache-primary-key }}
 
       - name: Restore Texture
         id: texture-cache
