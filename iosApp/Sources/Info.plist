@@ -28,6 +28,15 @@
 				<string>tachiyomiaz</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>eu.kanade.tachiyomi.az.ios.repository</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>tachiyomi</string>
+				<string>mihon</string>
+			</array>
+		</dict>
 	</array>
 	<key>CFBundleVersion</key>
 	<string>1</string>

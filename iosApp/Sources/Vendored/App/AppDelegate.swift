@@ -330,6 +330,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
         buildWindow()
 
+        // A URL that launched the app arrives here, not through `application(_:open:options:)`,
+        // which only fires once the app is already running. Deferred to the next runloop pass
+        // because the alert it raises needs a root view controller that has been presented, and
+        // `buildWindow()` has only just made one.
+        if let url = launchOptions?[.url] as? URL {
+            DispatchQueue.main.async { [weak self] in
+                self?.handleUrl(url: url)
+            }
+        }
+
         return true
     }
 
@@ -394,6 +404,20 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask {
         InterfaceOrientationCoordinator.shared.supportedOrientations
+    }
+
+    /// A URL opened while the app is already running.
+    ///
+    /// `SceneDelegate` carries this too, and upstream relies on it, but the scene never connects
+    /// here -- see `buildWindow()` -- so `scene(_:openURLContexts:)` is never called and a link
+    /// tapped elsewhere reached nothing. This is the delegate the app actually runs under.
+    func application(
+        _ application: UIApplication,
+        open url: URL,
+        options: [UIApplication.OpenURLOptionsKey: Any] = [:]
+    ) -> Bool {
+        handleUrl(url: url)
+        return true
     }
 }
 

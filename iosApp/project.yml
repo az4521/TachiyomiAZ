@@ -251,6 +251,13 @@ targets:
         CFBundleURLTypes:
           - CFBundleURLName: eu.kanade.tachiyomi.az.ios.oauth
             CFBundleURLSchemes: [tachiyomiaz]
+          # The repository links the Android app answers: `tachiyomi://add-repo?url=` and
+          # `mihon://extension-store?url=`, which is what a repository's "add to app" button
+          # produces. `TachiyomiXJarRepository.repositoryURL(fromDeepLink:)` already read both,
+          # but iOS only delivers a URL to an app that has declared its scheme, so nothing ever
+          # arrived and the link opened nothing.
+          - CFBundleURLName: eu.kanade.tachiyomi.az.ios.repository
+            CFBundleURLSchemes: [tachiyomi, mihon]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: eu.kanade.tachiyomi.az.ios
