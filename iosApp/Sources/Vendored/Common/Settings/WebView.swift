@@ -129,8 +129,18 @@ struct WebView: UIViewRepresentable {
     let initialCookies: [HTTPCookie]
     let sessionHandle: WebViewSessionHandle?
 
+    /// Sized to the screen rather than `.zero`.
+    ///
+    /// SwiftUI lays this out a moment later, but scripts injected at document start run against
+    /// whatever it is then -- and in a zero frame `innerWidth` and `innerHeight` are 0. Nothing
+    /// corrects those: `browserCompatibilityScript` only ever supplied `outerWidth` and
+    /// `outerHeight`, so a page's first look at its own viewport was 0x0.
+    ///
+    /// SchaleNetwork checks the browser after the Cloudflare challenge and refuses on that. Taking
+    /// this out while changing nothing else put it back to failing, and restoring it fixed it,
+    /// which is the whole of the evidence for it.
     private let webView = WKWebView(
-        frame: .zero,
+        frame: CGRect(origin: .zero, size: UIScreen.main.bounds.size),
         configuration: PersistentWebViewSession.configuration()
     )
 
