@@ -990,7 +990,12 @@ enum LibrarySort {
 
         switch method {
             case .alphabetical: return by({ ($0.manga?.title ?? "").lowercased() }, !ascending)
-            case .lastRead: return by({ $0.lastRead ?? .distantPast }, ascending)
+            case .lastRead:
+                let order = lastReadOrder()
+                // Positions run newest-first, the reverse of a date, so the flag flips with them.
+                // A title absent from the query has never been read and sorts as the oldest thing
+                // there is, which is where a `.distantPast` used to put it.
+                return by({ order[$0.rowId ?? -1] ?? Int.max }, !ascending)
             case .lastOpened: return by({ $0.lastOpened ?? .distantPast }, ascending)
             case .lastUpdated: return by({ $0.lastUpdated ?? .distantPast }, ascending)
             case .dateAdded: return by({ $0.dateAdded ?? .distantPast }, ascending)
@@ -998,6 +1003,27 @@ enum LibrarySort {
             case .totalChapters: return by({ $0.totalChapters }, ascending)
             case .unreadChapters: return objects
         }
+    }
+
+    /// Each title's place in the database's "recently read" ordering.
+    ///
+    /// Android has no `last_read` column on a manga row: reading times live in the history table,
+    /// one per chapter, and `getLastReadManga` groups them by title and orders on
+    /// `MAX(history_last_read)`. The library screen then sorts by each title's position in that
+    /// result. The query is in `:core-database`, so both apps run the same SQL.
+    ///
+    /// This used to read a `lastRead` date kept in UserDefaults alongside the row. Nothing wrote
+    /// it except a tracker sync importing history from a remote service -- opening a chapter here
+    /// never touched it -- so every title read in the app stayed at `.distantPast` and the sort
+    /// had nothing to order by.
+    private static func lastReadOrder() -> [Int64: Int] {
+        var order: [Int64: Int] = [:]
+        for (position, manga) in Database.handler.getLastReadManga().enumerated() {
+            if let id = manga.id?.int64Value {
+                order[id] = position
+            }
+        }
+        return order
     }
 }
 

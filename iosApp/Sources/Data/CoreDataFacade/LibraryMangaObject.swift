@@ -36,6 +36,9 @@ final class LibraryMangaObject {
     /// the vendored code uses. Optional to match `MangaObject?`.
     var manga: MangaObjectRef? { MangaObjectRef(row: row, sourceId: sourceId, mangaId: mangaId) }
 
+    /// The shared row's id, for orderings the database answers rather than the row itself.
+    var rowId: Int64? { row.id?.int64Value }
+
     private func key(_ name: String) -> String { "Library.\(name).\(sourceId).\(mangaId)" }
 
     private func date(_ name: String) -> Date? {
