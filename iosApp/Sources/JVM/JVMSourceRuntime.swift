@@ -37,6 +37,9 @@ actor JVMSourceRuntime {
     private var runtimeStartupTask: Task<JVMRuntime, Error>?
     private var cloudflareBypassTasks: [String: Task<String, Error>] = [:]
     private var cloudflareSessionUserAgents: [String: String] = [:]
+    /// Bumped whenever a source's clearance is replaced, so a request whose retry failed can tell
+    /// "nobody has solved anything since" from "someone already solved a newer one".
+    private var cloudflareSessionGenerations: [String: Int] = [:]
     private var preparedImageDirectory = false
 
     private static let maximumExtensionSize: Int64 = 64 * 1_048_576
@@ -995,31 +998,47 @@ actor JVMSourceRuntime {
             return response
         }
 
+        let key = "\(extensionId):\(sourceId)"
         let userAgent = try await solveCloudflareChallenge(
             extensionId: extensionId,
             sourceId: sourceId
         )
+        let solvedGeneration = cloudflareSessionGenerations[key] ?? 0
         var retriedRequest = request
         retriedRequest.userAgent = userAgent
         var retriedResponse = try await rawDispatch(retriedRequest)
 
-        // A clearance can come back already spent: bound to an agent the wire does not carry,
-        // or simply stale. Reusing it fails exactly as if nothing had been solved, so the
-        // second attempt throws the cached session away and earns a fresh one rather than
-        // presenting the same dead cookie again.
+        // A clearance can come back already spent: bound to an agent the wire does not carry, or
+        // simply stale. Reusing it fails exactly as if nothing had been solved.
+        //
+        // Whether that is worth another challenge depends on what else has happened. A library
+        // refresh puts dozens of requests through the same source at once, and they fail as a
+        // group; if each one treats its own failure as a reason to discard the session and solve
+        // again, one challenge becomes one per manga, every one of them asking the user to sit
+        // through a captcha. So a request that finds a newer clearance than the one it used just
+        // takes it. Only the request that still holds the newest -- meaning nothing has been
+        // solved since, and its failure is genuinely unexplained -- pays for a fresh challenge.
         if shouldAttemptCloudflareBypass(retriedResponse) {
-            await discardCloudflareSession(
-                extensionId: extensionId,
-                sourceId: sourceId
-            )
             if
-                let refreshed = try? await solveCloudflareChallenge(
+                cloudflareSessionGenerations[key] ?? 0 != solvedGeneration,
+                let newer = cloudflareSessionUserAgents[key]
+            {
+                retriedRequest.userAgent = newer
+                retriedResponse = try await rawDispatch(retriedRequest)
+            } else {
+                await discardCloudflareSession(
                     extensionId: extensionId,
                     sourceId: sourceId
                 )
-            {
-                retriedRequest.userAgent = refreshed
-                retriedResponse = try await rawDispatch(retriedRequest)
+                if
+                    let refreshed = try? await solveCloudflareChallenge(
+                        extensionId: extensionId,
+                        sourceId: sourceId
+                    )
+                {
+                    retriedRequest.userAgent = refreshed
+                    retriedResponse = try await rawDispatch(retriedRequest)
+                }
             }
         }
 
@@ -1032,7 +1051,9 @@ actor JVMSourceRuntime {
         extensionId: String,
         sourceId: Int64
     ) async {
-        cloudflareSessionUserAgents["\(extensionId):\(sourceId)"] = nil
+        let key = "\(extensionId):\(sourceId)"
+        cloudflareSessionUserAgents[key] = nil
+        cloudflareSessionGenerations[key] = (cloudflareSessionGenerations[key] ?? 0) + 1
         if
             let info = try? await webLoginInfo(
                 extensionId: extensionId,
@@ -1137,6 +1158,7 @@ actor JVMSourceRuntime {
         defer { cloudflareBypassTasks[key] = nil }
         let userAgent = try await task.value
         cloudflareSessionUserAgents[key] = userAgent
+        cloudflareSessionGenerations[key] = (cloudflareSessionGenerations[key] ?? 0) + 1
         return userAgent
     }
 
