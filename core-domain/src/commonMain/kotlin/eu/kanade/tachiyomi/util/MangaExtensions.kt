@@ -56,7 +56,7 @@ fun Manga.prepUpdateCover(
  * @return whether the memo changed.
  */
 fun Manga.copyMemoFrom(other: SManga): Boolean {
-    if (other.memo.isEmpty() || other.memo == memo) return false
+    if (other.memo == memo) return false
 
     memo = other.memo
     return true

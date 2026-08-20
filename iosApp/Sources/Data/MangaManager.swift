@@ -52,9 +52,12 @@ final class MangaManager {
               let source = runtime.sources.first(where: { $0.id == sourceId }) else { return nil }
         let update = try? await runtime.mangaDetails(
             source,
-            url: manga.key,
-            title: manga.title,
-            memo: nil
+            manga: manga,
+            mangaInitialized: CoreDataManager.shared.sharedManga(
+                sourceId: manga.sourceKey,
+                mangaId: manga.key
+            )?.initialized ?? false,
+            fetchChapters: false
         )
         return update?.manga.thumbnailURL
     }

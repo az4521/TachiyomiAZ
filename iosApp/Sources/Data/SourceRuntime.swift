@@ -214,16 +214,29 @@ final class SourceRuntime: ObservableObject {
 
     func mangaDetails(
         _ source: SourceDescriptor,
-        url: String,
-        title: String,
-        memo: String?
+        manga: ExtensionRunner.Manga,
+        mangaInitialized: Bool = false,
+        fetchDetails: Bool = true,
+        fetchChapters: Bool = true
     ) async throws -> TachiyomiXMangaUpdate {
         try await JVMSourceRuntime.shared.mangaUpdate(
             extensionId: source.extensionId,
             sourceId: source.id,
-            mangaURL: url,
-            mangaTitle: title,
-            mangaMemo: memo
+            mangaURL: manga.key,
+            mangaTitle: manga.title,
+            mangaThumbnailURL: manga.cover,
+            mangaArtist: manga.artists?.joined(separator: ", "),
+            mangaAuthor: manga.authors?.joined(separator: ", "),
+            mangaStatus: Int(manga.status.tachiyomiXValue),
+            mangaDescription: manga.description,
+            mangaGenre: manga.tags?.joined(separator: ", "),
+            mangaUpdateStrategy: manga.updateStrategy == .never
+                ? "ONLY_FETCH_ONCE"
+                : "ALWAYS_UPDATE",
+            mangaInitialized: mangaInitialized,
+            mangaMemo: manga.memo,
+            fetchDetails: fetchDetails,
+            fetchChapters: fetchChapters
         )
     }
 

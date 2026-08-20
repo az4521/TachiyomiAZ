@@ -16,12 +16,25 @@ public struct ExtensionHostRequest: Codable, Sendable {
     public let settingValue: String?
     public let mangaURL: String?
     public let mangaTitle: String?
+    public let mangaThumbnailURL: String?
+    public let mangaArtist: String?
+    public let mangaAuthor: String?
+    public let mangaStatus: String?
+    public let mangaDescription: String?
+    public let mangaGenre: String?
+    public let mangaUpdateStrategy: String?
+    public let mangaInitialized: String?
     public let mangaMemo: String?
     /// JSON-encoded TachiyomiXChapter array, in the order returned by the source.
     public let mangaChapters: String?
     public let chapterURL: String?
     public let chapterName: String?
+    public let chapterNumber: String?
+    public let chapterScanlator: String?
+    public let chapterDateUpload: String?
     public let chapterMemo: String?
+    public let fetchDetails: String?
+    public let fetchChapters: String?
     public let imageURL: String?
     public let pageURL: String?
     public let destinationPath: String?
@@ -42,11 +55,24 @@ public struct ExtensionHostRequest: Codable, Sendable {
         settingValue: String? = nil,
         mangaURL: String? = nil,
         mangaTitle: String? = nil,
+        mangaThumbnailURL: String? = nil,
+        mangaArtist: String? = nil,
+        mangaAuthor: String? = nil,
+        mangaStatus: String? = nil,
+        mangaDescription: String? = nil,
+        mangaGenre: String? = nil,
+        mangaUpdateStrategy: String? = nil,
+        mangaInitialized: String? = nil,
         mangaMemo: String? = nil,
         mangaChapters: String? = nil,
         chapterURL: String? = nil,
         chapterName: String? = nil,
+        chapterNumber: String? = nil,
+        chapterScanlator: String? = nil,
+        chapterDateUpload: String? = nil,
         chapterMemo: String? = nil,
+        fetchDetails: String? = nil,
+        fetchChapters: String? = nil,
         imageURL: String? = nil,
         pageURL: String? = nil,
         destinationPath: String? = nil
@@ -66,11 +92,24 @@ public struct ExtensionHostRequest: Codable, Sendable {
         self.settingValue = settingValue
         self.mangaURL = mangaURL
         self.mangaTitle = mangaTitle
+        self.mangaThumbnailURL = mangaThumbnailURL
+        self.mangaArtist = mangaArtist
+        self.mangaAuthor = mangaAuthor
+        self.mangaStatus = mangaStatus
+        self.mangaDescription = mangaDescription
+        self.mangaGenre = mangaGenre
+        self.mangaUpdateStrategy = mangaUpdateStrategy
+        self.mangaInitialized = mangaInitialized
         self.mangaMemo = mangaMemo
         self.mangaChapters = mangaChapters
         self.chapterURL = chapterURL
         self.chapterName = chapterName
+        self.chapterNumber = chapterNumber
+        self.chapterScanlator = chapterScanlator
+        self.chapterDateUpload = chapterDateUpload
         self.chapterMemo = chapterMemo
+        self.fetchDetails = fetchDetails
+        self.fetchChapters = fetchChapters
         self.imageURL = imageURL
         self.pageURL = pageURL
         self.destinationPath = destinationPath

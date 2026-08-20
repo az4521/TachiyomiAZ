@@ -19,6 +19,10 @@ interface Manga : SManga {
 
     var cover_last_modified: Long
 
+    /** The extension-owned memo in its wire format, for platform bridges such as the iOS JVM host. */
+    val memoJson: String
+        get() = memo.toString()
+
     fun setChapterOrder(order: Int) {
         setFlags(order, SORT_MASK)
     }

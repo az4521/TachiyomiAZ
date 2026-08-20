@@ -9,6 +9,8 @@ public struct TachiyomiXManga: Codable, Sendable, Equatable {
     public let status: Int
     public let description: String?
     public let genre: String?
+    public let updateStrategy: String?
+    public let initialized: Bool?
     /// Opaque JSON object owned by the extension library.
     public let memo: String?
 }
@@ -62,19 +64,22 @@ public struct TachiyomiXSourceDescriptor: Codable, Sendable, Equatable {
     public let lang: String
     public let supportsLatest: Bool
     public let baseURL: String?
+    public let homeURL: String?
 
     public init(
         id: Int64,
         name: String,
         lang: String,
         supportsLatest: Bool,
-        baseURL: String? = nil
+        baseURL: String? = nil,
+        homeURL: String? = nil
     ) {
         self.id = id
         self.name = name
         self.lang = lang
         self.supportsLatest = supportsLatest
         self.baseURL = baseURL
+        self.homeURL = homeURL
     }
 }
 
@@ -217,8 +222,18 @@ public extension JVMRuntime {
         sourceId: Int64? = nil,
         mangaURL: String,
         mangaTitle: String,
+        mangaThumbnailURL: String? = nil,
+        mangaArtist: String? = nil,
+        mangaAuthor: String? = nil,
+        mangaStatus: Int = 0,
+        mangaDescription: String? = nil,
+        mangaGenre: String? = nil,
+        mangaUpdateStrategy: String = "ALWAYS_UPDATE",
+        mangaInitialized: Bool = false,
         mangaMemo: String? = nil,
-        mangaChapters: [TachiyomiXChapter] = []
+        mangaChapters: [TachiyomiXChapter] = [],
+        fetchDetails: Bool = true,
+        fetchChapters: Bool = true
     ) throws -> TachiyomiXMangaUpdate {
         let encodedChapters = String(
             decoding: try JSONEncoder().encode(mangaChapters),
@@ -231,8 +246,18 @@ public extension JVMRuntime {
                 sourceId: sourceId.map(String.init),
                 mangaURL: mangaURL,
                 mangaTitle: mangaTitle,
+                mangaThumbnailURL: mangaThumbnailURL,
+                mangaArtist: mangaArtist,
+                mangaAuthor: mangaAuthor,
+                mangaStatus: String(mangaStatus),
+                mangaDescription: mangaDescription,
+                mangaGenre: mangaGenre,
+                mangaUpdateStrategy: mangaUpdateStrategy,
+                mangaInitialized: String(mangaInitialized),
                 mangaMemo: mangaMemo,
-                mangaChapters: encodedChapters
+                mangaChapters: encodedChapters,
+                fetchDetails: String(fetchDetails),
+                fetchChapters: String(fetchChapters)
             )
         )
         return try decodeResult(response, as: TachiyomiXMangaUpdate.self)
@@ -243,6 +268,9 @@ public extension JVMRuntime {
         sourceId: Int64? = nil,
         chapterURL: String,
         chapterName: String,
+        chapterNumber: Float? = nil,
+        chapterScanlator: String? = nil,
+        chapterDateUpload: Int64 = 0,
         chapterMemo: String? = nil
     ) throws -> [TachiyomiXPage] {
         let response = try checkedDispatch(
@@ -252,6 +280,9 @@ public extension JVMRuntime {
                 sourceId: sourceId.map(String.init),
                 chapterURL: chapterURL,
                 chapterName: chapterName,
+                chapterNumber: chapterNumber.map(String.init),
+                chapterScanlator: chapterScanlator,
+                chapterDateUpload: String(chapterDateUpload),
                 chapterMemo: chapterMemo
             )
         )

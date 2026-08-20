@@ -137,6 +137,13 @@ final class LibraryStore: ObservableObject {
         record.artist = manga.artists?.joined(separator: ", ")
         record.description_ = manga.description
         record.genre = manga.tags?.joined(separator: ", ")
+        record.status = manga.status.tachiyomiXValue
+        record.update_strategy = manga.updateStrategy == .never
+            ? UpdateStrategy.onlyFetchOnce
+            : UpdateStrategy.alwaysUpdate
+        if let memo = manga.memo {
+            MemoJsonKt.setMangaMemoJson(record, memoJson: memo)
+        }
         record.favorite = true
         record.initialized = true
         if existing == nil {
@@ -288,12 +295,25 @@ final class LibraryStore: ObservableObject {
             do {
                 let update = try await runtime.mangaDetails(
                     source,
-                    url: entry.url,
-                    title: entry.title,
-                    // memo is the extension's own opaque state and is a Kotlin JsonObject here,
-                    // not a string. Sources treat it as optional, so a refresh sends none.
-                    memo: nil
+                    manga: entry.toNewManga(),
+                    mangaInitialized: entry.initialized,
+                    fetchDetails: settings.refreshMetadata
                 )
+                let updatedManga = update.manga.intoAidoku(
+                    sourceKey: entry.legacySourceId
+                )
+                if settings.refreshMetadata {
+                    MangaObjectRef(
+                        row: entry,
+                        sourceId: entry.legacySourceId,
+                        mangaId: entry.url
+                    ).load(from: updatedManga)
+                } else {
+                    if let memo = updatedManga.memo {
+                        MemoJsonKt.setMangaMemoJson(entry, memoJson: memo)
+                        handler.insertManga(manga: entry)
+                    }
+                }
                 let sourceChapters: [SChapter] = update.chapters.map { chapter in
                     let s = SChapterImpl()
                     s.url = chapter.url
@@ -301,6 +321,7 @@ final class LibraryStore: ObservableObject {
                     s.scanlator = chapter.scanlator
                     s.date_upload = chapter.dateUpload
                     if let number = chapter.chapterNumber { s.chapter_number = number }
+                    MemoJsonKt.setChapterMemoJson(s, memoJson: chapter.memo)
                     return s
                 }
                 // A source that returned nothing has nothing to diff. Counted as a failure rather

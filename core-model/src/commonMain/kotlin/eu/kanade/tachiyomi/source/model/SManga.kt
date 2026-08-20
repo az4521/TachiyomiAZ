@@ -133,10 +133,8 @@ interface SManga : JavaSerializable {
 
         contentRating = other.contentRating
 
-        // Only copy memo when the source provides one so existing metadata isn't wiped on refresh.
-        if (other.memo.isNotEmpty()) {
-            memo = other.memo
-        }
+        // Memo is extension-owned state. An empty object is meaningful: it clears stale state.
+        memo = other.memo
 
         status = other.status
 

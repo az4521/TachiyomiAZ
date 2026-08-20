@@ -115,7 +115,13 @@ final class MangaObjectRef {
         row.description_ = manga.description
         row.genre = manga.tags?.joined(separator: ", ")
         if let cover = manga.cover { row.thumbnail_url = cover }
-        row.status = Int32(manga.status.rawValue)
+        row.status = manga.status.tachiyomiXValue
+        row.update_strategy = manga.updateStrategy == .never
+            ? UpdateStrategy.onlyFetchOnce
+            : UpdateStrategy.alwaysUpdate
+        if let memo = manga.memo {
+            MemoJsonKt.setMangaMemoJson(row, memoJson: memo)
+        }
         row.initialized = true
         Database.handler.insertManga(manga: row)
     }

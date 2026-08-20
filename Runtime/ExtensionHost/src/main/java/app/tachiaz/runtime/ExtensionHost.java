@@ -1038,6 +1038,34 @@ public final class ExtensionHost {
             String.class,
             defaultValue(request.get("mangaTitle"), "")
         );
+        setter(manga, "setThumbnail_url", String.class, request.get("mangaThumbnailURL"));
+        setter(manga, "setArtist", String.class, request.get("mangaArtist"));
+        setter(manga, "setAuthor", String.class, request.get("mangaAuthor"));
+        setter(
+            manga,
+            "setStatus",
+            int.class,
+            Integer.parseInt(defaultValue(request.get("mangaStatus"), "0"))
+        );
+        setter(manga, "setDescription", String.class, request.get("mangaDescription"));
+        setter(manga, "setGenre", String.class, request.get("mangaGenre"));
+        Class<?> updateStrategyType = Class.forName(
+            "eu.kanade.tachiyomi.source.model.UpdateStrategy",
+            true,
+            loader
+        );
+        @SuppressWarnings({ "rawtypes", "unchecked" })
+        Object updateStrategy = Enum.valueOf(
+            (Class<? extends Enum>) updateStrategyType.asSubclass(Enum.class),
+            defaultValue(request.get("mangaUpdateStrategy"), "ALWAYS_UPDATE")
+        );
+        setter(manga, "setUpdate_strategy", updateStrategyType, updateStrategy);
+        setter(
+            manga,
+            "setInitialized",
+            boolean.class,
+            Boolean.parseBoolean(defaultValue(request.get("mangaInitialized"), "false"))
+        );
         restoreMemo(manga, request.get("mangaMemo"));
         List<Object> chapters = restoreChapters(request.get("mangaChapters"), loader);
 
@@ -1052,8 +1080,8 @@ public final class ExtensionHost {
             },
             manga,
             chapters,
-            true,
-            true
+            Boolean.parseBoolean(defaultValue(request.get("fetchDetails"), "true")),
+            Boolean.parseBoolean(defaultValue(request.get("fetchChapters"), "true"))
         );
         return MiniJson.response(
             true,
@@ -1119,6 +1147,19 @@ public final class ExtensionHost {
             "setName",
             String.class,
             defaultValue(request.get("chapterName"), "")
+        );
+        setter(
+            chapter,
+            "setChapterNumber",
+            float.class,
+            Float.parseFloat(defaultValue(request.get("chapterNumber"), "-1"))
+        );
+        setter(chapter, "setScanlator", String.class, request.get("chapterScanlator"));
+        setter(
+            chapter,
+            "setDateUpload",
+            long.class,
+            Long.parseLong(defaultValue(request.get("chapterDateUpload"), "0"))
         );
         restoreMemo(chapter, request.get("chapterMemo"));
         Object pages = invokeSuspend(
@@ -1274,6 +1315,34 @@ public final class ExtensionHost {
             String.class,
             defaultValue(request.get("mangaTitle"), "")
         );
+        setter(manga, "setThumbnail_url", String.class, request.get("mangaThumbnailURL"));
+        setter(manga, "setArtist", String.class, request.get("mangaArtist"));
+        setter(manga, "setAuthor", String.class, request.get("mangaAuthor"));
+        setter(
+            manga,
+            "setStatus",
+            int.class,
+            Integer.parseInt(defaultValue(request.get("mangaStatus"), "0"))
+        );
+        setter(manga, "setDescription", String.class, request.get("mangaDescription"));
+        setter(manga, "setGenre", String.class, request.get("mangaGenre"));
+        Class<?> updateStrategyType = Class.forName(
+            "eu.kanade.tachiyomi.source.model.UpdateStrategy",
+            true,
+            loader
+        );
+        @SuppressWarnings({ "rawtypes", "unchecked" })
+        Object updateStrategy = Enum.valueOf(
+            (Class<? extends Enum>) updateStrategyType.asSubclass(Enum.class),
+            defaultValue(request.get("mangaUpdateStrategy"), "ALWAYS_UPDATE")
+        );
+        setter(manga, "setUpdate_strategy", updateStrategyType, updateStrategy);
+        setter(
+            manga,
+            "setInitialized",
+            boolean.class,
+            Boolean.parseBoolean(defaultValue(request.get("mangaInitialized"), "false"))
+        );
         restoreMemo(manga, request.get("mangaMemo"));
         Method getMangaUrl = findMethod(
             source.getClass(),
@@ -1310,6 +1379,19 @@ public final class ExtensionHost {
             "setName",
             String.class,
             defaultValue(request.get("chapterName"), "")
+        );
+        setter(
+            chapter,
+            "setChapterNumber",
+            float.class,
+            Float.parseFloat(defaultValue(request.get("chapterNumber"), "-1"))
+        );
+        setter(chapter, "setScanlator", String.class, request.get("chapterScanlator"));
+        setter(
+            chapter,
+            "setDateUpload",
+            long.class,
+            Long.parseLong(defaultValue(request.get("chapterDateUpload"), "0"))
         );
         restoreMemo(chapter, request.get("chapterMemo"));
         Method getChapterUrl = findMethod(
@@ -1729,7 +1811,7 @@ public final class ExtensionHost {
         throws Exception {
         Object source = requireSource(request);
         Object client = getter(source, "getClient");
-        String baseURL = String.valueOf(getter(source, "getBaseUrl"));
+        String baseURL = homeURL(source);
         String userAgent = sourceUserAgent(source, client);
         String result = "{\"baseURL\":\"" +
             MiniJson.escapeValue(baseURL) +
@@ -1748,7 +1830,7 @@ public final class ExtensionHost {
             .invoke(client);
         String url = defaultValue(
             request.get("mangaURL"),
-            String.valueOf(getter(source, "getBaseUrl"))
+            homeURL(source)
         );
         ClassLoader loader = source.getClass().getClassLoader();
         Class<?> httpUrlType = Class.forName("okhttp3.HttpUrl", true, loader);
@@ -2133,6 +2215,7 @@ public final class ExtensionHost {
             } catch (ReflectiveOperationException ignored) {
                 appendJsonField(output, "baseURL", "", true);
             }
+            appendJsonField(output, "homeURL", homeURL(source), true);
             output.append('}');
         }
         output.append(']');
@@ -2382,8 +2465,27 @@ public final class ExtensionHost {
             true
         );
         appendJsonField(output, "genre", getter(manga, "getGenre"), true);
+        appendJsonField(
+            output,
+            "updateStrategy",
+            getter(manga, "getUpdate_strategy"),
+            true
+        );
+        appendJsonField(output, "initialized", getter(manga, "getInitialized"), true);
         appendJsonField(output, "memo", memoJSON(manga), true);
         output.append('}');
+    }
+
+    private static String homeURL(Object source) throws Exception {
+        try {
+            return String.valueOf(getter(source, "getHomeUrl"));
+        } catch (NoSuchMethodException ignored) {
+            try {
+                return String.valueOf(getter(source, "getBaseUrl"));
+            } catch (NoSuchMethodException unsupported) {
+                return "";
+            }
+        }
     }
 
     private static void setForcedUserAgent(Object client, String userAgent) {

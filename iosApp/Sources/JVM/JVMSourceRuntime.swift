@@ -651,6 +651,10 @@ actor JVMSourceRuntime {
         sourceId: Int64,
         manga: ExtensionRunner.Manga
     ) async throws -> URL {
+        let initialized = await CoreDataManager.shared.sharedManga(
+            sourceId: SourceIdentity.key(for: sourceId),
+            mangaId: manga.key
+        )?.initialized ?? false
         let response = try await dispatch(
             .init(
                 operation: "getMangaUrl",
@@ -658,6 +662,16 @@ actor JVMSourceRuntime {
                 sourceId: String(sourceId),
                 mangaURL: manga.key,
                 mangaTitle: manga.title,
+                mangaThumbnailURL: manga.cover,
+                mangaArtist: manga.artists?.joined(separator: ", "),
+                mangaAuthor: manga.authors?.joined(separator: ", "),
+                mangaStatus: String(manga.status.tachiyomiXValue),
+                mangaDescription: manga.description,
+                mangaGenre: manga.tags?.joined(separator: ", "),
+                mangaUpdateStrategy: manga.updateStrategy == .never
+                    ? "ONLY_FETCH_ONCE"
+                    : "ALWAYS_UPDATE",
+                mangaInitialized: String(initialized),
                 mangaMemo: manga.memo
             )
         )
@@ -686,6 +700,13 @@ actor JVMSourceRuntime {
                 sourceId: String(sourceId),
                 chapterURL: chapter.key,
                 chapterName: chapter.title ?? "",
+                chapterNumber: chapter.chapterNumber.map(String.init),
+                chapterScanlator: chapter.scanlators?.joined(separator: ", "),
+                chapterDateUpload: String(
+                    chapter.dateUploaded.map {
+                        Int64($0.timeIntervalSince1970 * 1_000)
+                    } ?? 0
+                ),
                 chapterMemo: chapter.memo
             )
         )
@@ -889,7 +910,17 @@ actor JVMSourceRuntime {
         sourceId: Int64? = nil,
         mangaURL: String,
         mangaTitle: String,
-        mangaMemo: String? = nil
+        mangaThumbnailURL: String? = nil,
+        mangaArtist: String? = nil,
+        mangaAuthor: String? = nil,
+        mangaStatus: Int = 0,
+        mangaDescription: String? = nil,
+        mangaGenre: String? = nil,
+        mangaUpdateStrategy: String = "ALWAYS_UPDATE",
+        mangaInitialized: Bool = false,
+        mangaMemo: String? = nil,
+        fetchDetails: Bool = true,
+        fetchChapters: Bool = true
     ) async throws -> TachiyomiXMangaUpdate {
         let oldChapters: [TachiyomiXChapter]
         if let sourceId {
@@ -913,8 +944,18 @@ actor JVMSourceRuntime {
                 sourceId: sourceId.map(String.init),
                 mangaURL: mangaURL,
                 mangaTitle: mangaTitle,
+                mangaThumbnailURL: mangaThumbnailURL,
+                mangaArtist: mangaArtist,
+                mangaAuthor: mangaAuthor,
+                mangaStatus: String(mangaStatus),
+                mangaDescription: mangaDescription,
+                mangaGenre: mangaGenre,
+                mangaUpdateStrategy: mangaUpdateStrategy,
+                mangaInitialized: String(mangaInitialized),
                 mangaMemo: mangaMemo,
-                mangaChapters: encodedChapters
+                mangaChapters: encodedChapters,
+                fetchDetails: String(fetchDetails),
+                fetchChapters: String(fetchChapters)
             )
         )
         try requireSuccess(response)
@@ -926,6 +967,9 @@ actor JVMSourceRuntime {
         sourceId: Int64? = nil,
         chapterURL: String,
         chapterName: String,
+        chapterNumber: Float? = nil,
+        chapterScanlator: String? = nil,
+        chapterDateUpload: Int64 = 0,
         chapterMemo: String? = nil
     ) async throws -> [TachiyomiXPage] {
         let response = try await dispatch(
@@ -935,6 +979,9 @@ actor JVMSourceRuntime {
                 sourceId: sourceId.map(String.init),
                 chapterURL: chapterURL,
                 chapterName: chapterName,
+                chapterNumber: chapterNumber.map(String.init),
+                chapterScanlator: chapterScanlator,
+                chapterDateUpload: String(chapterDateUpload),
                 chapterMemo: chapterMemo
             )
         )
@@ -1580,7 +1627,7 @@ actor TachiyomiXSourceRunner: ExtensionRunner.Runner {
                                 value: .login(
                                     .init(
                                         method: .web,
-                                        url: descriptor.baseURL
+                                        url: descriptor.homeURL ?? descriptor.baseURL
                                     )
                                 )
                             ),
@@ -1605,7 +1652,7 @@ actor TachiyomiXSourceRunner: ExtensionRunner.Runner {
     }
 
     func getBaseUrl() async throws -> URL? {
-        descriptor.baseURL.flatMap(URL.init(string:))
+        (descriptor.homeURL ?? descriptor.baseURL).flatMap(URL.init(string:))
     }
 
     func handleWebLogin(
@@ -1709,12 +1756,28 @@ actor TachiyomiXSourceRunner: ExtensionRunner.Runner {
         needsChapters: Bool
     ) async throws -> ExtensionRunner.Manga {
         try await performSourceOperation("manga update") {
+            let initialized = await CoreDataManager.shared.sharedManga(
+                sourceId: sourceKey,
+                mangaId: manga.key
+            )?.initialized ?? false
             let result = try await JVMSourceRuntime.shared.mangaUpdate(
                 extensionId: extensionId,
                 sourceId: descriptor.id,
                 mangaURL: manga.key,
                 mangaTitle: manga.title,
-                mangaMemo: manga.memo
+                mangaThumbnailURL: manga.cover,
+                mangaArtist: manga.artists?.joined(separator: ", "),
+                mangaAuthor: manga.authors?.joined(separator: ", "),
+                mangaStatus: Int(manga.status.tachiyomiXValue),
+                mangaDescription: manga.description,
+                mangaGenre: manga.tags?.joined(separator: ", "),
+                mangaUpdateStrategy: manga.updateStrategy == .never
+                    ? "ONLY_FETCH_ONCE"
+                    : "ALWAYS_UPDATE",
+                mangaInitialized: initialized,
+                mangaMemo: manga.memo,
+                fetchDetails: needsDetails,
+                fetchChapters: needsChapters
             )
             var updated = manga
             if needsDetails {
@@ -1739,6 +1802,11 @@ actor TachiyomiXSourceRunner: ExtensionRunner.Runner {
                 sourceId: descriptor.id,
                 chapterURL: chapter.key,
                 chapterName: chapter.title ?? "",
+                chapterNumber: chapter.chapterNumber,
+                chapterScanlator: chapter.scanlators?.joined(separator: ", "),
+                chapterDateUpload: chapter.dateUploaded.map {
+                    Int64($0.timeIntervalSince1970 * 1_000)
+                } ?? 0,
                 chapterMemo: chapter.memo
             )
             return try pages.map { try $0.intoAidoku }
@@ -1956,7 +2024,7 @@ private extension TachiyomiXMangaPage {
     }
 }
 
-private extension TachiyomiXManga {
+extension TachiyomiXManga {
     func intoAidoku(sourceKey: String) -> ExtensionRunner.Manga {
         let publishingStatus: ExtensionRunner.PublishingStatus = switch status {
             case 1: .ongoing
@@ -1978,6 +2046,7 @@ private extension TachiyomiXManga {
                 .split(separator: ",")
                 .map { $0.trimmingCharacters(in: .whitespaces) } ?? [],
             status: publishingStatus,
+            updateStrategy: updateStrategy == "ONLY_FETCH_ONCE" ? .never : .always,
             memo: memo
         )
     }

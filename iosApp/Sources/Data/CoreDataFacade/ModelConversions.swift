@@ -43,8 +43,24 @@ extension ExtensionRunner.Manga {
         record.description_ = description
         record.genre = tags?.joined(separator: ", ")
         record.thumbnail_url = cover
-        record.status = Int32(status.rawValue)
+        record.status = status.tachiyomiXValue
+        record.update_strategy = updateStrategy == .never
+            ? UpdateStrategy.onlyFetchOnce
+            : UpdateStrategy.alwaysUpdate
+        MemoJsonKt.setMangaMemoJson(record, memoJson: memo)
         return record
+    }
+}
+
+extension ExtensionRunner.PublishingStatus {
+    var tachiyomiXValue: Int32 {
+        switch self {
+            case .ongoing: 1
+            case .completed: 2
+            case .cancelled: 5
+            case .hiatus: 6
+            case .unknown: 0
+        }
     }
 }
 
@@ -70,7 +86,8 @@ extension DbManga {
             viewer: (MangaViewer(rawValue: Int(viewer)) ?? .defaultViewer).toNew(),
             updateStrategy: update_strategy == UpdateStrategy.onlyFetchOnce ? .never : .always,
             nextUpdateTime: nil,
-            chapters: nil
+            chapters: nil,
+            memo: memoJson
         )
     }
 }
