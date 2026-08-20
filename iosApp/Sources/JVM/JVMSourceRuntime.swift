@@ -1001,9 +1001,47 @@ actor JVMSourceRuntime {
         )
         var retriedRequest = request
         retriedRequest.userAgent = userAgent
-        let retriedResponse = try await rawDispatch(retriedRequest)
+        var retriedResponse = try await rawDispatch(retriedRequest)
+
+        // A clearance can come back already spent: bound to an agent the wire does not carry,
+        // or simply stale. Reusing it fails exactly as if nothing had been solved, so the
+        // second attempt throws the cached session away and earns a fresh one rather than
+        // presenting the same dead cookie again.
+        if shouldAttemptCloudflareBypass(retriedResponse) {
+            await discardCloudflareSession(
+                extensionId: extensionId,
+                sourceId: sourceId
+            )
+            if
+                let refreshed = try? await solveCloudflareChallenge(
+                    extensionId: extensionId,
+                    sourceId: sourceId
+                )
+            {
+                retriedRequest.userAgent = refreshed
+                retriedResponse = try await rawDispatch(retriedRequest)
+            }
+        }
+
         logFailure(retriedResponse, request: request)
         return retriedResponse
+    }
+
+    /// Drops a clearance that did not work, so the next solve starts from nothing.
+    private func discardCloudflareSession(
+        extensionId: String,
+        sourceId: Int64
+    ) async {
+        cloudflareSessionUserAgents["\(extensionId):\(sourceId)"] = nil
+        if
+            let info = try? await webLoginInfo(
+                extensionId: extensionId,
+                sourceId: sourceId
+            ),
+            let url = URL(string: info.baseURL)
+        {
+            await CloudflareHandler.shared.clearWebSession(for: url)
+        }
     }
 
     private func logFailure(
@@ -1299,9 +1337,36 @@ actor JVMSourceRuntime {
     ) throws {
         if !response.success {
             throw RuntimeError.hostRejected(
-                response.error ?? "Unknown Java error"
+                Self.readableHostError(response.error)
             )
         }
+    }
+
+    /// A host error worded for the person reading it.
+    ///
+    /// `CloudflareInterceptor` throws `IOException("Cloudflare bypass currently disabled")` on
+    /// every challenge it sees, because the bypass it means is FlareSolverr -- a separate headless
+    /// browser service this app does not ship and never enables. The string is not a setting
+    /// anyone can switch on, and it is not what failed: it is the signal this runtime watches for
+    /// to start its own WebView bypass, which by the time anyone reads this has already run and
+    /// been retried against a fresh challenge.
+    ///
+    /// Shown as-is it describes a disabled feature, which is neither true nor actionable. What
+    /// happened is that the site would not accept the request even after the challenge was
+    /// solved.
+    static func readableHostError(_ message: String?) -> String {
+        guard let message, !message.isEmpty else { return "Unknown Java error" }
+        let lowered = message.lowercased()
+        guard
+            lowered.contains("cloudflare bypass currently disabled") ||
+            lowered.contains("tachiyomiazcloudflarechallenge")
+        else {
+            return message
+        }
+        return NSLocalizedString(
+            "CLOUDFLARE_CHALLENGE_UNSOLVED",
+            comment: ""
+        )
     }
 }
 

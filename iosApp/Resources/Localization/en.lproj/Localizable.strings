@@ -446,6 +446,7 @@
 "LOGIN_BASIC_TEXT" = "Any credentials entered will be given directly to the source. Do not log in to any source you do not trust.";
 "LOGIN_WEBVIEW_WARNING" = "Log in via web view?";
 "LOGIN_WEBVIEW_WARNING_TEXT" = "All cookies set in the presented web view will be given to the source. Do not log in to any source you do not trust.";
+"CLOUDFLARE_CHALLENGE_UNSOLVED" = "This site's browser check did not pass. Open it in the web view, complete the check there, and try again.";
 "REFRESH_LOGIN" = "Refresh Login";
 "LOGIN_METHOD" = "Login Method";
 "BASIC" = "Basic";

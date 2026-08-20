@@ -1862,6 +1862,24 @@ public final class ExtensionHost {
         } catch (Throwable ignored) {
             // Some sources do not override headers.
         }
+        // Android solves the challenge with the exact agent the failing request carried:
+        //
+        //     setUserAgent(request.header("User-Agent") ?: defaultUserAgentProvider())
+        //
+        // and consults the provider only when the request has none of its own. That order is
+        // the whole point. `cf_clearance` is bound to the agent that earned it, and a source's
+        // `headers` is a `by lazy`: it snapshots the agent once, on first use, and keeps it for
+        // the life of the source object. `UserAgentInterceptor` then leaves that header alone,
+        // because it only fills one in when the request has none.
+        //
+        // So a live agent -- one the user has just changed in Advanced settings -- reaches the
+        // solver but never reaches the wire. Preferring it here handed the WebView one string
+        // while OkHttp kept sending another, and the clearance it came back with was bound to
+        // an agent no request would ever present. The challenge is solved and immediately
+        // useless, which is a site that stops asking and never loads.
+        if (!headerUserAgent.isEmpty()) {
+            return headerUserAgent;
+        }
         try {
             for (Object interceptor : clientInterceptors(client)) {
                 if (!interceptor.getClass().getName().endsWith(
