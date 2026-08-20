@@ -1,59 +1,49 @@
 package exh.metadata.sql.queries
 
-import com.pushtorefresh.storio.sqlite.queries.DeleteQuery
-import com.pushtorefresh.storio.sqlite.queries.Query
 import eu.kanade.tachiyomi.data.database.DbProvider
-import eu.kanade.tachiyomi.data.database.inTransaction
+import eu.kanade.tachiyomi.data.database.mapSearchTag
 import exh.metadata.sql.models.SearchTag
-import exh.metadata.sql.tables.SearchTagTable
 
 interface SearchTagQueries : DbProvider {
-    fun getSearchTagsForManga(mangaId: Long) =
-        db.get()
-            .listOfObjects(SearchTag::class.java)
-            .withQuery(
-                Query.builder()
-                    .table(SearchTagTable.TABLE)
-                    .where("${SearchTagTable.COL_MANGA_ID} = ?")
-                    .whereArgs(mangaId)
-                    .build()
-            )
-            .prepare()
+    fun getSearchTagsForManga(mangaId: Long): List<SearchTag> =
+        sqlDatabase.search_tagsQueries
+            .getSearchTagsForManga(mangaId, ::mapSearchTag)
+            .executeAsList()
 
-    fun deleteSearchTagsForManga(mangaId: Long) =
-        db.delete()
-            .byQuery(
-                DeleteQuery.builder()
-                    .table(SearchTagTable.TABLE)
-                    .where("${SearchTagTable.COL_MANGA_ID} = ?")
-                    .whereArgs(mangaId)
-                    .build()
-            )
-            .prepare()
+    fun deleteSearchTagsForManga(mangaId: Long) {
+        sqlDatabase.search_tagsQueries.deleteSearchTagsForManga(mangaId)
+    }
 
-    fun insertSearchTag(searchTag: SearchTag) = db.put().`object`(searchTag).prepare()
-
-    fun insertSearchTags(searchTags: List<SearchTag>) = db.put().objects(searchTags).prepare()
-
-    fun deleteSearchTag(searchTag: SearchTag) = db.delete().`object`(searchTag).prepare()
-
-    fun deleteAllSearchTags() =
-        db.delete().byQuery(
-            DeleteQuery.builder()
-                .table(SearchTagTable.TABLE)
-                .build()
+    fun insertSearchTag(searchTag: SearchTag) {
+        sqlDatabase.search_tagsQueries.insertSearchTag(
+            searchTag.mangaId,
+            searchTag.namespace,
+            searchTag.name,
+            searchTag.type.toLong()
         )
-            .prepare()
+    }
+
+    fun insertSearchTags(searchTags: List<SearchTag>) {
+        sqlDatabase.search_tagsQueries.transaction {
+            searchTags.forEach { insertSearchTag(it) }
+        }
+    }
+
+    fun deleteSearchTag(searchTag: SearchTag) {
+        searchTag.id?.let { deleteSearchTagsForManga(searchTag.mangaId) }
+    }
+
+    fun deleteAllSearchTags() {
+        sqlDatabase.search_tagsQueries.deleteAllSearchTags()
+    }
 
     fun setSearchTagsForManga(
         mangaId: Long,
         tags: List<SearchTag>
     ) {
-        db.inTransaction {
-            deleteSearchTagsForManga(mangaId).executeAsBlocking()
-            tags.chunked(100) { chunk ->
-                insertSearchTags(chunk).executeAsBlocking()
-            }
+        sqlDatabase.search_tagsQueries.transaction {
+            deleteSearchTagsForManga(mangaId)
+            insertSearchTags(tags)
         }
     }
 }

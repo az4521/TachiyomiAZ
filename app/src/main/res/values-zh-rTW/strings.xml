@@ -102,7 +102,6 @@
     <string name="pref_library_update_restriction">書櫃更新限制</string>
     <string name="wifi">僅限 Wi-Fi</string>
     <string name="charging">僅限充電時</string>
-    <string name="pref_update_only_non_completed">僅更新連載中的漫畫</string>
     <string name="pref_start_screen">起始畫面</string>
     <string name="pref_language">語言</string>
     <string name="system_default">系統預設</string>

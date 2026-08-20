@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.webkit.WebView
+import androidx.lifecycle.lifecycleScope
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.data.track.myanimelist.MyAnimeListApi
@@ -12,8 +13,7 @@ import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.webview.BaseWebViewActivity
 import eu.kanade.tachiyomi.util.system.WebViewClientCompat
 import eu.kanade.tachiyomi.util.system.setUserAgent
-import rx.android.schedulers.AndroidSchedulers
-import rx.schedulers.Schedulers
+import kotlinx.coroutines.launch
 import uy.kohesive.injekt.injectLazy
 
 class MyAnimeListLoginActivity : BaseWebViewActivity() {
@@ -45,17 +45,15 @@ class MyAnimeListLoginActivity : BaseWebViewActivity() {
                             view?.evaluateJavascript(
                                 "(function(){return document.querySelector('meta[name=csrf_token]').getAttribute('content')})();"
                             ) {
-                                trackManager.myAnimeList.login(it.replace("\"", ""))
-                                    .subscribeOn(Schedulers.io())
-                                    .observeOn(AndroidSchedulers.mainThread())
-                                    .subscribe(
-                                        {
-                                            returnToSettings()
-                                        },
-                                        {
-                                            returnToSettings()
-                                        }
-                                    )
+                                lifecycleScope.launch {
+                                    try {
+                                        trackManager.myAnimeList.login(it.replace("\"", ""))
+                                    } catch (e: Throwable) {
+                                        // The previous Rx chain returned to settings on both success and
+                                        // failure; the tracker itself logs out on a failed login.
+                                    }
+                                    returnToSettings()
+                                }
                             }
                         }
                     }

@@ -134,7 +134,7 @@ class EHentaiUpdateWorker : JobService(), CoroutineScope {
         val startTime = System.currentTimeMillis()
 
         logger.d("Finding manga with metadata...")
-        val metadataManga = db.getFavoriteMangaWithMetadata().await()
+        val metadataManga = db.getFavoriteMangaWithMetadata()
 
         logger.d("Filtering manga and raising metadata...")
         val curTime = System.currentTimeMillis()
@@ -145,7 +145,7 @@ class EHentaiUpdateWorker : JobService(), CoroutineScope {
                 }
 
                 val meta =
-                    db.getFlatMetadataForManga(manga.id!!).asRxSingle().await()
+                    db.getFlatMetadataForManga(manga.id!!)
                         ?: return@mapNotNull null
 
                 val raisedMeta = meta.raise<EHentaiSearchMetadata>()
@@ -156,7 +156,7 @@ class EHentaiUpdateWorker : JobService(), CoroutineScope {
                 }
 
                 val chapter =
-                    db.getChaptersByMangaId(manga.id!!).asRxSingle().await().minByOrNull {
+                    db.getChaptersByMangaId(manga.id!!).minByOrNull {
                         it.date_upload
                     }
 
@@ -268,19 +268,19 @@ class EHentaiUpdateWorker : JobService(), CoroutineScope {
         try {
             val updatedManga = source.getMangaUpdate(manga, emptyList(), fetchDetails = true, fetchChapters = false).manga
             manga.copyFrom(updatedManga)
-            db.insertManga(manga).asRxSingle().await()
+            db.insertManga(manga)
 
             val newChapters = source.getMangaUpdate(manga, emptyList(), fetchDetails = false, fetchChapters = true).chapters
             val (new, _) = syncChaptersWithSource(db, newChapters, manga, source) // Not suspending, but does block, maybe fix this?
-            return new to db.getChapters(manga).await()
+            return new to db.getChapters(manga)
         } catch (t: Throwable) {
             if (t is EHentai.GalleryNotFoundException) {
-                val meta = db.getFlatMetadataForManga(manga.id!!).await()?.raise<EHentaiSearchMetadata>()
+                val meta = db.getFlatMetadataForManga(manga.id!!)?.raise<EHentaiSearchMetadata>()
                 if (meta != null) {
                     // Age dead galleries
                     logger.d("Aged %s - notfound", manga.id)
                     meta.aged = true
-                    db.insertFlatMetadata(meta.flatten()).await()
+                    db.insertFlatMetadata(meta.flatten())
                 }
                 throw GalleryNotUpdatedException(false, t)
             }

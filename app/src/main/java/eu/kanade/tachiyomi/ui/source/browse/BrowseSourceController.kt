@@ -47,6 +47,7 @@ import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import eu.kanade.tachiyomi.util.system.connectivityManager
 import eu.kanade.tachiyomi.util.system.openInBrowser
 import eu.kanade.tachiyomi.util.system.toast
+import eu.kanade.tachiyomi.util.view.deferStateRestorationUntilItemsAreLoaded
 import eu.kanade.tachiyomi.util.view.gone
 import eu.kanade.tachiyomi.util.view.inflate
 import eu.kanade.tachiyomi.util.view.snack
@@ -162,7 +163,7 @@ open class BrowseSourceController(bundle: Bundle) :
         super.onViewCreated(view)
 
         // Initialize adapter, scroll listener and recycler views
-        adapter = FlexibleAdapter(null, this)
+        adapter = FlexibleAdapter<IFlexible<*>>(null, this).apply { deferStateRestorationUntilItemsAreLoaded() }
         setupRecycler(view)
 
         navView?.setFilters(presenter.filterItems)

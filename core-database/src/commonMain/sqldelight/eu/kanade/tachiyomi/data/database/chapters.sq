@@ -1,0 +1,102 @@
+-- Mirrors ChapterTable.createTableQuery. DbOpenCallback owns the real schema.
+CREATE TABLE chapters(
+    _id INTEGER NOT NULL PRIMARY KEY,
+    manga_id INTEGER NOT NULL,
+    url TEXT NOT NULL,
+    name TEXT NOT NULL,
+    scanlator TEXT,
+    read INTEGER NOT NULL,
+    bookmark INTEGER NOT NULL,
+    last_page_read INTEGER NOT NULL,
+    chapter_number REAL NOT NULL,
+    source_order INTEGER NOT NULL,
+    date_fetch INTEGER NOT NULL,
+    date_upload INTEGER NOT NULL,
+    memo BLOB NOT NULL DEFAULT '{}',
+    FOREIGN KEY(manga_id) REFERENCES mangas (_id)
+    ON DELETE CASCADE
+);
+
+CREATE INDEX chapters_manga_id_index ON chapters(manga_id);
+CREATE INDEX chapters_unread_by_manga_index ON chapters(manga_id, read) WHERE read = 0;
+
+-- Ordered by the position the source listed them in, which is the order both apps present
+-- chapters in. Without an ORDER BY, SQLite returns them in rowid order -- insertion order, which
+-- after a sync that added chapters at both ends bears no relation to the source's own list.
+-- `_id` breaks ties, so the order is total rather than merely mostly-defined.
+getChaptersByMangaId:
+SELECT * FROM chapters WHERE manga_id = ? ORDER BY source_order, _id;
+
+getChapterById:
+SELECT * FROM chapters WHERE _id = ?;
+
+getAllChapters:
+SELECT * FROM chapters;
+
+getChapterByUrl:
+SELECT * FROM chapters WHERE url = ? LIMIT 1;
+
+getChapterByUrlAndMangaId:
+SELECT * FROM chapters WHERE url = ? AND manga_id = ? LIMIT 1;
+
+getChaptersByUrl:
+SELECT * FROM chapters WHERE url = ?;
+
+insertChapter:
+INSERT INTO chapters(
+    manga_id, url, name, scanlator, read, bookmark, last_page_read,
+    chapter_number, source_order, date_fetch, date_upload, memo
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+updateChapter:
+UPDATE chapters SET
+    manga_id = ?, url = ?, name = ?, scanlator = ?, read = ?, bookmark = ?,
+    last_page_read = ?, chapter_number = ?, source_order = ?, date_fetch = ?,
+    date_upload = ?, memo = ?
+WHERE _id = ?;
+
+updateChapterProgress:
+UPDATE chapters SET read = ?, bookmark = ?, last_page_read = ? WHERE _id = ?;
+
+updateChapterSourceOrder:
+UPDATE chapters SET source_order = ? WHERE _id = ?;
+
+-- Keyed on url + manga_id rather than _id, because the chapters whose order is being fixed are
+-- built fresh from the source list and mostly have no id: only the newly inserted ones were ever
+-- assigned one. Matches the storio ChapterSourceOrderPutResolver this replaced.
+updateChapterSourceOrderByUrl:
+UPDATE chapters SET source_order = ? WHERE url = ? AND manga_id = ?;
+
+deleteChapter:
+DELETE FROM chapters WHERE _id = ?;
+
+lastInsertRowId:
+SELECT last_insert_rowid();
+
+-- Chapters of every manga merged into the given manga. Replaces getMergedChaptersQuery,
+-- whose Kotlin interpolation was malformed ("$(Merged.COL_MERGE_ID}"), emitting literal
+-- text and producing invalid SQL at runtime.
+getChaptersByMergedMangaId:
+SELECT chapters.* FROM chapters
+JOIN merged ON chapters.manga_id = merged.mangaID
+WHERE merged.mergeID = ?;
+
+-- Recently updated chapters of favourite manga. Projects both tables so the join can be
+-- mapped into a MangaChapter; mangaUrl is aliased because both tables have a `url` column.
+getRecentChapters:
+SELECT
+    mangas._id AS m_id, mangas.source AS m_source, mangas.url AS mangaUrl,
+    mangas.artist AS m_artist, mangas.author AS m_author, mangas.description AS m_description,
+    mangas.genre AS m_genre, mangas.title AS m_title, mangas.status AS m_status,
+    mangas.thumbnail_url AS m_thumbnail_url, mangas.favorite AS m_favorite,
+    mangas.last_update AS m_last_update, mangas.initialized AS m_initialized,
+    mangas.viewer AS m_viewer, mangas.chapter_flags AS m_chapter_flags,
+    mangas.cover_last_modified AS m_cover_last_modified, mangas.date_added AS m_date_added,
+    mangas.update_strategy AS m_update_strategy, mangas.memo AS m_memo,
+    chapters.*
+FROM mangas
+JOIN chapters ON mangas._id = chapters.manga_id
+WHERE mangas.favorite = 1
+AND chapters.date_upload > ?
+AND chapters.date_fetch > mangas.date_added
+ORDER BY chapters.date_upload DESC;

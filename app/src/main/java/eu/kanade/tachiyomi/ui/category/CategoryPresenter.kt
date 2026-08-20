@@ -4,8 +4,8 @@ import android.os.Bundle
 import eu.kanade.tachiyomi.data.database.DatabaseHelper
 import eu.kanade.tachiyomi.data.database.models.Category
 import eu.kanade.tachiyomi.ui.base.presenter.BasePresenter
-import rx.Observable
-import rx.android.schedulers.AndroidSchedulers
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -28,11 +28,10 @@ class CategoryPresenter(
     override fun onCreate(savedState: Bundle?) {
         super.onCreate(savedState)
 
-        db.getCategories().asRxObservable()
-            .doOnNext { categories = it }
+        db.getCategoriesAsFlow()
+            .onEach { categories = it }
             .map { it.map(::CategoryItem) }
-            .observeOn(AndroidSchedulers.mainThread())
-            .subscribeLatestCache(CategoryController::setCategories)
+            .collectLatestCache(CategoryController::setCategories)
     }
 
     /**
@@ -43,7 +42,7 @@ class CategoryPresenter(
     fun createCategory(name: String) {
         // Do not allow duplicate categories.
         if (categoryExists(name)) {
-            Observable.just(Unit).subscribeFirst({ view, _ -> view.onCategoryExistsError() })
+            deliverToView { it.onCategoryExistsError() }
             return
         }
 
@@ -54,7 +53,7 @@ class CategoryPresenter(
         cat.order = categories.map { it.order + 1 }.maxOrNull() ?: 0
 
         // Insert into database.
-        db.insertCategory(cat).asRxObservable().subscribe()
+        db.insertCategory(cat)
     }
 
     /**
@@ -63,7 +62,7 @@ class CategoryPresenter(
      * @param categories The list of categories to delete.
      */
     fun deleteCategories(categories: List<Category>) {
-        db.deleteCategories(categories).asRxObservable().subscribe()
+        db.deleteCategories(categories)
     }
 
     /**
@@ -76,7 +75,7 @@ class CategoryPresenter(
             category.order = i
         }
 
-        db.insertCategories(categories).asRxObservable().subscribe()
+        db.insertCategories(categories)
     }
 
     /**
@@ -91,12 +90,12 @@ class CategoryPresenter(
     ) {
         // Do not allow duplicate categories.
         if (categoryExists(name)) {
-            Observable.just(Unit).subscribeFirst({ view, _ -> view.onCategoryExistsError() })
+            deliverToView { it.onCategoryExistsError() }
             return
         }
 
         category.name = name
-        db.insertCategory(category).asRxObservable().subscribe()
+        db.insertCategory(category)
     }
 
     /**

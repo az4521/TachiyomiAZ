@@ -1,0 +1,60 @@
+package eu.kanade.tachiyomi.data.database.models
+
+import eu.kanade.tachiyomi.source.model.UpdateStrategy
+import kotlinx.serialization.json.JsonObject
+
+open class MangaImpl : Manga {
+    override var id: Long? = null
+
+    override var source: Long = -1
+
+    override lateinit var url: String
+
+    override var title: String = ""
+
+    override var artist: String? = null
+
+    override var author: String? = null
+
+    override var description: String? = null
+
+    override var genre: String? = null
+
+    override var status: Int = 0
+
+    override var thumbnail_url: String? = null
+
+    override var favorite: Boolean = false
+
+    override var last_update: Long = 0
+
+    override var date_added: Long = 0
+
+    override var initialized: Boolean = false
+
+    override var viewer: Int = 0
+
+    override var chapter_flags: Int = 0
+
+    override var cover_last_modified: Long = 0
+
+    override var update_strategy: UpdateStrategy = UpdateStrategy.ALWAYS_UPDATE
+
+    override var memo: JsonObject = JsonObject(emptyMap())
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        // this::class rather than javaClass: the same exact-class check, but available
+        // off the JVM. `is` would not do -- LibraryManga extends MangaImpl, so a subclass would
+        // start comparing equal to its parent.
+        if (other == null || this::class != other::class) return false
+
+        val manga = other as Manga
+        if (url != manga.url) return false
+        return id == manga.id
+    }
+
+    override fun hashCode(): Int {
+        return url.hashCode() + id.hashCode()
+    }
+}

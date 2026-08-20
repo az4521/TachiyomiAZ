@@ -85,10 +85,10 @@ class DownloadStore(
             for ((mangaId, chapterId) in objs) {
                 val manga =
                     cachedManga.getOrPut(mangaId) {
-                        db.getManga(mangaId).executeAsBlocking()
+                        db.getManga(mangaId)
                     } ?: continue
                 val source = sourceManager.get(manga.source) as? HttpSource ?: continue
-                val chapter = db.getChapter(chapterId).executeAsBlocking() ?: continue
+                val chapter = db.getChapter(chapterId) ?: continue
                 downloads.add(Download(source, manga, chapter))
             }
         }

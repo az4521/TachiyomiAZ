@@ -7,11 +7,12 @@ import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.POST
-import eu.kanade.tachiyomi.network.asObservable
-import eu.kanade.tachiyomi.network.asObservableSuccess
+import eu.kanade.tachiyomi.network.await
+import eu.kanade.tachiyomi.network.awaitSuccess
 import eu.kanade.tachiyomi.util.lang.toCalendar
 import eu.kanade.tachiyomi.util.selectInt
 import eu.kanade.tachiyomi.util.selectText
+import eu.kanade.tachiyomi.util.system.withIOContext
 import okhttp3.FormBody
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
@@ -23,7 +24,6 @@ import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import org.jsoup.parser.Parser
-import rx.Observable
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.text.SimpleDateFormat
@@ -35,58 +35,46 @@ import java.util.zip.GZIPInputStream
 class MyAnimeListApi(private val client: OkHttpClient, interceptor: MyAnimeListInterceptor) {
     private val authClient = client.newBuilder().addInterceptor(interceptor).build()
 
-    fun search(query: String): Observable<List<TrackSearch>> {
-        return if (query.startsWith(PREFIX_MY)) {
-            val realQuery = query.removePrefix(PREFIX_MY)
-            getList()
-                .flatMap { Observable.from(it) }
-                .filter { it.title.contains(realQuery, true) }
-                .toList()
-        } else {
-            client.newCall(GET(searchUrl(query)))
-                .asObservable()
-                .flatMap { response ->
-                    Observable.from(
-                        response.consumeBody().let {
-                            Jsoup.parse(it)
-                                .select("div.js-categories-seasonal.js-block-list.list")
-                                .select("table").select("tbody")
-                                .select("tr").drop(1)
+    suspend fun search(query: String): List<TrackSearch> =
+        withIOContext {
+            if (query.startsWith(PREFIX_MY)) {
+                val realQuery = query.removePrefix(PREFIX_MY)
+                getList().filter { it.title.contains(realQuery, true) }
+            } else {
+                val response = client.newCall(GET(searchUrl(query))).await()
+                Jsoup.parse(response.consumeBody())
+                    .select("div.js-categories-seasonal.js-block-list.list")
+                    .select("table").select("tbody")
+                    .select("tr").drop(1)
+                    .filter { row -> row.select(TD)[2].text() != "Novel" }
+                    .map { row ->
+                        TrackSearch.create(TrackManager.MYANIMELIST).apply {
+                            title = row.searchTitle()
+                            media_id = row.searchMediaId().toLong()
+                            total_chapters = row.searchTotalChapters()
+                            summary = row.searchSummary()
+                            cover_url = row.searchCoverUrl()
+                            tracking_url = mangaUrl(media_id)
+                            publishing_status = row.searchPublishingStatus()
+                            publishing_type = row.searchPublishingType()
+                            start_date = row.searchStartDate()
                         }
-                    )
-                }
-                .filter { row ->
-                    row.select(TD)[2].text() != "Novel"
-                }
-                .map { row ->
-                    TrackSearch.create(TrackManager.MYANIMELIST).apply {
-                        title = row.searchTitle()
-                        media_id = row.searchMediaId().toLong()
-                        total_chapters = row.searchTotalChapters()
-                        summary = row.searchSummary()
-                        cover_url = row.searchCoverUrl()
-                        tracking_url = mangaUrl(media_id)
-                        publishing_status = row.searchPublishingStatus()
-                        publishing_type = row.searchPublishingType()
-                        start_date = row.searchStartDate()
                     }
-                }
-                .toList()
+            }
         }
-    }
 
-    fun addLibManga(track: Track): Observable<Track> {
-        return Observable.defer {
+    suspend fun addLibManga(track: Track): Track =
+        withIOContext {
             authClient.newCall(POST(url = addUrl(), body = mangaPostPayload(track)))
-                .asObservableSuccess()
-                .map { track }
+                .awaitSuccess()
+                .close()
+            track
         }
-    }
 
-    fun updateLibManga(track: Track): Observable<Track> {
-        return Observable.defer {
+    suspend fun updateLibManga(track: Track): Track =
+        withIOContext {
             // Get track data
-            val response = authClient.newCall(GET(url = editPageUrl(track.media_id))).execute()
+            val response = authClient.newCall(GET(url = editPageUrl(track.media_id))).await()
             val editData =
                 response.use {
                     val page = it.consumeBody().let { it1 -> Jsoup.parse(it1) }
@@ -100,17 +88,15 @@ class MyAnimeListApi(private val client: OkHttpClient, interceptor: MyAnimeListI
 
             // Update remote
             authClient.newCall(POST(url = editPageUrl(track.media_id), body = mangaEditPostBody(editData)))
-                .asObservableSuccess()
-                .map {
-                    track
-                }
+                .awaitSuccess()
+                .close()
+            track
         }
-    }
 
-    fun findLibManga(track: Track): Observable<Track?> {
-        return authClient.newCall(GET(url = editPageUrl(track.media_id)))
-            .asObservable()
-            .map { response ->
+    suspend fun findLibManga(track: Track): Track? =
+        withIOContext {
+            val response = authClient.newCall(GET(url = editPageUrl(track.media_id))).await()
+            run {
                 var libTrack: Track? = null
                 response.use {
                     if (it.priorResponse?.isRedirect != true) {
@@ -137,21 +123,14 @@ class MyAnimeListApi(private val client: OkHttpClient, interceptor: MyAnimeListI
                 }
                 libTrack
             }
-    }
+        }
 
-    fun getLibManga(track: Track): Observable<Track> {
-        return findLibManga(track)
-            .map { it ?: throw Exception("Could not find manga") }
-    }
+    suspend fun getLibManga(track: Track): Track =
+        findLibManga(track) ?: throw Exception("Could not find manga")
 
-    private fun getList(): Observable<List<TrackSearch>> {
-        return getListUrl()
-            .flatMap { url ->
-                getListXml(url)
-            }
-            .flatMap { doc ->
-                Observable.from(doc.select("manga"))
-            }
+    private suspend fun getList(): List<TrackSearch> {
+        val doc = getListXml(getListUrl())
+        return doc.select("manga")
             .map {
                 TrackSearch.create(TrackManager.MYANIMELIST).apply {
                     title = it.selectText("manga_title")!!
@@ -165,29 +144,23 @@ class MyAnimeListApi(private val client: OkHttpClient, interceptor: MyAnimeListI
                     finished_reading_date = it.searchDateXml("my_finish_date")
                 }
             }
-            .toList()
     }
 
-    private fun getListUrl(): Observable<String> {
-        return authClient.newCall(POST(url = exportListUrl(), body = exportPostBody()))
-            .asObservable()
-            .map { response ->
-                baseUrl +
-                    response.consumeBody().let {
-                        Jsoup.parse(it)
-                            .select("div.goodresult")
-                            .select("a")
-                            .attr("href")
-                    }
+    private suspend fun getListUrl(): String {
+        val response =
+            authClient.newCall(POST(url = exportListUrl(), body = exportPostBody())).await()
+        return baseUrl +
+            response.consumeBody().let {
+                Jsoup.parse(it)
+                    .select("div.goodresult")
+                    .select("a")
+                    .attr("href")
             }
     }
 
-    private fun getListXml(url: String): Observable<Document> {
-        return authClient.newCall(GET(url))
-            .asObservable()
-            .map { response ->
-                Jsoup.parse(response.consumeXmlBody(), "", Parser.xmlParser())
-            }
+    private suspend fun getListXml(url: String): Document {
+        val response = authClient.newCall(GET(url)).await()
+        return Jsoup.parse(response.consumeXmlBody(), "", Parser.xmlParser())
     }
 
     private fun Response.consumeBody(): String {

@@ -11,7 +11,7 @@ import eu.kanade.tachiyomi.data.database.models.MangaCategory
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.source.online.all.EHentai
-import eu.kanade.tachiyomi.util.lang.launchUI
+import eu.kanade.tachiyomi.util.system.launchUI
 import eu.kanade.tachiyomi.util.system.powerManager
 import eu.kanade.tachiyomi.util.system.toast
 import eu.kanade.tachiyomi.util.system.wifiManager
@@ -74,13 +74,13 @@ class FavoritesSyncHelper(val context: Context) {
 
         // Validate library state
         status.onNext(FavoritesSyncStatus.Processing("Verifying local library"))
-        val libraryManga = db.getLibraryMangas().executeAsBlocking()
+        val libraryManga = db.getLibraryMangas()
         val seenManga = HashSet<Long>(libraryManga.size)
         libraryManga.forEach {
             if (it.source != EXH_SOURCE_ID && it.source != EH_SOURCE_ID) return@forEach
 
             if (it.id in seenManga) {
-                val inCategories = db.getCategoriesForManga(it).executeAsBlocking()
+                val inCategories = db.getCategoriesForManga(it)
                 status.onNext(
                     FavoritesSyncStatus.BadLibraryState
                         .MangaInMultipleCategories(it, inCategories)
@@ -194,7 +194,7 @@ class FavoritesSyncHelper(val context: Context) {
         errorList: MutableList<String>,
         categories: List<String>
     ) {
-        val localCategories = db.getCategories().executeAsBlocking()
+        val localCategories = db.getCategories()
 
         val newLocalCategories = localCategories.toMutableList()
 
@@ -233,7 +233,7 @@ class FavoritesSyncHelper(val context: Context) {
 
         // Only insert categories if changed
         if (changed) {
-            db.insertCategories(newLocalCategories).executeAsBlocking()
+            db.insertCategories(newLocalCategories)
         }
     }
 
@@ -357,13 +357,12 @@ class FavoritesSyncHelper(val context: Context) {
             listOf(
                 db.getManga(url, EXH_SOURCE_ID),
                 db.getManga(url, EH_SOURCE_ID)
-            ).forEach {
-                val manga = it.executeAsBlocking()
+            ).forEach { manga ->
 
                 if (manga?.favorite == true) {
                     manga.favorite = false
                     manga.date_added = 0
-                    db.updateMangaFavorite(manga).executeAsBlocking()
+                    db.updateMangaFavorite(manga)
                     removedManga += manga
                 }
             }
@@ -371,11 +370,11 @@ class FavoritesSyncHelper(val context: Context) {
 
         // Can't do too many DB OPs in one go
         removedManga.chunked(10).forEach {
-            db.deleteOldMangasCategories(it).executeAsBlocking()
+            db.deleteOldMangasCategories(it)
         }
 
         val insertedMangaCategories = mutableListOf<Pair<MangaCategory, Manga>>()
-        val categories = db.getCategories().executeAsBlocking()
+        val categories = db.getCategories()
 
         // Apply additions
         throttleManager.resetThrottle()

@@ -1,0 +1,48 @@
+-- Mirrors TrackTable.createTableQuery. The table is named manga_sync for historical reasons.
+CREATE TABLE manga_sync(
+    _id INTEGER NOT NULL PRIMARY KEY,
+    manga_id INTEGER NOT NULL,
+    sync_id INTEGER NOT NULL,
+    remote_id INTEGER NOT NULL,
+    library_id INTEGER,
+    title TEXT NOT NULL,
+    last_chapter_read INTEGER NOT NULL,
+    total_chapters INTEGER NOT NULL,
+    status INTEGER NOT NULL,
+    score REAL NOT NULL,
+    remote_url TEXT NOT NULL,
+    start_date INTEGER NOT NULL,
+    finish_date INTEGER NOT NULL,
+    private INTEGER NOT NULL DEFAULT 0,
+    UNIQUE (manga_id, sync_id) ON CONFLICT REPLACE,
+    FOREIGN KEY(manga_id) REFERENCES mangas (_id)
+    ON DELETE CASCADE
+);
+
+getTracksByMangaId:
+SELECT * FROM manga_sync WHERE manga_id = ?;
+
+getAllTracks:
+SELECT * FROM manga_sync;
+
+insertTrack:
+INSERT INTO manga_sync(
+    manga_id, sync_id, remote_id, library_id, title, last_chapter_read,
+    total_chapters, status, score, remote_url, start_date, finish_date, private
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+updateTrack:
+UPDATE manga_sync SET
+    manga_id = ?, sync_id = ?, remote_id = ?, library_id = ?, title = ?,
+    last_chapter_read = ?, total_chapters = ?, status = ?, score = ?,
+    remote_url = ?, start_date = ?, finish_date = ?, private = ?
+WHERE _id = ?;
+
+deleteTrackForManga:
+DELETE FROM manga_sync WHERE manga_id = ? AND sync_id = ?;
+
+lastInsertRowId:
+SELECT last_insert_rowid();
+
+getTracksByMangaIdFlow:
+SELECT * FROM manga_sync WHERE manga_id = ?;

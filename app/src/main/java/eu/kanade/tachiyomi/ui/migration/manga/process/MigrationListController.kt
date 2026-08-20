@@ -31,14 +31,13 @@ import eu.kanade.tachiyomi.ui.migration.MigrationMangaDialog
 import eu.kanade.tachiyomi.ui.migration.SearchController
 import eu.kanade.tachiyomi.ui.migration.manga.design.PreMigrationController
 import eu.kanade.tachiyomi.util.chapter.syncChaptersWithSource
-import eu.kanade.tachiyomi.util.lang.launchUI
-import eu.kanade.tachiyomi.util.lang.runAsObservable
 import eu.kanade.tachiyomi.util.system.getResourceColor
+import eu.kanade.tachiyomi.util.system.launchUI
 import eu.kanade.tachiyomi.util.system.toast
+import eu.kanade.tachiyomi.util.system.withIOContext
 import exh.smartsearch.SmartSearchEngine
 import exh.util.RecyclerWindowInsetsListener
 import exh.util.await
-import exh.util.executeOnIO
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -49,7 +48,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
-import rx.schedulers.Schedulers
 import timber.log.Timber
 import uy.kohesive.injekt.injectLazy
 import java.util.concurrent.atomic.AtomicInteger
@@ -197,12 +195,7 @@ class MigrationListController(bundle: Bundle? = null) :
                                                             source.id
                                                         )
                                                     val chapters =
-                                                        runAsObservable(
-                                                            { source.getMangaUpdate(localManga, emptyList(), fetchDetails = false, fetchChapters = true).chapters }
-                                                        ).toSingle()
-                                                            .await(
-                                                                Schedulers.io()
-                                                            )
+                                                        withIOContext { source.getMangaUpdate(localManga, emptyList(), fetchDetails = false, fetchChapters = true).chapters }
                                                     try {
                                                         syncChaptersWithSource(
                                                             db,
@@ -252,10 +245,7 @@ class MigrationListController(bundle: Bundle? = null) :
                                                     )
                                                 val chapters =
                                                     try {
-                                                        runAsObservable(
-                                                            { source.getMangaUpdate(localManga, emptyList(), fetchDetails = false, fetchChapters = true).chapters }
-                                                        ).toSingle()
-                                                            .await(Schedulers.io())
+                                                        withIOContext { source.getMangaUpdate(localManga, emptyList(), fetchDetails = false, fetchChapters = true).chapters }
                                                     } catch (e: java.lang.Exception) {
                                                         Timber.e(e)
                                                         emptyList<SChapter>()
@@ -290,11 +280,10 @@ class MigrationListController(bundle: Bundle? = null) :
                 if (result != null && result.thumbnail_url == null) {
                     try {
                         val newManga =
-                            runAsObservable({ sourceManager.getOrStub(result.source).getMangaUpdate(result, emptyList(), fetchDetails = true, fetchChapters = false).manga })
-                                .toSingle().await()
+                            withIOContext { sourceManager.getOrStub(result.source).getMangaUpdate(result, emptyList(), fetchDetails = true, fetchChapters = false).manga }
                         result.copyFrom(newManga)
 
-                        db.insertManga(result).executeAsBlocking()
+                        db.insertManga(result)
                     } catch (e: CancellationException) {
                         // Ignore cancellations
                         throw e
@@ -406,9 +395,7 @@ class MigrationListController(bundle: Bundle? = null) :
                     val localManga = smartSearchEngine.networkToLocalManga(manga, source.id)
                     try {
                         val chapters =
-                            runAsObservable({ source.getMangaUpdate(localManga, emptyList(), fetchDetails = false, fetchChapters = true).chapters }).toSingle().await(
-                                Schedulers.io()
-                            )
+                            withIOContext { source.getMangaUpdate(localManga, emptyList(), fetchDetails = false, fetchChapters = true).chapters }
                         syncChaptersWithSource(db, chapters, localManga, source)
                     } catch (e: Exception) {
                         return@async null
@@ -419,13 +406,10 @@ class MigrationListController(bundle: Bundle? = null) :
             if (result != null) {
                 try {
                     val newManga =
-                        runAsObservable(
-                            { sourceManager.getOrStub(result.source).getMangaUpdate(result, emptyList(), fetchDetails = true, fetchChapters = false).manga }
-                        ).toSingle()
-                            .await()
+                        withIOContext { sourceManager.getOrStub(result.source).getMangaUpdate(result, emptyList(), fetchDetails = true, fetchChapters = false).manga }
                     result.copyFrom(newManga)
 
-                    db.insertManga(result).executeAsBlocking()
+                    db.insertManga(result)
                 } catch (e: CancellationException) {
                     // Ignore cancellations
                     throw e
@@ -464,7 +448,7 @@ class MigrationListController(bundle: Bundle? = null) :
                 if (hasDetails) {
                     val manga =
                         migratingManga?.firstOrNull()?.searchResult?.get()?.let {
-                            db.getManga(it).executeOnIO()
+                            withIOContext { db.getManga(it) }
                         }
                     if (manga != null) {
                         val newStack =

@@ -1,7 +1,6 @@
 package exh.debug
 
 import android.app.Application
-import com.pushtorefresh.storio.sqlite.queries.RawQuery
 import eu.kanade.tachiyomi.data.database.DatabaseHelper
 import eu.kanade.tachiyomi.data.database.tables.MangaTable
 import eu.kanade.tachiyomi.data.download.DownloadManager
@@ -19,7 +18,6 @@ import exh.eh.EHentaiUpdateWorker
 import exh.metadata.metadata.EHentaiSearchMetadata
 import exh.metadata.metadata.base.getFlatMetadataForManga
 import exh.metadata.metadata.base.insertFlatMetadata
-import exh.util.await
 import exh.util.cancellable
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.mapNotNull
@@ -51,7 +49,7 @@ object DebugFunctions {
 
     fun resetAgedFlagInEXHManga() {
         runBlocking {
-            val metadataManga = db.getFavoriteMangaWithMetadata().await()
+            val metadataManga = db.getFavoriteMangaWithMetadata()
 
             val allManga =
                 metadataManga.asFlow().cancellable().mapNotNull { manga ->
@@ -62,11 +60,11 @@ object DebugFunctions {
                 }.toList()
 
             for (manga in allManga) {
-                val meta = db.getFlatMetadataForManga(manga.id!!).await()?.raise<EHentaiSearchMetadata>()
+                val meta = db.getFlatMetadataForManga(manga.id!!)?.raise<EHentaiSearchMetadata>()
                 if (meta != null) {
                     // remove age flag
                     meta.aged = false
-                    db.insertFlatMetadata(meta.flatten()).await()
+                    db.insertFlatMetadata(meta.flatten())
                 }
             }
         }
@@ -77,7 +75,7 @@ object DebugFunctions {
     fun ResetEHGalleriesForUpdater() {
         throttleManager.resetThrottle()
         runBlocking {
-            val metadataManga = db.getFavoriteMangaWithMetadata().await()
+            val metadataManga = db.getFavoriteMangaWithMetadata()
 
             val allManga =
                 metadataManga.asFlow().cancellable().mapNotNull { manga ->
@@ -95,7 +93,7 @@ object DebugFunctions {
                 val networkManga = source.getMangaUpdate(manga, emptyList(), fetchDetails = true, fetchChapters = false).manga
                 manga.copyFrom(networkManga)
                 manga.initialized = true
-                db.insertManga(manga).executeAsBlocking()
+                db.insertManga(manga)
             }
         }
     }
@@ -103,7 +101,7 @@ object DebugFunctions {
     fun getEHMangaListWithAgedFlagInfo(): String {
         val galleries = mutableListOf(String())
         runBlocking {
-            val metadataManga = db.getFavoriteMangaWithMetadata().await()
+            val metadataManga = db.getFavoriteMangaWithMetadata()
 
             val allManga =
                 metadataManga.asFlow().cancellable().mapNotNull { manga ->
@@ -114,7 +112,7 @@ object DebugFunctions {
                 }.toList()
 
             for (manga in allManga) {
-                val meta = db.getFlatMetadataForManga(manga.id!!).await()?.raise<EHentaiSearchMetadata>()
+                val meta = db.getFlatMetadataForManga(manga.id!!)?.raise<EHentaiSearchMetadata>()
                 if (meta != null) {
                     // remove age flag
                     galleries += "Aged: ${meta.aged}\t Title: ${manga.title}"
@@ -127,7 +125,7 @@ object DebugFunctions {
     fun countAgedFlagInEXHManga(): Int {
         var agedAmount = 0
         runBlocking {
-            val metadataManga = db.getFavoriteMangaWithMetadata().await()
+            val metadataManga = db.getFavoriteMangaWithMetadata()
 
             val allManga =
                 metadataManga.asFlow().cancellable().mapNotNull { manga ->
@@ -138,7 +136,7 @@ object DebugFunctions {
                 }.toList()
 
             for (manga in allManga) {
-                val meta = db.getFlatMetadataForManga(manga.id!!).await()?.raise<EHentaiSearchMetadata>()
+                val meta = db.getFlatMetadataForManga(manga.id!!)?.raise<EHentaiSearchMetadata>()
                 if (meta != null && meta.aged) {
                     // remove age flag
                     agedAmount++
@@ -150,16 +148,11 @@ object DebugFunctions {
 
     fun addAllMangaInDatabaseToLibrary() {
         db.inTransaction {
-            db.lowLevel().executeSQL(
-                RawQuery.builder()
-                    .query(
-                        """
+            db.executeSQL(
+"""
                         UPDATE ${MangaTable.TABLE}
                             SET ${MangaTable.COL_FAVORITE} = 1
-                        """.trimIndent()
-                    )
-                    .affectsTables(MangaTable.TABLE)
-                    .build()
+""".trimIndent()
             )
         }
     }
@@ -167,10 +160,10 @@ object DebugFunctions {
     fun getStatisticsInfo(): StatisticsInfoClass {
         val statisticsObject = StatisticsInfoClass()
         runBlocking {
-            val libraryManga = db.getLibraryMangas().await()
-            val databaseManga = db.getMangas().await()
-            val databaseTracks = db.getAllTracks().await()
-            val databaseChapters = db.getAllChapters().await()
+            val libraryManga = db.getLibraryMangas()
+            val databaseManga = db.getMangas()
+            val databaseTracks = db.getAllTracks()
+            val databaseChapters = db.getAllChapters()
 
             val databaseMangaMap = databaseManga.associateBy { it.id }
 
@@ -189,17 +182,17 @@ object DebugFunctions {
         return statisticsObject
     }
 
-    fun countMangaInDatabaseInLibrary() = db.getMangas().executeAsBlocking().count { it.favorite }
+    fun countMangaInDatabaseInLibrary() = db.getMangas().count { it.favorite }
 
-    fun countMangaInDatabaseNotInLibrary() = db.getMangas().executeAsBlocking().count { !it.favorite }
+    fun countMangaInDatabaseNotInLibrary() = db.getMangas().count { !it.favorite }
 
-    fun countMangaInDatabase() = db.getMangas().executeAsBlocking().size
+    fun countMangaInDatabase() = db.getMangas().size
 
-    fun countMetadataInDatabase() = db.getSearchMetadata().executeAsBlocking().size
+    fun countMetadataInDatabase() = db.getSearchMetadata().size
 
     fun countMangaInLibraryWithMissingMetadata() =
-        db.getMangas().executeAsBlocking().count {
-            it.favorite && db.getSearchMetadataForManga(it.id!!).executeAsBlocking() == null
+        db.getMangas().count {
+            it.favorite && db.getSearchMetadataForManga(it.id!!) == null
         }
 
     fun clearSavedSearches() = prefs.eh_savedSearches().set(emptySet())
@@ -254,17 +247,12 @@ object DebugFunctions {
         from: Long,
         to: Long
     ) {
-        db.lowLevel().executeSQL(
-            RawQuery.builder()
-                .query(
-                    """
+        db.executeSQL(
+"""
                     UPDATE ${MangaTable.TABLE}
                         SET ${MangaTable.COL_SOURCE} = $to
                         WHERE ${MangaTable.COL_SOURCE} = $from
-                    """.trimIndent()
-                )
-                .affectsTables(MangaTable.TABLE)
-                .build()
+""".trimIndent()
         )
     }
 

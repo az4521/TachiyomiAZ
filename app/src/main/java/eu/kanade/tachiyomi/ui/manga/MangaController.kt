@@ -12,8 +12,6 @@ import com.bluelinelabs.conductor.Router
 import com.bluelinelabs.conductor.RouterTransaction
 import com.bluelinelabs.conductor.support.RouterPagerAdapter
 import com.google.android.material.tabs.TabLayout
-import com.jakewharton.rxrelay.BehaviorRelay
-import com.jakewharton.rxrelay.PublishRelay
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.DatabaseHelper
 import eu.kanade.tachiyomi.data.database.models.Manga
@@ -32,7 +30,9 @@ import eu.kanade.tachiyomi.ui.manga.info.MangaInfoController
 import eu.kanade.tachiyomi.ui.manga.track.TrackController
 import eu.kanade.tachiyomi.ui.source.SourceController
 import eu.kanade.tachiyomi.util.system.toast
-import rx.Subscription
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.util.Date
@@ -72,7 +72,7 @@ class MangaController : RxController<MangaControllerBinding>, TabbedController {
     // EXH <--
 
     constructor(mangaId: Long) : this(
-        Injekt.get<DatabaseHelper>().getManga(mangaId).executeAsBlocking()
+        Injekt.get<DatabaseHelper>().getManga(mangaId)
     )
 
     @Suppress("unused")
@@ -89,7 +89,9 @@ class MangaController : RxController<MangaControllerBinding>, TabbedController {
     /**
      * Shared by the info and chapters tabs so both are served by a single source call.
      */
-    val updateCoordinator by lazy { MangaUpdateCoordinator(manga!!, source!!) }
+    private val updateCoordinatorDelegate = lazy { MangaUpdateCoordinator(manga!!, source!!) }
+
+    val updateCoordinator by updateCoordinatorDelegate
 
     val fromSource = args.getBoolean(FROM_SOURCE_EXTRA, false)
 
@@ -99,15 +101,21 @@ class MangaController : RxController<MangaControllerBinding>, TabbedController {
     val smartSearchConfig: SourceController.SmartSearchConfig? = args.getParcelable(SMART_SEARCH_CONFIG_EXTRA)
     // EXH <--
 
-    val lastUpdateRelay: BehaviorRelay<Date> = BehaviorRelay.create()
+    // replay = 1 reproduces BehaviorRelay: a tab that binds late still gets the current value.
+    val lastUpdateFlow = MutableSharedFlow<Date>(replay = 1, extraBufferCapacity = 4)
 
-    val chapterCountRelay: BehaviorRelay<Float> = BehaviorRelay.create()
+    val chapterCountFlow = MutableSharedFlow<Float>(replay = 1, extraBufferCapacity = 4)
 
-    val mangaFavoriteRelay: PublishRelay<Boolean> = PublishRelay.create()
+    // PublishRelay had no replay, so neither does this.
+    val mangaFavoriteFlow =
+        MutableSharedFlow<Boolean>(
+            extraBufferCapacity = 4,
+            onBufferOverflow = BufferOverflow.DROP_OLDEST
+        )
 
-    private val trackingIconRelay: BehaviorRelay<Boolean> = BehaviorRelay.create()
+    private val trackingIconFlow = MutableSharedFlow<Boolean>(replay = 1, extraBufferCapacity = 4)
 
-    private var trackingIconSubscription: Subscription? = null
+    private var trackingIconJob: Job? = null
 
     override fun getTitle(): String? {
         return manga?.title
@@ -142,6 +150,16 @@ class MangaController : RxController<MangaControllerBinding>, TabbedController {
         adapter = null
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        // Not onDestroyView: the coordinator is deliberately scoped to the controller so a fetch
+        // survives the view being recreated. Nothing else cancels it, so without this every manga
+        // screen opened leaks its scope and any request still in flight.
+        if (updateCoordinatorDelegate.isInitialized()) {
+            updateCoordinator.cancel()
+        }
+    }
+
     override fun onChangeStarted(
         handler: ControllerChangeHandler,
         type: ControllerChangeType
@@ -150,7 +168,7 @@ class MangaController : RxController<MangaControllerBinding>, TabbedController {
         if (type.isEnter) {
             val activity = activity as MainActivity?
             activity?.binding?.tabs?.setupWithViewPager(binding.mangaPager)
-            trackingIconSubscription = trackingIconRelay.subscribe { setTrackingIconInternal(it) }
+            trackingIconJob = trackingIconFlow.collectUntilDestroy { setTrackingIconInternal(it) }
         }
     }
 
@@ -173,12 +191,12 @@ class MangaController : RxController<MangaControllerBinding>, TabbedController {
     }
 
     override fun cleanupTabs(tabs: TabLayout) {
-        trackingIconSubscription?.unsubscribe()
+        trackingIconJob?.cancel()
         setTrackingIconInternal(false)
     }
 
     fun setTrackingIcon(visible: Boolean) {
-        trackingIconRelay.call(visible)
+        trackingIconFlow.tryEmit(visible)
     }
 
     private fun setTrackingIconInternal(visible: Boolean) {

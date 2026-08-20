@@ -18,6 +18,7 @@ import eu.kanade.tachiyomi.databinding.CategoriesControllerBinding
 import eu.kanade.tachiyomi.ui.base.controller.NucleusController
 import eu.kanade.tachiyomi.util.system.copyToClipboard
 import eu.kanade.tachiyomi.util.system.toast
+import eu.kanade.tachiyomi.util.view.deferStateRestorationUntilItemsAreLoaded
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import reactivecircus.flowbinding.android.view.clicks
@@ -85,7 +86,7 @@ class RepoController() :
     override fun onViewCreated(view: View) {
         super.onViewCreated(view)
 
-        adapter = RepoAdapter(this@RepoController)
+        adapter = RepoAdapter(this@RepoController).apply { deferStateRestorationUntilItemsAreLoaded() }
         binding.recycler.layoutManager = LinearLayoutManager(view.context)
         binding.recycler.setHasFixedSize(true)
         binding.recycler.adapter = adapter

@@ -11,6 +11,7 @@ import eu.kanade.tachiyomi.data.database.models.LibraryManga
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.online.HttpSource
+import kotlinx.coroutines.runBlocking
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.Before
 import org.junit.Test
@@ -76,7 +77,7 @@ class LibraryUpdateServiceTest {
 
         `when`(source.fetchChapterList(manga)).thenReturn(Observable.just(sourceChapters))
 
-        service.updateManga(manga).subscribe()
+        runBlocking { service.updateManga(manga) }
 
         assertThat(service.db.getChapters(manga).executeAsBlocking()).hasSize(2)
     }
@@ -97,7 +98,7 @@ class LibraryUpdateServiceTest {
 
         val intent = Intent()
         val target = LibraryUpdateService.Target.CHAPTERS
-        service.updateChapterList(service.getMangaToUpdate(intent, target)).subscribe()
+        runBlocking { service.updateChapterList(service.getMangaToUpdate(intent, target)) }
 
         // There are 3 network attempts and 2 insertions (1 request failed)
         assertThat(service.db.getChapters(favManga[0]).executeAsBlocking()).hasSize(2)

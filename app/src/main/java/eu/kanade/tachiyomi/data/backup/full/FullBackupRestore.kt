@@ -20,7 +20,6 @@ import kotlinx.serialization.ExperimentalSerializationApi
 import okio.buffer
 import okio.gzip
 import okio.source
-import rx.Observable
 import java.util.Date
 
 @OptIn(ExperimentalSerializationApi::class)
@@ -29,7 +28,7 @@ class FullBackupRestore(
     notifier: BackupNotifier,
     private val online: Boolean
 ) : AbstractBackupRestore<FullBackupManager>(context, notifier) {
-    override fun performRestore(uri: Uri): Boolean {
+    override suspend fun performRestore(uri: Uri): Boolean {
         // SY -->
         throttleManager.resetThrottle()
         // SY <--
@@ -85,7 +84,7 @@ class FullBackupRestore(
     }
     // SY <--
 
-    private fun restoreManga(
+    private suspend fun restoreManga(
         backupManga: BackupManga,
         backupCategories: List<BackupCategory>,
         online: Boolean
@@ -129,7 +128,7 @@ class FullBackupRestore(
      * @param history history data from json
      * @param tracks tracking data from json
      */
-    private fun restoreMangaData(
+    private suspend fun restoreMangaData(
         manga: Manga,
         source: Source?,
         chapters: List<Chapter>,
@@ -142,16 +141,18 @@ class FullBackupRestore(
     ) {
         val dbManga = backupManager.getMangaFromDatabase(manga)
 
-        db.inTransaction {
-            if (dbManga == null) {
-                // Manga not in database
-                restoreMangaFetch(source, manga, chapters, categories, history, tracks, backupCategories, flatMetadata, online)
-            } else { // Manga in database
-                // Copy information from manga already in database
-                backupManager.restoreMangaNoFetch(manga, dbManga)
-                // Fetch rest of manga information
-                restoreMangaNoFetch(source, manga, chapters, categories, history, tracks, backupCategories, flatMetadata, online)
-            }
+        // Deliberately not wrapped in a transaction. This work suspends -- it fetches from the
+        // source and refreshes trackers -- and a transaction cannot be held across that. The
+        // RxJava original did hold one, because subscribe() ran the whole chain synchronously on
+        // this thread, which meant the database stayed locked for the duration of network calls.
+        if (dbManga == null) {
+            // Manga not in database
+            restoreMangaFetch(source, manga, chapters, categories, history, tracks, backupCategories, flatMetadata, online)
+        } else { // Manga in database
+            // Copy information from manga already in database
+            backupManager.restoreMangaNoFetch(manga, dbManga)
+            // Fetch rest of manga information
+            restoreMangaNoFetch(source, manga, chapters, categories, history, tracks, backupCategories, flatMetadata, online)
         }
     }
 
@@ -162,7 +163,7 @@ class FullBackupRestore(
      * @param chapters chapters of manga that needs updating
      * @param categories categories that need updating
      */
-    private fun restoreMangaFetch(
+    private suspend fun restoreMangaFetch(
         source: Source?,
         manga: Manga,
         chapters: List<Chapter>,
@@ -173,29 +174,23 @@ class FullBackupRestore(
         flatMetadata: BackupFlatMetadata?,
         online: Boolean
     ) {
-        backupManager.restoreMangaFetchObservable(source, manga, online)
-            .doOnError {
-                errors.add(Date() to "${manga.title} - ${it.message}")
+        try {
+            val fetchedManga = backupManager.restoreMangaFetch(source, manga, online)
+            fetchedManga.id ?: return
+
+            if (!online || source == null) {
+                backupManager.restoreChaptersForMangaOffline(fetchedManga, chapters)
             }
-            .filter { it.id != null }
-            .flatMap {
-                if (online && source != null) {
-                    Observable.just(manga)
-                } else {
-                    backupManager.restoreChaptersForMangaOffline(it, chapters)
-                    Observable.just(manga)
-                }
-            }
-            .doOnNext {
-                restoreExtraForManga(it, categories, history, tracks, backupCategories, flatMetadata)
-            }
-            .flatMap {
-                trackingFetchObservable(it, tracks)
-            }
-            .subscribe()
+
+            restoreExtraForManga(fetchedManga, categories, history, tracks, backupCategories, flatMetadata)
+
+            updateTracking(fetchedManga, tracks)
+        } catch (e: Exception) {
+            errors.add(Date() to "${manga.title} - ${e.message}")
+        }
     }
 
-    private fun restoreMangaNoFetch(
+    private suspend fun restoreMangaNoFetch(
         source: Source?,
         backupManga: Manga,
         chapters: List<Chapter>,
@@ -206,27 +201,17 @@ class FullBackupRestore(
         flatMetadata: BackupFlatMetadata?,
         online: Boolean
     ) {
-        Observable.just(backupManga)
-            .flatMap { manga ->
-                if (online && source != null) {
-                    if (!backupManager.restoreChaptersForManga(manga, chapters)) {
-                        chapterFetchObservable(source, manga, chapters)
-                            .map { manga }
-                    } else {
-                        Observable.just(manga)
-                    }
-                } else {
-                    backupManager.restoreChaptersForMangaOffline(manga, chapters)
-                    Observable.just(manga)
-                }
+        if (online && source != null) {
+            if (!backupManager.restoreChaptersForManga(backupManga, chapters)) {
+                updateChapters(source, backupManga, chapters)
             }
-            .doOnNext {
-                restoreExtraForManga(it, categories, history, tracks, backupCategories, flatMetadata)
-            }
-            .flatMap { manga ->
-                trackingFetchObservable(manga, tracks)
-            }
-            .subscribe()
+        } else {
+            backupManager.restoreChaptersForMangaOffline(backupManga, chapters)
+        }
+
+        restoreExtraForManga(backupManga, categories, history, tracks, backupCategories, flatMetadata)
+
+        updateTracking(backupManga, tracks)
     }
 
     private fun restoreExtraForManga(

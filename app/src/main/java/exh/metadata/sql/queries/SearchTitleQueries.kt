@@ -1,59 +1,48 @@
 package exh.metadata.sql.queries
 
-import com.pushtorefresh.storio.sqlite.queries.DeleteQuery
-import com.pushtorefresh.storio.sqlite.queries.Query
 import eu.kanade.tachiyomi.data.database.DbProvider
-import eu.kanade.tachiyomi.data.database.inTransaction
+import eu.kanade.tachiyomi.data.database.mapSearchTitle
 import exh.metadata.sql.models.SearchTitle
-import exh.metadata.sql.tables.SearchTitleTable
 
 interface SearchTitleQueries : DbProvider {
-    fun getSearchTitlesForManga(mangaId: Long) =
-        db.get()
-            .listOfObjects(SearchTitle::class.java)
-            .withQuery(
-                Query.builder()
-                    .table(SearchTitleTable.TABLE)
-                    .where("${SearchTitleTable.COL_MANGA_ID} = ?")
-                    .whereArgs(mangaId)
-                    .build()
-            )
-            .prepare()
+    fun getSearchTitlesForManga(mangaId: Long): List<SearchTitle> =
+        sqlDatabase.search_titlesQueries
+            .getSearchTitlesForManga(mangaId, ::mapSearchTitle)
+            .executeAsList()
 
-    fun deleteSearchTitlesForManga(mangaId: Long) =
-        db.delete()
-            .byQuery(
-                DeleteQuery.builder()
-                    .table(SearchTitleTable.TABLE)
-                    .where("${SearchTitleTable.COL_MANGA_ID} = ?")
-                    .whereArgs(mangaId)
-                    .build()
-            )
-            .prepare()
+    fun deleteSearchTitlesForManga(mangaId: Long) {
+        sqlDatabase.search_titlesQueries.deleteSearchTitlesForManga(mangaId)
+    }
 
-    fun insertSearchTitle(searchTitle: SearchTitle) = db.put().`object`(searchTitle).prepare()
-
-    fun insertSearchTitles(searchTitles: List<SearchTitle>) = db.put().objects(searchTitles).prepare()
-
-    fun deleteSearchTitle(searchTitle: SearchTitle) = db.delete().`object`(searchTitle).prepare()
-
-    fun deleteAllSearchTitle() =
-        db.delete().byQuery(
-            DeleteQuery.builder()
-                .table(SearchTitleTable.TABLE)
-                .build()
+    fun insertSearchTitle(searchTitle: SearchTitle) {
+        sqlDatabase.search_titlesQueries.insertSearchTitle(
+            searchTitle.mangaId,
+            searchTitle.title,
+            searchTitle.type.toLong()
         )
-            .prepare()
+    }
+
+    fun insertSearchTitles(searchTitles: List<SearchTitle>) {
+        sqlDatabase.search_titlesQueries.transaction {
+            searchTitles.forEach { insertSearchTitle(it) }
+        }
+    }
+
+    fun deleteSearchTitle(searchTitle: SearchTitle) {
+        searchTitle.id?.let { deleteSearchTitlesForManga(searchTitle.mangaId) }
+    }
+
+    fun deleteAllSearchTitle() {
+        sqlDatabase.search_titlesQueries.deleteAllSearchTitles()
+    }
 
     fun setSearchTitlesForManga(
         mangaId: Long,
         titles: List<SearchTitle>
     ) {
-        db.inTransaction {
-            deleteSearchTitlesForManga(mangaId).executeAsBlocking()
-            titles.chunked(100) { chunk ->
-                insertSearchTitles(chunk).executeAsBlocking()
-            }
+        sqlDatabase.search_titlesQueries.transaction {
+            deleteSearchTitlesForManga(mangaId)
+            insertSearchTitles(titles)
         }
     }
 }

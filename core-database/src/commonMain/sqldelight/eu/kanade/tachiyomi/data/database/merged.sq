@@ -1,0 +1,10 @@
+-- Mirrors MergedTable.createTableQuery (AZ merged-sources feature).
+CREATE TABLE merged(
+    mergeID INTEGER NOT NULL,
+    mangaID INTEGER NOT NULL
+);
+
+CREATE INDEX merged_merge_id_index ON merged(mergeID);
+
+getMergedMangaIds:
+SELECT mangaID FROM merged WHERE mergeID = ?;

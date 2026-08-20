@@ -12,13 +12,13 @@ import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.databinding.MigrationControllerBinding
 import eu.kanade.tachiyomi.ui.base.controller.NucleusController
 import eu.kanade.tachiyomi.ui.migration.manga.design.PreMigrationController
-import eu.kanade.tachiyomi.util.lang.launchUI
+import eu.kanade.tachiyomi.util.system.launchUI
+import eu.kanade.tachiyomi.util.system.withIOContext
+import eu.kanade.tachiyomi.util.view.deferStateRestorationUntilItemsAreLoaded
 import exh.util.RecyclerWindowInsetsListener
 import exh.util.applyWindowInsetsForController
-import exh.util.await
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import rx.schedulers.Schedulers
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -58,7 +58,7 @@ class MigrationController :
         super.onViewCreated(view)
         view.applyWindowInsetsForController()
 
-        adapter = FlexibleAdapter(null, this)
+        adapter = FlexibleAdapter<IFlexible<*>>(null, this).apply { deferStateRestorationUntilItemsAreLoaded() }
         binding.migrationRecycler.layoutManager =
             androidx.recyclerview.widget.LinearLayoutManager(view.context)
         binding.migrationRecycler.adapter = adapter
@@ -87,7 +87,7 @@ class MigrationController :
         if (state.selectedSource == null) {
             title = resources?.getString(R.string.source_migration)
             if (adapter !is SourceAdapter) {
-                adapter = SourceAdapter(this)
+                adapter = SourceAdapter(this).apply { deferStateRestorationUntilItemsAreLoaded() }
                 binding.migrationRecycler.adapter = adapter
             }
             adapter?.updateDataSet(state.sourcesWithManga)
@@ -95,7 +95,7 @@ class MigrationController :
             // val switching = title == resources?.getString(R.string.source_migration)
             title = state.selectedSource.toString()
             if (adapter !is MangaAdapter) {
-                adapter = MangaAdapter(this)
+                adapter = MangaAdapter(this).apply { deferStateRestorationUntilItemsAreLoaded() }
                 binding.migrationRecycler.adapter = adapter
             }
             adapter?.updateDataSet(state.mangaForSource, true)
@@ -129,9 +129,7 @@ class MigrationController :
 
         launchUI {
             val manga =
-                Injekt.get<DatabaseHelper>().getFavoriteMangas().asRxSingle().await(
-                    Schedulers.io()
-                )
+                withIOContext { Injekt.get<DatabaseHelper>().getFavoriteMangas() }
             val sourceMangas =
                 manga.asSequence().filter { it.source == item.source.id }.map { it.id!! }.toList()
             withContext(Dispatchers.Main) {

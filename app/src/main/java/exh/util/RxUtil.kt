@@ -1,7 +1,5 @@
 package exh.util
 
-import com.pushtorefresh.storio.operations.PreparedOperation
-import com.pushtorefresh.storio.sqlite.operations.get.PreparedGetObject
 import kotlinx.coroutines.suspendCancellableCoroutine
 import rx.Completable
 import rx.Observable
@@ -56,10 +54,6 @@ suspend fun <T> Single<T>.await(subscribeOn: Scheduler? = null): T {
         }
     }
 }
-
-suspend fun <T> PreparedOperation<T>.await(): T = asRxSingle().await()
-
-suspend fun <T> PreparedGetObject<T>.await(): T? = asRxSingle().await()
 
 suspend fun Completable.awaitSuspending(subscribeOn: Scheduler? = null) {
     return suspendCancellableCoroutine { continuation ->

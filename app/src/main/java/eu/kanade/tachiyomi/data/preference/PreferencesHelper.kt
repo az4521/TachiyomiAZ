@@ -11,6 +11,7 @@ import eu.kanade.tachiyomi.data.preference.PreferenceValues.DisplayMode
 import eu.kanade.tachiyomi.data.preference.PreferenceValues.NsfwAllowance
 import eu.kanade.tachiyomi.data.track.TrackService
 import eu.kanade.tachiyomi.data.track.anilist.Anilist
+import eu.kanade.tachiyomi.domain.manga.DownloadPreferences
 import eu.kanade.tachiyomi.util.system.MiuiUtil
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -30,7 +31,22 @@ fun <T> Preference<T>.asImmediateFlow(block: (value: T) -> Unit): Flow<T> {
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class PreferencesHelper(val context: Context) {
+class PreferencesHelper(val context: Context) : DownloadPreferences {
+    /**
+     * Resolved values for the shared domain rules, which cannot see SharedPreferences.
+     */
+    override val downloadNewChapters: Boolean
+        get() = downloadNew().get()
+
+    override val downloadNewCategories: List<Int>
+        get() = downloadNewCategories().get().map(String::toInt)
+
+    override val removeAfterMarkedAsRead: Boolean
+        get() = removeAfterMarkedAsRead()
+
+    override val removeAfterReadSlots: Int
+        get() = removeAfterReadSlots()
+
     private val prefs = PreferenceManager.getDefaultSharedPreferences(context)
     val flowPrefs = FlowSharedPreferences(prefs)
 
@@ -124,7 +140,27 @@ class PreferencesHelper(val context: Context) {
 
     fun landscapeColumns() = flowPrefs.getInt(Keys.landscapeColumns, 0)
 
-    fun updateOnlyNonCompleted() = prefs.getBoolean(Keys.updateOnlyNonCompleted, false)
+    /**
+     * Which titles a library update skips.
+     *
+     * The old "only update ongoing manga" switch is carried over the first time this is read, so
+     * someone who had it on keeps that behaviour instead of silently having it turned off by an
+     * update. It is a one-shot migration -- guarded by its own flag -- because otherwise clearing
+     * the completed filter would be undone every launch.
+     */
+    fun libraryUpdateSkip(): Preference<Set<String>> {
+        if (!prefs.getBoolean(Keys.libraryUpdateSkipMigrated, false)) {
+            prefs.edit()
+                .putBoolean(Keys.libraryUpdateSkipMigrated, true)
+                .apply()
+            if (prefs.getBoolean(Keys.updateOnlyNonCompleted, false)) {
+                prefs.edit()
+                    .putStringSet(Keys.libraryUpdateSkip, setOf(Keys.libraryUpdateSkipCompleted))
+                    .apply()
+            }
+        }
+        return flowPrefs.getStringSet(Keys.libraryUpdateSkip, emptySet())
+    }
 
     fun autoUpdateTrack() = prefs.getBoolean(Keys.autoUpdateTrack, true)
 

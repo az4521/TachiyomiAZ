@@ -109,7 +109,6 @@
     <string name="pref_library_update_restriction_summary">Aktualizovať len vtedy, keď sú splnené podmienky</string>
     <string name="wifi">Wi-Fi</string>
     <string name="charging">Nabíjanie</string>
-    <string name="pref_update_only_non_completed">Aktualizovať iba nedokončenú Mangu</string>
     <string name="pref_auto_update_manga_sync">Synchronizovať kapitoly po prečítaní</string>
     <string name="pref_start_screen">Úvodná obrazovka</string>
     <string name="pref_language">Jazyk</string>

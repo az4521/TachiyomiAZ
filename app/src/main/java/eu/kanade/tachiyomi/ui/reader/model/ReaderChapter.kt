@@ -1,8 +1,9 @@
 package eu.kanade.tachiyomi.ui.reader.model
 
-import com.jakewharton.rxrelay.BehaviorRelay
 import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.ui.reader.loader.PageLoader
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import timber.log.Timber
 
 data class ReaderChapter(val chapter: Chapter) {
@@ -10,12 +11,12 @@ data class ReaderChapter(val chapter: Chapter) {
         State.Wait
         set(value) {
             field = value
-            stateRelay.call(value)
+            stateFlow.value = value
         }
 
-    private val stateRelay by lazy { BehaviorRelay.create(state) }
+    private val stateFlow by lazy { MutableStateFlow(state) }
 
-    val stateObserver by lazy { stateRelay.asObservable() }
+    val stateObserver by lazy { stateFlow.asStateFlow() }
 
     val pages: List<ReaderPage>?
         get() = (state as? State.Loaded)?.pages

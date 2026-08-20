@@ -10,13 +10,19 @@ import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.extension.model.Extension
 import eu.kanade.tachiyomi.extension.model.InstallStep
 import eu.kanade.tachiyomi.ui.base.presenter.BasePresenter
+import eu.kanade.tachiyomi.util.lang.asFlow
 import eu.kanade.tachiyomi.util.system.LocaleHelper
-import rx.Observable
-import rx.Subscription
-import rx.android.schedulers.AndroidSchedulers
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.launch
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
-import java.util.concurrent.TimeUnit
 
 private typealias ExtensionTuple =
     Triple<List<Extension.Installed>, List<Extension.Untrusted>, List<Extension.Available>>
@@ -36,25 +42,25 @@ open class ExtensionPresenter(
         super.onCreate(savedState)
 
         extensionManager.findAvailableExtensions()
-        bindToExtensionsObservable()
+        bindToExtensionsFlow()
     }
 
-    private fun bindToExtensionsObservable(): Subscription {
-        val installedObservable = extensionManager.getInstalledExtensionsObservable()
-        val untrustedObservable = extensionManager.getUntrustedExtensionsObservable()
-        val availableObservable =
-            extensionManager.getAvailableExtensionsObservable()
-                .startWith(emptyList<Extension.Available>())
+    @OptIn(FlowPreview::class)
+    private fun bindToExtensionsFlow(): Job {
+        val installedFlow = extensionManager.getInstalledExtensionsFlow()
+        val untrustedFlow = extensionManager.getUntrustedExtensionsFlow()
+        val availableFlow =
+            extensionManager.getAvailableExtensionsFlow()
+                .onStart { emit(emptyList()) }
 
-        return Observable.combineLatest(
-            installedObservable,
-            untrustedObservable,
-            availableObservable
+        return combine(
+            installedFlow,
+            untrustedFlow,
+            availableFlow
         ) { installed, untrusted, available -> Triple(installed, untrusted, available) }
-            .debounce(100, TimeUnit.MILLISECONDS)
+            .debounce(100)
             .map(::toItems)
-            .observeOn(AndroidSchedulers.mainThread())
-            .subscribeLatestCache({ view, _ -> view.setExtensions(extensions) })
+            .collectLatestCache(onNext = { view, _ -> view.setExtensions(extensions) })
     }
 
     @Synchronized
@@ -151,26 +157,34 @@ open class ExtensionPresenter(
     }
 
     fun installExtension(extension: Extension.Available) {
-        extensionManager.installExtension(extension).subscribeToInstallUpdate(extension)
+        extensionManager.installExtension(extension).asFlow().collectInstallUpdate(extension)
     }
 
     fun updateExtension(extension: Extension.Installed) {
-        extensionManager.updateExtension(extension).subscribeToInstallUpdate(extension)
+        extensionManager.updateExtension(extension).asFlow().collectInstallUpdate(extension)
     }
 
     fun cancelInstallUpdateExtension(extension: Extension) {
         extensionManager.cancelInstallUpdateExtension(extension)
     }
 
-    private fun Observable<InstallStep>.subscribeToInstallUpdate(extension: Extension) {
-        this.doOnNext { currentDownloads[extension.pkgName] = it }
-            .doOnUnsubscribe { currentDownloads.remove(extension.pkgName) }
-            .map { state -> updateInstallStep(extension, state) }
-            .subscribeWithView({ view, item ->
-                if (item != null) {
-                    view.downloadUpdate(item)
-                }
-            })
+    private fun Flow<InstallStep>.collectInstallUpdate(extension: Extension) {
+        presenterScope.launch {
+            try {
+                onEach { currentDownloads[extension.pkgName] = it }
+                    .map { state -> updateInstallStep(extension, state) }
+                    .collect { item ->
+                        // subscribeWithView only delivered while a view was attached; anything
+                        // arriving detached was dropped rather than replayed.
+                        if (item != null) {
+                            view?.downloadUpdate(item)
+                        }
+                    }
+            } finally {
+                // Previously doOnUnsubscribe: runs on completion, error and cancellation.
+                currentDownloads.remove(extension.pkgName)
+            }
+        }
     }
 
     fun uninstallExtension(pkgName: String) {

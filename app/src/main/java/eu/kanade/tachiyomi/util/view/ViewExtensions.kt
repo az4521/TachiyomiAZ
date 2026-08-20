@@ -134,3 +134,8 @@ fun ChipGroup.setChips(
         addView(chip)
     }
 }
+
+/** Waits to restore LayoutManager state until an asynchronously loaded adapter has items. */
+fun RecyclerView.Adapter<*>.deferStateRestorationUntilItemsAreLoaded() {
+    stateRestorationPolicy = RecyclerView.Adapter.StateRestorationPolicy.PREVENT_WHEN_EMPTY
+}

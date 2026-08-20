@@ -1,0 +1,29 @@
+-- Mirrors CategoryTable.createTableQuery.
+CREATE TABLE categories(
+    _id INTEGER NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    sort INTEGER NOT NULL,
+    flags INTEGER NOT NULL,
+    manga_order TEXT NOT NULL
+);
+
+getCategories:
+SELECT * FROM categories ORDER BY sort;
+
+getCategoriesForManga:
+SELECT categories.* FROM categories
+JOIN mangas_categories ON categories._id = mangas_categories.category_id
+WHERE mangas_categories.manga_id = ?;
+
+insertCategory:
+INSERT INTO categories(name, sort, flags, manga_order)
+VALUES (?, ?, ?, ?);
+
+updateCategory:
+UPDATE categories SET name = ?, sort = ?, flags = ?, manga_order = ? WHERE _id = ?;
+
+deleteCategory:
+DELETE FROM categories WHERE _id = ?;
+
+lastInsertRowId:
+SELECT last_insert_rowid();

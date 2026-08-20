@@ -6,7 +6,8 @@ import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import eu.kanade.tachiyomi.util.lang.compareToCaseInsensitiveNaturalOrder
 import eu.kanade.tachiyomi.util.system.ImageUtil
-import rx.Observable
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import java.io.File
 import java.io.InputStream
 import java.io.PipedInputStream
@@ -38,7 +39,7 @@ class RarPageLoader(private val archive: Archive) : PageLoader() {
      * Returns an observable containing the pages found on this rar archive ordered with a natural
      * comparator.
      */
-    override fun getPages(): Observable<List<ReaderPage>> {
+    override suspend fun getPages(): List<ReaderPage> {
         return archive.fileHeaders
             .filter { !it.isDirectory && ImageUtil.isImage(it.fileName) { archive.getInputStream(it) } }
             .sortedWith(Comparator<FileHeader> { f1, f2 -> f1.fileName.compareToCaseInsensitiveNaturalOrder(f2.fileName) })
@@ -50,14 +51,13 @@ class RarPageLoader(private val archive: Archive) : PageLoader() {
                     status = Page.READY
                 }
             }
-            .let { Observable.just(it) }
     }
 
     /**
      * Returns an observable that emits a ready state unless the loader was recycled.
      */
-    override fun getPage(page: ReaderPage): Observable<Int> {
-        return Observable.just(
+    override fun getPage(page: ReaderPage): Flow<Int> {
+        return flowOf(
             if (isRecycled) {
                 Page.ERROR
             } else {

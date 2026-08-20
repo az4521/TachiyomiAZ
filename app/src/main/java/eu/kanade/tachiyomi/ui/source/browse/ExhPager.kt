@@ -31,7 +31,7 @@ open class ExhPager(val source: CatalogueSource, val query: String, val filters:
             currentPage = urlToId(mangasPage.mangas.lastOrNull()?.url)
         }
         hasNextPage = mangasPage.hasNextPage && mangasPage.mangas.isNotEmpty()
-        results.call(Pair(page, mangasPage.mangas))
+        results.tryEmit(Pair(page, mangasPage.mangas))
     }
 
     private fun urlToId(url: String?): Int {

@@ -1,0 +1,53 @@
+name: AltStore Source
+
+# Republishes the AltStore source from a GitHub release that carries an IPA.
+#
+# Kept separate from the build so it can be re-run without rebuilding, which is the usual reason
+# to touch it: a release's notes changed, or a source field needs correcting. Runs on Linux --
+# it only reads an IPA's Info.plist and writes JSON.
+#
+# The generated source lives on the `altstore` branch, so its raw URL is stable:
+#   https://raw.githubusercontent.com/az4521/TachiyomiAZ/altstore/apps.json
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: GitHub release tag containing the IPA
+        required: true
+        default: ios-nightly
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  update-source:
+    name: Publish source
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # Reads the IPA's own Info.plist for version, build and minimum OS rather than trusting a
+      # value written by hand, and refuses to publish if its bundle identifier is not the one the
+      # source claims.
+      - name: Generate source
+        run: >-
+          python3 .github/workflows/supporting/update_altstore_json.py
+          --tag "${{ inputs.release_tag || github.event.release.tag_name }}"
+
+      - name: Validate source
+        run: python3 -m json.tool .github/workflows/supporting/altstore/apps.json >/dev/null
+
+      - name: Deploy to the altstore branch
+        uses: JamesIves/github-pages-deploy-action@v4.7.2
+        with:
+          branch: altstore
+          folder: .github/workflows/supporting/altstore
+          git-config-name: github-actions[bot]
+          git-config-email: github-actions[bot]@users.noreply.github.com
+          commit-message: Update the TachiyomiAZ AltStore source
+          single-commit: true

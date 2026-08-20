@@ -4,7 +4,7 @@ import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.online.HttpSource
-import rx.subjects.PublishSubject
+import kotlinx.coroutines.flow.MutableSharedFlow
 
 class Download(val source: HttpSource, val manga: Manga, val chapter: Chapter) {
     var pages: List<Page>? = null
@@ -22,12 +22,12 @@ class Download(val source: HttpSource, val manga: Manga, val chapter: Chapter) {
     var status: Int = 0
         set(status) {
             field = status
-            statusSubject?.onNext(this)
+            statusFlow?.tryEmit(this)
             statusCallback?.invoke(this)
         }
 
     @Transient
-    private var statusSubject: PublishSubject<Download>? = null
+    private var statusFlow: MutableSharedFlow<Download>? = null
 
     @Transient
     private var statusCallback: ((Download) -> Unit)? = null
@@ -38,8 +38,8 @@ class Download(val source: HttpSource, val manga: Manga, val chapter: Chapter) {
             return pages.map(Page::progress).average().toInt()
         }
 
-    fun setStatusSubject(subject: PublishSubject<Download>?) {
-        statusSubject = subject
+    fun setStatusFlow(flow: MutableSharedFlow<Download>?) {
+        statusFlow = flow
     }
 
     fun setStatusCallback(f: ((Download) -> Unit)?) {

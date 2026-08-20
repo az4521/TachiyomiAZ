@@ -6,15 +6,13 @@ import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.LocalSource
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.ui.base.presenter.BasePresenter
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
-import rx.Observable
-import rx.Subscription
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.util.TreeMap
@@ -31,14 +29,22 @@ class SourcePresenter(
     private val preferences: PreferencesHelper = Injekt.get(),
     private val controllerMode: SourceController.Mode
 ) : BasePresenter<SourceController>() {
-    private val scope = CoroutineScope(Job() + Dispatchers.Main)
-
     var sources = getEnabledSources()
 
     /**
      * Subscription for retrieving enabled sources.
      */
-    private var sourceSubscription: Subscription? = null
+    private var sourceJob: Job? = null
+
+    /**
+     * The last used source, held as state rather than pushed as a one-off event so that a view
+     * recreated by back-navigation is handed it again.
+     */
+    private val lastUsedSourceFlow = MutableStateFlow<SourceItem?>(null)
+
+    private var lastUsedSourceJob: Job? = null
+
+    private var lastUsedPrefJob: Job? = null
 
     override fun onCreate(savedState: Bundle?) {
         super.onCreate(savedState)
@@ -51,7 +57,7 @@ class SourcePresenter(
      * Unsubscribe and create a new subscription to fetch enabled sources.
      */
     private fun loadSources() {
-        sourceSubscription?.unsubscribe()
+        sourceJob?.cancel()
 
         val pinnedSources = mutableListOf<SourceItem>()
         val pinnedCatalogues = preferences.pinnedCatalogues().get()
@@ -82,34 +88,49 @@ class SourcePresenter(
             sourceItems = pinnedSources + sourceItems
         }
 
-        sourceSubscription =
-            Observable.just(sourceItems)
-                .subscribeLatestCache(SourceController::setSources)
+        val items = sourceItems
+        sourceJob = flowOf(items).collectLatestCache(onNext = { view, list -> view.setSources(list) })
     }
 
     private fun loadLastUsedSource() {
         // Immediate initial load
         preferences.lastUsedCatalogueSource().get().let { updateLastUsedSource(it) }
 
-        // Subsequent updates
-        preferences.lastUsedCatalogueSource().asFlow()
-            .drop(1)
-            .distinctUntilChanged()
-            .onEach { updateLastUsedSource(it) }
-            .launchIn(scope)
+        // Subsequent updates. Cancelled first because updateSources() runs again whenever the
+        // enabled sources change, and each call used to leave another collector on scope.
+        lastUsedPrefJob?.cancel()
+        lastUsedPrefJob =
+            preferences.lastUsedCatalogueSource().asFlow()
+                .drop(1)
+                .distinctUntilChanged()
+                .onEach { updateLastUsedSource(it) }
+                .launchIn(presenterScope)
+
+        // collectLatestCache, not deliverToView: this is state, so it has to be re-delivered to a
+        // view that gets recreated. Pushed as a one-off event it arrived once and never again,
+        // which left the row missing after navigating into a source and back.
+        lastUsedSourceJob?.cancel()
+        lastUsedSourceJob =
+            lastUsedSourceFlow.collectLatestCache(
+                onNext = { view, item -> view.setLastUsedSource(item) }
+            )
     }
 
     private fun updateLastUsedSource(sourceId: Long) {
         if (preferences.hideLastUsedSource().get()) {
-            view().subscribe { view -> view?.setLastUsedSource(null) }
-        } else {
-            val source =
-                (sourceManager.get(sourceId) as? CatalogueSource)?.let {
-                    SourceItem(it, showButtons = controllerMode == SourceController.Mode.CATALOGUE)
-                }
-            source?.let {
-                view().subscribe { view -> view?.setLastUsedSource(it) }
+            lastUsedSourceFlow.value = null
+            return
+        }
+
+        val source =
+            (sourceManager.get(sourceId) as? CatalogueSource)?.let {
+                SourceItem(it, showButtons = controllerMode == SourceController.Mode.CATALOGUE)
             }
+
+        // Leave whatever is already showing when the source can't be resolved, as the previous
+        // null-check did.
+        if (source != null) {
+            lastUsedSourceFlow.value = source
         }
     }
 

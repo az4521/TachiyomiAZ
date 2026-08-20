@@ -13,18 +13,20 @@ import android.os.PowerManager
 import androidx.core.content.ContextCompat
 import com.github.pwittchen.reactivenetwork.library.Connectivity
 import com.github.pwittchen.reactivenetwork.library.ReactiveNetwork
-import com.jakewharton.rxrelay.BehaviorRelay
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
-import eu.kanade.tachiyomi.util.lang.plusAssign
+import eu.kanade.tachiyomi.util.lang.asFlow
 import eu.kanade.tachiyomi.util.system.acquireWakeLock
 import eu.kanade.tachiyomi.util.system.connectivityManager
 import eu.kanade.tachiyomi.util.system.notification
 import eu.kanade.tachiyomi.util.system.toast
-import rx.android.schedulers.AndroidSchedulers
-import rx.schedulers.Schedulers
-import rx.subscriptions.CompositeSubscription
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import uy.kohesive.injekt.injectLazy
 
 /**
@@ -37,7 +39,7 @@ class DownloadService : Service() {
         /**
          * Relay used to know when the service is running.
          */
-        val runningRelay: BehaviorRelay<Boolean> = BehaviorRelay.create(false)
+        val runningFlow = MutableStateFlow(false)
 
         /**
          * Starts this service.
@@ -71,7 +73,7 @@ class DownloadService : Service() {
     /**
      * Subscriptions to store while the service is running.
      */
-    private lateinit var subscriptions: CompositeSubscription
+    private val scope = MainScope()
 
     /**
      * Called when the service is created.
@@ -81,8 +83,7 @@ class DownloadService : Service() {
         super.onCreate()
         startForeground(Notifications.ID_DOWNLOAD_CHAPTER_PROGRESS, getPlaceholderNotification())
         wakeLock = acquireWakeLock(javaClass.name)
-        runningRelay.call(true)
-        subscriptions = CompositeSubscription()
+        runningFlow.value = true
         listenDownloaderState()
         listenNetworkChanges()
     }
@@ -91,8 +92,8 @@ class DownloadService : Service() {
      * Called when the service is destroyed.
      */
     override fun onDestroy() {
-        runningRelay.call(false)
-        subscriptions.unsubscribe()
+        runningFlow.value = false
+        scope.cancel()
         downloadManager.stopDownloads()
         wakeLock.releaseIfNeeded()
         super.onDestroy()
@@ -122,19 +123,16 @@ class DownloadService : Service() {
      * @see onNetworkStateChanged
      */
     private fun listenNetworkChanges() {
-        subscriptions +=
-            ReactiveNetwork.observeNetworkConnectivity(applicationContext)
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(
-                    { state ->
-                        onNetworkStateChanged(state)
-                    },
-                    {
-                        toast(R.string.download_queue_error)
-                        stopSelf()
-                    }
-                )
+        // ReactiveNetwork is a third-party RxJava library, so bridge its Observable rather
+        // than replacing the dependency.
+        ReactiveNetwork.observeNetworkConnectivity(applicationContext)
+            .asFlow()
+            .onEach { state -> onNetworkStateChanged(state) }
+            .catch {
+                toast(R.string.download_queue_error)
+                stopSelf()
+            }
+            .launchIn(scope)
     }
 
     /**
@@ -165,14 +163,15 @@ class DownloadService : Service() {
      * Listens to downloader status. Enables or disables the wake lock depending on the status.
      */
     private fun listenDownloaderState() {
-        subscriptions +=
-            downloadManager.runningRelay.subscribe { running ->
+        downloadManager.runningFlow
+            .onEach { running ->
                 if (running) {
                     wakeLock.acquireIfNeeded()
                 } else {
                     wakeLock.releaseIfNeeded()
                 }
             }
+            .launchIn(scope)
     }
 
     /**

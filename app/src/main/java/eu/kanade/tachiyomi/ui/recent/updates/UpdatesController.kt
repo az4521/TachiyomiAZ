@@ -26,6 +26,7 @@ import eu.kanade.tachiyomi.ui.manga.MangaController
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.util.system.notificationManager
 import eu.kanade.tachiyomi.util.system.toast
+import eu.kanade.tachiyomi.util.view.deferStateRestorationUntilItemsAreLoaded
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import reactivecircus.flowbinding.recyclerview.scrollStateChanges
@@ -91,7 +92,7 @@ class UpdatesController :
         binding.recycler.layoutManager = layoutManager
         binding.recycler.addItemDecoration(DividerItemDecoration(view.context, DividerItemDecoration.VERTICAL))
         binding.recycler.setHasFixedSize(true)
-        adapter = UpdatesAdapter(this@UpdatesController)
+        adapter = UpdatesAdapter(this@UpdatesController).apply { deferStateRestorationUntilItemsAreLoaded() }
         binding.recycler.adapter = adapter
 
         binding.recycler.scrollStateChanges()

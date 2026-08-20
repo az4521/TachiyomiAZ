@@ -20,9 +20,9 @@ import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.manga.MangaController
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
-import eu.kanade.tachiyomi.util.lang.launchIO
 import eu.kanade.tachiyomi.util.storage.DiskUtil
 import eu.kanade.tachiyomi.util.storage.getUriCompat
+import eu.kanade.tachiyomi.util.system.launchIO
 import eu.kanade.tachiyomi.util.system.notificationManager
 import eu.kanade.tachiyomi.util.system.toast
 import uy.kohesive.injekt.Injekt
@@ -181,8 +181,8 @@ class NotificationReceiver : BroadcastReceiver() {
         chapterId: Long
     ) {
         val db = DatabaseHelper(context)
-        val manga = db.getManga(mangaId).executeAsBlocking()
-        val chapter = db.getChapter(chapterId).executeAsBlocking()
+        val manga = db.getManga(mangaId)
+        val chapter = db.getChapter(chapterId)
         if (manga != null && chapter != null) {
             val intent =
                 ReaderActivity.newIntent(context, manga, chapter).apply {
@@ -258,12 +258,12 @@ class NotificationReceiver : BroadcastReceiver() {
         val sourceManager: SourceManager = Injekt.get()
 
         launchIO {
-            chapterUrls.mapNotNull { db.getChapter(it, mangaId).executeAsBlocking() }
+            chapterUrls.mapNotNull { db.getChapter(it, mangaId) }
                 .forEach {
                     it.read = true
-                    db.updateChapterProgress(it).executeAsBlocking()
+                    db.updateChapterProgress(it)
                     if (preferences.removeAfterMarkedAsRead()) {
-                        val manga = db.getManga(mangaId).executeAsBlocking()
+                        val manga = db.getManga(mangaId)
                         if (manga != null) {
                             val source = sourceManager.get(manga.source)
                             if (source != null) {

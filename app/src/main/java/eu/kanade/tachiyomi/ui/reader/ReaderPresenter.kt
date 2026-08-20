@@ -3,7 +3,6 @@ package eu.kanade.tachiyomi.ui.reader
 import android.app.Application
 import android.os.Bundle
 import android.os.Environment
-import com.jakewharton.rxrelay.BehaviorRelay
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.database.DatabaseHelper
@@ -14,6 +13,7 @@ import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.data.track.job.DelayedTrackingStore
 import eu.kanade.tachiyomi.data.track.job.DelayedTrackingUpdateJob
+import eu.kanade.tachiyomi.domain.download.DownloadCleanup
 import eu.kanade.tachiyomi.source.LocalSource
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.source.model.Page
@@ -25,24 +25,29 @@ import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import eu.kanade.tachiyomi.ui.reader.model.ViewerChapters
 import eu.kanade.tachiyomi.util.isLocal
 import eu.kanade.tachiyomi.util.lang.byteSize
-import eu.kanade.tachiyomi.util.lang.launchIO
 import eu.kanade.tachiyomi.util.lang.takeBytes
 import eu.kanade.tachiyomi.util.storage.DiskUtil
 import eu.kanade.tachiyomi.util.system.ImageUtil
 import eu.kanade.tachiyomi.util.system.isOnline
+import eu.kanade.tachiyomi.util.system.launchIO
+import eu.kanade.tachiyomi.util.system.withIOContext
+import eu.kanade.tachiyomi.util.system.withUIContext
 import eu.kanade.tachiyomi.util.updateCoverLastModified
 import exh.util.defaultReaderType
-import rx.Completable
-import rx.Observable
-import rx.Subscription
-import rx.android.schedulers.AndroidSchedulers
-import rx.schedulers.Schedulers
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
 import timber.log.Timber
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.io.File
 import java.util.Date
-import java.util.concurrent.TimeUnit
 
 /**
  * Presenter used by the activity to perform background operations.
@@ -74,18 +79,36 @@ class ReaderPresenter(
     /**
      * Subscription to prevent setting chapters as active from multiple threads.
      */
-    private var activeChapterSubscription: Subscription? = null
+    private var activeChapterJob: Job? = null
 
     /**
      * Relay for currently active viewer chapters.
      */
     // [EXH] private
-    val viewerChaptersRelay = BehaviorRelay.create<ViewerChapters>()
+    /**
+     * Replaces the RxJava BehaviorRelay this used to be, and deliberately not a StateFlow.
+     *
+     * [preload] has to re-publish the *same* ViewerChapters instance to tell the viewer that a
+     * neighbouring chapter finished loading. StateFlow conflates: its collector compares each
+     * value against the one it last delivered and drops it if equal, so that notification never
+     * arrived and the next chapter was never handed to the viewer. replay = 1 gives the relay's
+     * semantics -- a late collector still gets the current value, and re-emitting an equal value
+     * genuinely emits.
+     */
+    val viewerChaptersFlow =
+        MutableSharedFlow<ViewerChapters>(
+            replay = 1,
+            onBufferOverflow = BufferOverflow.DROP_OLDEST
+        )
+
+    /** The most recently published chapters; the equivalent of the old relay's value. */
+    val viewerChapters: ViewerChapters?
+        get() = viewerChaptersFlow.replayCache.lastOrNull()
 
     /**
      * Relay used when loading prev/next chapter needed to lock the UI (with a dialog).
      */
-    private val isLoadingAdjacentChapterRelay = BehaviorRelay.create<Boolean>()
+    private val isLoadingAdjacentChapterFlow = MutableStateFlow(false)
 
     /**
      * Chapter list for the active manga. It's retrieved lazily and should be accessed for the first
@@ -93,7 +116,7 @@ class ReaderPresenter(
      */
     private val chapterList by lazy {
         val manga = manga!!
-        val dbChapters = db.getChapters(manga).executeAsBlocking()
+        val dbChapters = db.getChapters(manga)
 
         val selectedChapter =
             dbChapters.find { it.id == chapterId }
@@ -158,7 +181,7 @@ class ReaderPresenter(
      */
     override fun onDestroy() {
         super.onDestroy()
-        val currentChapters = viewerChaptersRelay.value
+        val currentChapters = viewerChapters
         if (currentChapters != null) {
             currentChapters.unref()
             saveChapterProgress(currentChapters.currChapter)
@@ -213,16 +236,16 @@ class ReaderPresenter(
     ) {
         if (!needsInit()) return
 
-        db.getManga(mangaId).asRxObservable()
-            .first()
-            .observeOn(AndroidSchedulers.mainThread())
-            .doOnNext { init(it, initialChapterId) }
-            .subscribeFirst(
-                { _, _ ->
-                    // Ignore onNext event
-                },
-                ReaderActivity::setInitialChapterError
-            )
+        presenterScope.launch {
+            try {
+                val manga = withIOContext { db.getManga(mangaId) }
+                if (manga != null) init(manga, initialChapterId)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                deliverToView { it.setInitialChapterError(e) }
+            }
+        }
     }
 
     /**
@@ -242,59 +265,56 @@ class ReaderPresenter(
         val source = sourceManager.getOrStub(manga.source)
         loader = ChapterLoader(context, downloadManager, manga, source)
 
-        Observable.just(manga).subscribeLatestCache(ReaderActivity::setManga)
-        viewerChaptersRelay.subscribeLatestCache(ReaderActivity::setChapters)
-        isLoadingAdjacentChapterRelay.subscribeLatestCache(ReaderActivity::setProgressDialog)
+        flowOf(manga).collectLatestCache(onNext = { view, value -> view.setManga(value) })
+        viewerChaptersFlow.collectLatestCache(ReaderActivity::setChapters)
+        isLoadingAdjacentChapterFlow.collectLatestCache(ReaderActivity::setProgressDialog)
 
-        // Read chapterList from an io thread because it's retrieved lazily and would block main.
-        activeChapterSubscription?.unsubscribe()
-        activeChapterSubscription =
-            Observable
-                .fromCallable { chapterList.first { chapterId == it.chapter.id } }
-                .flatMap { getLoadObservable(loader!!, it) }
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribeFirst(
-                    { _, _ ->
-                        // Ignore onNext event
-                    },
-                    ReaderActivity::setInitialChapterError
-                )
+        activeChapterJob?.cancel()
+        activeChapterJob =
+            presenterScope.launch {
+                try {
+                    // chapterList is retrieved lazily and would block main.
+                    val chapter = withIOContext { chapterList.first { chapterId == it.chapter.id } }
+                    loadChapter(loader!!, chapter)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Throwable) {
+                    deliverToView { it.setInitialChapterError(e) }
+                }
+            }
     }
 
     /**
      * Returns an observable that loads the given [chapter] with this [loader]. This observable
      * handles main thread synchronization and updating the currently active chapters on
-     * [viewerChaptersRelay], however callers must ensure there won't be more than one
+     * [viewerChaptersFlow], however callers must ensure there won't be more than one
      * subscription active by unsubscribing any existing [activeChapterSubscription] before.
      * Callers must also handle the onError event.
      */
-    private fun getLoadObservable(
+    private suspend fun loadChapter(
         loader: ChapterLoader,
         chapter: ReaderChapter
-    ): Observable<ViewerChapters> {
-        return loader.loadChapter(chapter)
-            .andThen(
-                Observable.fromCallable {
-                    val chapterPos = chapterList.indexOf(chapter)
+    ): ViewerChapters {
+        loader.loadChapter(chapter)
 
-                    ViewerChapters(
-                        chapter,
-                        chapterList.getOrNull(chapterPos - 1),
-                        chapterList.getOrNull(chapterPos + 1)
-                    )
-                }
+        val chapterPos = chapterList.indexOf(chapter)
+        val newChapters =
+            ViewerChapters(
+                chapter,
+                chapterList.getOrNull(chapterPos - 1),
+                chapterList.getOrNull(chapterPos + 1)
             )
-            .observeOn(AndroidSchedulers.mainThread())
-            .doOnNext { newChapters ->
-                val oldChapters = viewerChaptersRelay.value
 
-                // Add new references first to avoid unnecessary recycling
-                newChapters.ref()
-                oldChapters?.unref()
+        withUIContext {
+            val oldChapters = viewerChapters
 
-                viewerChaptersRelay.call(newChapters)
-            }
+            // Add new references first to avoid unnecessary recycling
+            newChapters.ref()
+            oldChapters?.unref()
+
+            viewerChaptersFlow.tryEmit(newChapters)
+        }
+        return newChapters
     }
 
     /**
@@ -306,18 +326,21 @@ class ReaderPresenter(
 
         Timber.d("Loading ${chapter.chapter.url}")
 
-        activeChapterSubscription?.unsubscribe()
-        activeChapterSubscription =
-            getLoadObservable(loader, chapter)
-                .toCompletable()
-                .onErrorComplete()
-                .subscribe()
-                .also(::add)
+        activeChapterJob?.cancel()
+        activeChapterJob =
+            presenterScope.launch {
+                try {
+                    loadChapter(loader, chapter)
+                } catch (e: Throwable) {
+                    // Previously onErrorComplete: failures surface through the chapter state.
+                    Timber.e(e)
+                }
+            }
     }
 
     /**
      * Called when the user is going to load the prev/next chapter through the menu button. It
-     * sets the [isLoadingAdjacentChapterRelay] that the view uses to prevent any further
+     * sets the [isLoadingAdjacentChapterFlow] that the view uses to prevent any further
      * interaction until the chapter is loaded.
      */
     private fun loadAdjacent(chapter: ReaderChapter) {
@@ -325,19 +348,22 @@ class ReaderPresenter(
 
         Timber.d("Loading adjacent ${chapter.chapter.url}")
 
-        activeChapterSubscription?.unsubscribe()
-        activeChapterSubscription =
-            getLoadObservable(loader, chapter)
-                .doOnSubscribe { isLoadingAdjacentChapterRelay.call(true) }
-                .doOnUnsubscribe { isLoadingAdjacentChapterRelay.call(false) }
-                .subscribeFirst(
-                    { view, _ ->
-                        view.moveToPageIndex(0)
-                    },
-                    { _, _ ->
-                        // Ignore onError event, viewers handle that state
-                    }
-                )
+        activeChapterJob?.cancel()
+        activeChapterJob =
+            presenterScope.launch {
+                isLoadingAdjacentChapterFlow.value = true
+                try {
+                    loadChapter(loader, chapter)
+                    deliverToView { it.moveToPageIndex(0) }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Throwable) {
+                    // Ignore the error, viewers handle that state
+                } finally {
+                    // Previously doOnUnsubscribe: also runs on error and cancellation.
+                    isLoadingAdjacentChapterFlow.value = false
+                }
+            }
     }
 
     /**
@@ -353,13 +379,17 @@ class ReaderPresenter(
 
         val loader = loader ?: return
 
-        loader.loadChapter(chapter)
-            .observeOn(AndroidSchedulers.mainThread())
-            // Update current chapters whenever a chapter is preloaded
-            .doOnCompleted { viewerChaptersRelay.value?.let(viewerChaptersRelay::call) }
-            .onErrorComplete()
-            .subscribe()
-            .also(::add)
+        presenterScope.launch {
+            try {
+                loader.loadChapter(chapter)
+                // Re-emit the current chapters whenever a chapter is preloaded, so the viewer
+                // picks up the newly loaded neighbour.
+                viewerChapters?.let { viewerChaptersFlow.tryEmit(it) }
+            } catch (e: Throwable) {
+                // Previously onErrorComplete.
+                Timber.e(e)
+            }
+        }
     }
 
     /**
@@ -368,7 +398,7 @@ class ReaderPresenter(
      * [page]'s chapter is different from the currently active.
      */
     fun onPageSelected(page: ReaderPage) {
-        val currentChapters = viewerChaptersRelay.value ?: return
+        val currentChapters = viewerChapters ?: return
 
         val selectedChapter = page.chapter
 
@@ -401,10 +431,14 @@ class ReaderPresenter(
      * Saves this [chapter] progress (last read page and whether it's read).
      */
     private fun saveChapterProgress(chapter: ReaderChapter) {
-        db.updateChapterProgress(chapter.chapter).asRxCompletable()
-            .onErrorComplete()
-            .subscribeOn(Schedulers.io())
-            .subscribe()
+        launchIO {
+            try {
+                db.updateChapterProgress(chapter.chapter)
+            } catch (e: Throwable) {
+                // Previously onErrorComplete.
+                Timber.e(e)
+            }
+        }
     }
 
     /**
@@ -412,10 +446,14 @@ class ReaderPresenter(
      */
     private fun saveChapterHistory(chapter: ReaderChapter) {
         val history = History.create(chapter.chapter).apply { last_read = Date().time }
-        db.updateHistoryLastRead(history).asRxCompletable()
-            .onErrorComplete()
-            .subscribeOn(Schedulers.io())
-            .subscribe()
+        launchIO {
+            try {
+                db.updateHistoryLastRead(history)
+            } catch (e: Throwable) {
+                // Previously onErrorComplete.
+                Timber.e(e)
+            }
+        }
     }
 
     /**
@@ -429,7 +467,7 @@ class ReaderPresenter(
      * Called from the activity to load and set the next chapter as active.
      */
     fun loadNextChapter() {
-        val nextChapter = viewerChaptersRelay.value?.nextChapter ?: return
+        val nextChapter = viewerChapters?.nextChapter ?: return
         loadAdjacent(nextChapter)
     }
 
@@ -437,7 +475,7 @@ class ReaderPresenter(
      * Called from the activity to load and set the previous chapter as active.
      */
     fun loadPreviousChapter() {
-        val prevChapter = viewerChaptersRelay.value?.prevChapter ?: return
+        val prevChapter = viewerChapters?.prevChapter ?: return
         loadAdjacent(prevChapter)
     }
 
@@ -445,7 +483,7 @@ class ReaderPresenter(
      * Returns the currently active chapter.
      */
     fun getCurrentChapter(): ReaderChapter? {
-        return viewerChaptersRelay.value?.currChapter
+        return viewerChapters?.currChapter
     }
 
     /**
@@ -458,7 +496,7 @@ class ReaderPresenter(
 
         val chapter = getCurrentChapter()?.chapter!!
         chapter.bookmark = bookmarked
-        db.updateChapterProgress(chapter).executeAsBlocking()
+        db.updateChapterProgress(chapter)
     }
 
     /**
@@ -481,11 +519,12 @@ class ReaderPresenter(
     fun setMangaViewer(viewer: Int) {
         val manga = manga ?: return
         manga.viewer = viewer
-        db.updateMangaViewer(manga).executeAsBlocking()
+        db.updateMangaViewer(manga)
 
-        Observable.timer(250, TimeUnit.MILLISECONDS, AndroidSchedulers.mainThread())
-            .subscribeFirst({ view, _ ->
-                val currChapters = viewerChaptersRelay.value
+        presenterScope.launch {
+            delay(250)
+            deliverToView { view ->
+                val currChapters = viewerChapters
                 if (currChapters != null) {
                     // Save current page
                     val currChapter = currChapters.currChapter
@@ -495,7 +534,8 @@ class ReaderPresenter(
                     view.setManga(manga)
                     view.setChapters(currChapters)
                 }
-            })
+            }
+        }
     }
 
     /**
@@ -551,18 +591,23 @@ class ReaderPresenter(
             )
 
         // Copy file in background.
-        Observable.fromCallable { saveImage(page, destDir, manga) }
-            .doOnNext { file ->
-                DiskUtil.scanMedia(context, file)
-                notifier.onComplete(file)
+        presenterScope.launch {
+            try {
+                val file =
+                    withIOContext {
+                        saveImage(page, destDir, manga).also {
+                            DiskUtil.scanMedia(context, it)
+                            notifier.onComplete(it)
+                        }
+                    }
+                deliverToView { it.onSaveImageResult(SaveImageResult.Success(file)) }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Throwable) {
+                notifier.onError(error.message)
+                deliverToView { it.onSaveImageResult(SaveImageResult.Error(error)) }
             }
-            .doOnError { notifier.onError(it.message) }
-            .subscribeOn(Schedulers.io())
-            .observeOn(AndroidSchedulers.mainThread())
-            .subscribeFirst(
-                { view, file -> view.onSaveImageResult(SaveImageResult.Success(file)) },
-                { view, error -> view.onSaveImageResult(SaveImageResult.Error(error)) }
-            )
+        }
     }
 
     /**
@@ -579,14 +624,20 @@ class ReaderPresenter(
 
         val destDir = File(context.cacheDir, "shared_image")
 
-        Observable.fromCallable { destDir.deleteRecursively() } // Keep only the last shared file
-            .map { saveImage(page, destDir, manga) }
-            .subscribeOn(Schedulers.io())
-            .observeOn(AndroidSchedulers.mainThread())
-            .subscribeFirst(
-                { view, file -> view.onShareImageResult(file) },
-                { _, _ -> /* Empty */ }
-            )
+        presenterScope.launch {
+            try {
+                val file =
+                    withIOContext {
+                        destDir.deleteRecursively() // Keep only the last shared file
+                        saveImage(page, destDir, manga)
+                    }
+                deliverToView { it.onShareImageResult(file) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                // Empty
+            }
+        }
     }
 
     /**
@@ -597,30 +648,32 @@ class ReaderPresenter(
         val manga = manga ?: return
         val stream = page.stream ?: return
 
-        Observable
-            .fromCallable {
-                if (manga.isLocal()) {
-                    val context = Injekt.get<Application>()
-                    LocalSource.updateCover(context, manga, stream())
-                    manga.updateCoverLastModified(db)
-                    R.string.cover_updated
-                    SetAsCoverResult.Success
-                } else {
-                    if (manga.favorite) {
-                        coverCache.setCustomCoverToCache(manga, stream())
-                        manga.updateCoverLastModified(db)
-                        SetAsCoverResult.Success
-                    } else {
-                        SetAsCoverResult.AddToLibraryFirst
+        presenterScope.launch {
+            try {
+                val result =
+                    withIOContext {
+                        if (manga.isLocal()) {
+                            val context = Injekt.get<Application>()
+                            LocalSource.updateCover(context, manga, stream())
+                            manga.updateCoverLastModified(db)
+                            SetAsCoverResult.Success
+                        } else {
+                            if (manga.favorite) {
+                                coverCache.setCustomCoverToCache(manga, stream())
+                                manga.updateCoverLastModified(db)
+                                SetAsCoverResult.Success
+                            } else {
+                                SetAsCoverResult.AddToLibraryFirst
+                            }
+                        }
                     }
-                }
+                deliverToView { it.onSetAsCoverResult(result) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                deliverToView { it.onSetAsCoverResult(SetAsCoverResult.Error) }
             }
-            .subscribeOn(Schedulers.io())
-            .observeOn(AndroidSchedulers.mainThread())
-            .subscribeFirst(
-                { view, result -> view.onSetAsCoverResult(result) },
-                { view, _ -> view.onSetAsCoverResult(SetAsCoverResult.Error) }
-            )
+        }
     }
 
     /**
@@ -654,38 +707,35 @@ class ReaderPresenter(
         val trackManager = Injekt.get<TrackManager>()
         val context = Injekt.get<Application>()
 
-        db.getTracks(manga).asRxSingle()
-            .flatMapCompletable { trackList ->
-                Completable.concat(
-                    trackList.map { track ->
-                        val service = trackManager.getService(track.sync_id)
-                        if (service != null && service.isLogged && chapterRead > track.last_chapter_read) {
-                            track.last_chapter_read = chapterRead
+        // These should finish even if the presenter is destroyed and leaks for a while;
+        // the view can still be garbage collected.
+        launchIO {
+            try {
+                db.getTracks(manga).forEach { track ->
+                    val service = trackManager.getService(track.sync_id)
+                    if (service != null && service.isLogged && chapterRead > track.last_chapter_read) {
+                        track.last_chapter_read = chapterRead
 
-                            // We want these to execute even if the presenter is destroyed and leaks
-                            // for a while. The view can still be garbage collected.
+                        try {
                             if (context.isOnline()) {
                                 Timber.d("Tracking ONLINE")
-                                Observable.defer { service.update(track) }
-                                    .map { db.insertTrack(track).executeAsBlocking() }
-                                    .toCompletable()
-                                    .onErrorComplete()
+                                service.update(track)
+                                db.insertTrack(track)
                             } else {
                                 Timber.d("Tracking OFFLINE")
-                                Observable.defer { delayedTrackingStore.addItem(track) }
-                                    .map { DelayedTrackingUpdateJob.setupTask(context) }
-                                    .toCompletable()
-                                    .onErrorComplete()
+                                delayedTrackingStore.addItem(track)
+                                DelayedTrackingUpdateJob.setupTask(context)
                             }
-                        } else {
-                            Completable.complete()
+                        } catch (e: Throwable) {
+                            // Previously onErrorComplete per track.
+                            Timber.e(e)
                         }
                     }
-                )
+                }
+            } catch (e: Throwable) {
+                Timber.e(e)
             }
-            .onErrorComplete()
-            .subscribeOn(Schedulers.io())
-            .subscribe()
+        }
     }
 
     /**
@@ -696,19 +746,21 @@ class ReaderPresenter(
         if (!chapter.chapter.read || chapter.pageLoader !is DownloadPageLoader) return
         val manga = manga ?: return
 
-        // Return if the setting is disabled
         val removeAfterReadSlots = preferences.removeAfterReadSlots()
-        if (removeAfterReadSlots == -1) return
+        if (removeAfterReadSlots == DownloadCleanup.KEEP_ALL) return
 
         launchIO {
-            // Position of the read chapter
-            val position = chapterList.indexOf(chapter)
+            // Which position to drop is the shared rule, so both apps count back the same way and
+            // agree on what the settings entries mean. `chapterList` is already in reading order
+            // here, which is what it expects.
+            val target =
+                DownloadCleanup.indexToDeleteAfterRead(
+                    count = chapterList.size,
+                    readIndex = chapterList.indexOf(chapter),
+                    slots = removeAfterReadSlots
+                ) ?: return@launchIO
 
-            // Retrieve chapter to delete according to preference
-            val chapterToDelete = chapterList.getOrNull(position - removeAfterReadSlots)
-            if (chapterToDelete != null) {
-                downloadManager.enqueueDeleteChapters(listOf(chapterToDelete.chapter), manga)
-            }
+            downloadManager.enqueueDeleteChapters(listOf(chapterList[target].chapter), manga)
         }
     }
 

@@ -3,7 +3,11 @@ package eu.kanade.tachiyomi.ui.extension
 import android.os.Bundle
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.ui.base.presenter.BasePresenter
-import rx.android.schedulers.AndroidSchedulers
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.take
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -20,15 +24,14 @@ class ExtensionDetailsPresenter(
     }
 
     private fun bindToUninstalledExtension() {
-        extensionManager.getInstalledExtensionsObservable()
-            .skip(1)
+        extensionManager.getInstalledExtensionsFlow()
+            .drop(1)
             .filter { extensions -> extensions.none { it.pkgName == pkgName } }
-            .map { Unit }
             .take(1)
-            .observeOn(AndroidSchedulers.mainThread())
-            .subscribeFirst({ view, _ ->
-                view.onExtensionUninstalled()
-            })
+            // subscribeFirst delivered once; collectLatestCache would re-fire this on every
+            // view re-attach, popping the screen again.
+            .onEach { deliverToView { it.onExtensionUninstalled() } }
+            .launchIn(presenterScope)
     }
 
     fun uninstallExtension() {

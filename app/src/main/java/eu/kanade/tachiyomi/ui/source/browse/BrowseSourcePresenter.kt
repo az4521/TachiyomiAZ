@@ -28,15 +28,15 @@ import eu.kanade.tachiyomi.ui.source.filter.TextItem
 import eu.kanade.tachiyomi.ui.source.filter.TextSectionItem
 import eu.kanade.tachiyomi.ui.source.filter.TriStateItem
 import eu.kanade.tachiyomi.ui.source.filter.TriStateSectionItem
-import eu.kanade.tachiyomi.util.lang.launchIO
-import eu.kanade.tachiyomi.util.lang.launchUI
 import eu.kanade.tachiyomi.util.removeCovers
+import eu.kanade.tachiyomi.util.system.launchIO
+import eu.kanade.tachiyomi.util.system.launchUI
+import eu.kanade.tachiyomi.util.system.withIOContext
 import eu.kanade.tachiyomi.util.system.withUIContext
 import exh.isEhBasedSource
 import exh.savedsearches.EXHSavedSearch
 import exh.savedsearches.JsonSavedSearch
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collect
@@ -47,9 +47,6 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
-import rx.Subscription
-import rx.android.schedulers.AndroidSchedulers
-import rx.schedulers.Schedulers
 import timber.log.Timber
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -105,18 +102,11 @@ open class BrowseSourcePresenter(
     /**
      * Flow of manga list to initialize.
      */
-    private val mangaDetailsFlow = MutableStateFlow<List<Manga>>(emptyList())
-
     /**
      * Subscription for the pager.
      */
-    private var pagerSubscription: Subscription? = null
+    private var pagerJob: Job? = null
     private var nextPageJob: Job? = null
-
-    /**
-     * Subscription for one request from the pager.
-     */
-    private var pageSubscription: Subscription? = null
 
     override fun onCreate(savedState: Bundle?) {
         super.onCreate(savedState)
@@ -165,15 +155,19 @@ open class BrowseSourcePresenter(
         val catalogueDisplayMode = prefs.catalogueDisplayMode()
 
         // Prepare the pager.
-        pagerSubscription?.let { remove(it) }
-        pagerSubscription =
+        pagerJob?.cancel()
+        pagerJob =
             pager.results()
-                .observeOn(Schedulers.io())
-                .map { pair -> pair.first to pair.second.map { networkToLocalManga(it, sourceId) } }
-                .doOnNext { initializeMangas(it.second) }
-                .map { pair -> pair.first to pair.second.map { SourceItem(it, catalogueDisplayMode) } }
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribeReplay(
+                .map { pair ->
+                    // networkToLocalManga writes to the database and initializeMangas kicks off
+                    // cover fetches, so keep both off the main thread as observeOn(io) did.
+                    withIOContext {
+                        val localManga = pair.second.map { networkToLocalManga(it, sourceId) }
+                        initializeMangas(localManga)
+                        pair.first to localManga.map { SourceItem(it, catalogueDisplayMode) }
+                    }
+                }
+                .collectReplay(
                     { view, (page, mangas) ->
                         view.onAddPage(page, mangas)
                     },
@@ -199,7 +193,7 @@ open class BrowseSourcePresenter(
                     pager.requestNextPage()
                 } catch (e: Throwable) {
                     withUIContext {
-                        view().subscribe { view -> view?.onAddPageError(e) }
+                        deliverToView { it.onAddPageError(e) }
                     }
                 }
             }
@@ -223,12 +217,12 @@ open class BrowseSourcePresenter(
         sManga: SManga,
         sourceId: Long
     ): Manga {
-        var localManga = db.getManga(sManga.url, sourceId).executeAsBlocking()
+        var localManga = db.getManga(sManga.url, sourceId)
         if (localManga == null) {
             val newManga = Manga.create(sManga.url, sManga.title, sourceId)
             newManga.copyFrom(sManga)
-            val result = db.insertManga(newManga).executeAsBlocking()
-            newManga.id = result.insertedId()
+            // insertManga assigns the generated id back onto newManga.
+            db.insertManga(newManga)
             localManga = newManga
         }
         return localManga
@@ -266,7 +260,7 @@ open class BrowseSourcePresenter(
             val networkManga = source.getMangaUpdate(manga, emptyList(), fetchDetails = true, fetchChapters = false).manga
             manga.copyFrom(networkManga)
             manga.initialized = true
-            db.insertManga(manga).executeAsBlocking()
+            db.insertManga(manga)
         } catch (e: Exception) {
             Timber.e(e)
         }
@@ -290,7 +284,7 @@ open class BrowseSourcePresenter(
             manga.removeCovers(coverCache)
         }
 
-        db.insertManga(manga).executeAsBlocking()
+        db.insertManga(manga)
     }
 
     /**
@@ -360,7 +354,7 @@ open class BrowseSourcePresenter(
      * @return List of categories, not including the default category
      */
     fun getCategories(): List<Category> {
-        return db.getCategories().executeAsBlocking()
+        return db.getCategories()
     }
 
     /**
@@ -370,7 +364,7 @@ open class BrowseSourcePresenter(
      * @return Array of category ids the manga is in, if none returns default id
      */
     fun getMangaCategoryIds(manga: Manga): Array<Int?> {
-        val categories = db.getCategoriesForManga(manga).executeAsBlocking()
+        val categories = db.getCategoriesForManga(manga)
         return categories.mapNotNull { it.id }.toTypedArray()
     }
 

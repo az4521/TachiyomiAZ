@@ -2,7 +2,6 @@ package eu.kanade.tachiyomi.data.download
 
 import android.content.Context
 import com.hippo.unifile.UniFile
-import com.jakewharton.rxrelay.BehaviorRelay
 import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.data.download.model.Download
@@ -10,7 +9,8 @@ import eu.kanade.tachiyomi.data.download.model.DownloadQueue
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.source.model.Page
-import rx.Observable
+import eu.kanade.tachiyomi.util.lang.compareToCaseInsensitiveNaturalOrder
+import kotlinx.coroutines.flow.StateFlow
 import timber.log.Timber
 import uy.kohesive.injekt.injectLazy
 
@@ -56,8 +56,8 @@ class DownloadManager(private val context: Context) {
     /**
      * Subject for subscribing to downloader status.
      */
-    val runningRelay: BehaviorRelay<Boolean>
-        get() = downloader.runningRelay
+    val runningFlow: StateFlow<Boolean>
+        get() = downloader.runningFlow
 
     /**
      * Tells the downloader to begin downloads.
@@ -143,7 +143,7 @@ class DownloadManager(private val context: Context) {
         source: Source,
         manga: Manga,
         chapter: Chapter
-    ): Observable<List<Page>> {
+    ): List<Page> {
         return buildPageList(provider.findChapterDir(chapter, manga, source))
     }
 
@@ -153,21 +153,24 @@ class DownloadManager(private val context: Context) {
      * @param chapterDir the file where the chapter is downloaded.
      * @return an observable containing the list of pages from the chapter.
      */
-    private fun buildPageList(chapterDir: UniFile?): Observable<List<Page>> {
-        return Observable.fromCallable {
-            val files =
-                chapterDir?.listFiles().orEmpty()
-                    .filter { "image" in it.type.orEmpty() }
+    private fun buildPageList(chapterDir: UniFile?): List<Page> {
+        val files =
+            chapterDir?.listFiles().orEmpty()
+                .filter { "image" in it.type.orEmpty() }
 
-            if (files.isEmpty()) {
-                throw Exception("Page list is empty")
-            }
-
-            files.sortedBy { it.name }
-                .mapIndexed { i, file ->
-                    Page(i, uri = file.uri).apply { status = Page.READY }
-                }
+        if (files.isEmpty()) {
+            throw Exception("Page list is empty")
         }
+
+        // Natural order, not lexicographic: older downloads have unpadded names, where "1000.jpg"
+        // would otherwise sort ahead of "999.jpg".
+        return files
+            .sortedWith { f1, f2 ->
+                f1.name.orEmpty().compareToCaseInsensitiveNaturalOrder(f2.name.orEmpty())
+            }
+            .mapIndexed { i, file ->
+                Page(i, uri = file.uri).apply { status = Page.READY }
+            }
     }
 
     /**

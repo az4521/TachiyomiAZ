@@ -1,0 +1,33 @@
+gradle.beforeProject { project ->
+    def jcefRepository = project.repositories.maven {
+        name = "tachiyomiazJetBrainsCacheRedirector"
+        url = project.uri(
+            "https://cache-redirector.jetbrains.com/intellij-dependencies"
+        )
+    }
+    project.repositories.exclusiveContent {
+        forRepositories(jcefRepository)
+        filter {
+            includeGroup("org.jetbrains.intellij.deps.jcef")
+        }
+    }
+}
+
+gradle.afterProject { project ->
+    if (project.path == ":server") {
+        def outputDirectory =
+            gradle.startParameter.projectProperties["tachiazRuntimeOutput"]
+        if (outputDirectory == null || outputDirectory.isEmpty()) {
+            throw new GradleException(
+                "Pass -PtachiazRuntimeOutput=/absolute/output/path"
+            )
+        }
+
+        project.tasks.register("copyTachiazRuntime", Copy) {
+            dependsOn(project.tasks.named("jar"))
+            from(project.tasks.named("jar"))
+            from(project.configurations.named("runtimeClasspath"))
+            into(outputDirectory)
+        }
+    }
+}

@@ -46,7 +46,6 @@ import exh.metadata.metadata.base.getFlatMetadataForManga
 import exh.metadata.nullIfBlank
 import exh.uconfig.WarnConfigureDialogController
 import exh.ui.login.LoginController
-import exh.util.await
 import exh.util.trans
 import humanize.Humanize
 import kotlinx.coroutines.Dispatchers
@@ -628,10 +627,10 @@ class SettingsEhController : SettingsController() {
                                         }
 
                                     val allMeta =
-                                        db.getFavoriteMangaWithMetadata().await().filter {
+                                        db.getFavoriteMangaWithMetadata().filter {
                                             it.source == EH_SOURCE_ID || it.source == EXH_SOURCE_ID
                                         }.mapNotNull {
-                                            db.getFlatMetadataForManga(it.id!!).await()
+                                            db.getFlatMetadataForManga(it.id!!)
                                                 ?.raise<EHentaiSearchMetadata>()
                                         }.toList()
 

@@ -35,7 +35,6 @@ import eu.kanade.tachiyomi.data.database.models.TrackImpl
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.source.LocalSource
 import eu.kanade.tachiyomi.source.Source
-import eu.kanade.tachiyomi.util.lang.runAsObservable
 import exh.savedsearches.JsonSavedSearch
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -51,7 +50,6 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
 import kotlinx.serialization.json.put
-import rx.Observable
 import timber.log.Timber
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -264,7 +262,7 @@ class LegacyBackupManager(context: Context, version: Int = CURRENT_VERSION) : Ab
      * @param root list to add category entries to
      */
     internal fun backupCategories(root: MutableList<JsonElement>) {
-        val categories = databaseHelper.getCategories().executeAsBlocking()
+        val categories = databaseHelper.getCategories()
         categories.forEach { root.add(categoryToJson(it)) }
     }
 
@@ -285,7 +283,7 @@ class LegacyBackupManager(context: Context, version: Int = CURRENT_VERSION) : Ab
             // Check if user wants chapter information in backup
             if (options and BACKUP_CHAPTER_MASK == BACKUP_CHAPTER) {
                 // Backup all the chapters
-                val chapters = databaseHelper.getChapters(manga).executeAsBlocking()
+                val chapters = databaseHelper.getChapters(manga)
                 if (chapters.isNotEmpty()) {
                     val chaptersJson = JsonArray(chapters.mapNotNull { chapterToJson(it) })
                     if (chaptersJson.size > 0) {
@@ -297,7 +295,7 @@ class LegacyBackupManager(context: Context, version: Int = CURRENT_VERSION) : Ab
             // Check if user wants category information in backup
             if (options and BACKUP_CATEGORY_MASK == BACKUP_CATEGORY) {
                 // Backup categories for this manga
-                val categoriesForManga = databaseHelper.getCategoriesForManga(manga).executeAsBlocking()
+                val categoriesForManga = databaseHelper.getCategoriesForManga(manga)
                 if (categoriesForManga.isNotEmpty()) {
                     put(
                         CATEGORIES,
@@ -310,7 +308,7 @@ class LegacyBackupManager(context: Context, version: Int = CURRENT_VERSION) : Ab
 
             // Check if user wants track information in backup
             if (options and BACKUP_TRACK_MASK == BACKUP_TRACK) {
-                val tracks = databaseHelper.getTracks(manga).executeAsBlocking()
+                val tracks = databaseHelper.getTracks(manga)
                 if (tracks.isNotEmpty()) {
                     put(TRACK, JsonArray(tracks.map { trackToJson(it) }))
                 }
@@ -318,11 +316,11 @@ class LegacyBackupManager(context: Context, version: Int = CURRENT_VERSION) : Ab
 
             // Check if user wants history information in backup
             if (options and BACKUP_HISTORY_MASK == BACKUP_HISTORY) {
-                val historyForManga = databaseHelper.getHistoryByMangaId(manga.id!!).executeAsBlocking()
+                val historyForManga = databaseHelper.getHistoryByMangaId(manga.id!!)
                 if (historyForManga.isNotEmpty()) {
                     val historyData =
                         historyForManga.mapNotNull { history ->
-                            val url = databaseHelper.getChapter(history.chapter_id).executeAsBlocking()?.url
+                            val url = databaseHelper.getChapter(history.chapter_id)?.url
                             url?.let { DHistory(url, history.last_read) }
                         }
                     val historyJson = JsonArray(historyData.mapNotNull { historyToJson(it) })
@@ -351,18 +349,16 @@ class LegacyBackupManager(context: Context, version: Int = CURRENT_VERSION) : Ab
      * @param manga manga that needs updating
      * @return [Observable] that contains manga
      */
-    fun restoreMangaFetchObservable(
+    suspend fun restoreMangaFetch(
         source: Source,
         manga: Manga
-    ): Observable<Manga> {
-        return runAsObservable({
-            val networkManga = source.getMangaUpdate(manga, emptyList(), fetchDetails = true, fetchChapters = false).manga
-            manga.copyFrom(networkManga)
-            manga.favorite = true
-            manga.initialized = true
-            manga.id = insertManga(manga)
-            manga
-        })
+    ): Manga {
+        val networkManga = source.getMangaUpdate(manga, emptyList(), fetchDetails = true, fetchChapters = false).manga
+        manga.copyFrom(networkManga)
+        manga.favorite = true
+        manga.initialized = true
+        manga.id = insertManga(manga)
+        return manga
     }
 
     /**
@@ -372,7 +368,7 @@ class LegacyBackupManager(context: Context, version: Int = CURRENT_VERSION) : Ab
      */
     internal fun restoreCategories(jsonCategories: JsonArray) {
         // Get categories from file and from db
-        val dbCategories = databaseHelper.getCategories().executeAsBlocking()
+        val dbCategories = databaseHelper.getCategories()
         val backupCategories = jsonCategories.map { jsonToCategory(it) }
 
         // Iterate over them
@@ -393,8 +389,8 @@ class LegacyBackupManager(context: Context, version: Int = CURRENT_VERSION) : Ab
             if (!found) {
                 // Let the db assign the id
                 category.id = null
-                val result = databaseHelper.insertCategory(category).executeAsBlocking()
-                category.id = result.insertedId()?.toInt()
+                // insertCategory assigns the generated id back onto the category.
+                databaseHelper.insertCategory(category)
             }
         }
     }
@@ -409,7 +405,7 @@ class LegacyBackupManager(context: Context, version: Int = CURRENT_VERSION) : Ab
         manga: Manga,
         categories: List<String>
     ) {
-        val dbCategories = databaseHelper.getCategories().executeAsBlocking()
+        val dbCategories = databaseHelper.getCategories()
         val mangaCategoriesToUpdate = mutableListOf<MangaCategory>()
         for (backupCategoryStr in categories) {
             for (dbCategory in dbCategories) {
@@ -422,8 +418,8 @@ class LegacyBackupManager(context: Context, version: Int = CURRENT_VERSION) : Ab
 
         // Update database
         if (mangaCategoriesToUpdate.isNotEmpty()) {
-            databaseHelper.deleteOldMangasCategories(listOf(manga)).executeAsBlocking()
-            databaseHelper.insertMangasCategories(mangaCategoriesToUpdate).executeAsBlocking()
+            databaseHelper.deleteOldMangasCategories(listOf(manga))
+            databaseHelper.insertMangasCategories(mangaCategoriesToUpdate)
         }
     }
 
@@ -436,7 +432,7 @@ class LegacyBackupManager(context: Context, version: Int = CURRENT_VERSION) : Ab
         // List containing history to be updated
         val historyToBeUpdated = mutableListOf<History>()
         for ((url, lastRead) in history) {
-            val dbHistory = databaseHelper.getHistoryByChapterUrl(url).executeAsBlocking()
+            val dbHistory = databaseHelper.getHistoryByChapterUrl(url)
             // Check if history already in database and update
             if (dbHistory != null) {
                 dbHistory.apply {
@@ -445,7 +441,7 @@ class LegacyBackupManager(context: Context, version: Int = CURRENT_VERSION) : Ab
                 historyToBeUpdated.add(dbHistory)
             } else {
                 // If not in database create
-                databaseHelper.getChapter(url).executeAsBlocking()?.let {
+                databaseHelper.getChapter(url)?.let {
                     val historyToAdd =
                         History.create(it).apply {
                             last_read = lastRead
@@ -454,7 +450,7 @@ class LegacyBackupManager(context: Context, version: Int = CURRENT_VERSION) : Ab
                 }
             }
         }
-        databaseHelper.updateHistoryLastRead(historyToBeUpdated).executeAsBlocking()
+        databaseHelper.updateHistoryLastRead(historyToBeUpdated)
     }
 
     /**
@@ -471,7 +467,7 @@ class LegacyBackupManager(context: Context, version: Int = CURRENT_VERSION) : Ab
         tracks.map { it.manga_id = manga.id!! }
 
         // Get tracks from database
-        val dbTracks = databaseHelper.getTracks(manga).executeAsBlocking()
+        val dbTracks = databaseHelper.getTracks(manga)
         val trackToUpdate = mutableListOf<Track>()
 
         tracks.forEach { track ->
@@ -502,7 +498,7 @@ class LegacyBackupManager(context: Context, version: Int = CURRENT_VERSION) : Ab
         }
         // Update database
         if (trackToUpdate.isNotEmpty()) {
-            databaseHelper.insertTracks(trackToUpdate).executeAsBlocking()
+            databaseHelper.insertTracks(trackToUpdate)
         }
     }
 
@@ -517,7 +513,7 @@ class LegacyBackupManager(context: Context, version: Int = CURRENT_VERSION) : Ab
         manga: Manga,
         chapters: List<Chapter>
     ): Boolean {
-        val dbChapters = databaseHelper.getChapters(manga).executeAsBlocking()
+        val dbChapters = databaseHelper.getChapters(manga)
 
         // Return if fetch is needed
         if (dbChapters.isEmpty() || dbChapters.size < chapters.size) {

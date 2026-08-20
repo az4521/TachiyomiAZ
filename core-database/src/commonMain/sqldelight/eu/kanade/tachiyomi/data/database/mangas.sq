@@ -1,0 +1,172 @@
+-- Mirrors MangaTable.createTableQuery exactly. DbOpenCallback owns creation and migration
+-- of the real database; this definition exists only so SQLDelight can type the queries.
+CREATE TABLE mangas(
+    _id INTEGER NOT NULL PRIMARY KEY,
+    source INTEGER NOT NULL,
+    url TEXT NOT NULL,
+    artist TEXT,
+    author TEXT,
+    description TEXT,
+    genre TEXT,
+    title TEXT NOT NULL,
+    status INTEGER NOT NULL,
+    thumbnail_url TEXT,
+    favorite INTEGER NOT NULL,
+    last_update INTEGER,
+    initialized INTEGER NOT NULL,
+    viewer INTEGER NOT NULL,
+    chapter_flags INTEGER NOT NULL,
+    cover_last_modified INTEGER NOT NULL,
+    date_added INTEGER NOT NULL,
+    update_strategy INTEGER NOT NULL DEFAULT 0,
+    memo BLOB NOT NULL DEFAULT '{}'
+);
+
+CREATE INDEX mangas_url_index ON mangas(url);
+CREATE INDEX library_favorite_index ON mangas(favorite) WHERE favorite = 1;
+
+getMangaById:
+SELECT * FROM mangas WHERE _id = ?;
+
+getMangaByUrlAndSource:
+SELECT * FROM mangas WHERE url = ? AND source = ? LIMIT 1;
+
+getFavoriteMangas:
+SELECT * FROM mangas WHERE favorite = 1 ORDER BY title;
+
+getMangas:
+SELECT * FROM mangas;
+
+getMangaById2:
+SELECT * FROM mangas WHERE _id = ?;
+
+getMergedMangas:
+SELECT mangas.* FROM mangas
+JOIN merged ON mangas._id = merged.mangaID
+WHERE merged.mergeID = ?;
+
+insertManga:
+INSERT INTO mangas(
+    source, url, artist, author, description, genre, title, status, thumbnail_url,
+    favorite, last_update, initialized, viewer, chapter_flags, cover_last_modified,
+    date_added, update_strategy, memo
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+updateManga:
+UPDATE mangas SET
+    source = ?, url = ?, artist = ?, author = ?, description = ?, genre = ?, title = ?,
+    status = ?, thumbnail_url = ?, favorite = ?, last_update = ?, initialized = ?,
+    viewer = ?, chapter_flags = ?, cover_last_modified = ?, date_added = ?,
+    update_strategy = ?, memo = ?
+WHERE _id = ?;
+
+updateFlags:
+UPDATE mangas SET chapter_flags = ? WHERE _id = ?;
+
+updateLastUpdated:
+UPDATE mangas SET last_update = ? WHERE _id = ?;
+
+updateMangaFavorite:
+UPDATE mangas SET favorite = ? WHERE _id = ?;
+
+updateMangaViewer:
+UPDATE mangas SET viewer = ? WHERE _id = ?;
+
+updateMangaTitle:
+UPDATE mangas SET title = ? WHERE _id = ?;
+
+updateMangaCoverLastModified:
+UPDATE mangas SET cover_last_modified = ? WHERE _id = ?;
+
+deleteManga:
+DELETE FROM mangas WHERE _id = ?;
+
+deleteMangasNotInLibrary:
+DELETE FROM mangas WHERE favorite = 0;
+
+deleteMangas:
+DELETE FROM mangas;
+
+lastInsertRowId:
+SELECT last_insert_rowid();
+
+-- Library view: every favourite manga, once per category it belongs to (or category 0 when
+-- uncategorised), with its unread count. `unread` and `category` are computed aliases, not
+-- columns on mangas -- which is why they are absent from the table definition above.
+-- `readCount` answers "has this been started", which the library-update skip settings need. It
+-- comes from the same pass over chapters as `unread` -- conditional sums rather than a second
+-- WHERE'd subquery and a second join -- so the extra answer costs nothing. Written with CASE
+-- rather than COUNT(*) FILTER because FILTER needs SQLite 3.30, which is newer than the version
+-- bundled with the Android versions this app still supports.
+getLibraryMangas:
+SELECT M.*, COALESCE(MC.category_id, 0) AS category
+FROM (
+    SELECT mangas.*, COALESCE(C.unread, 0) AS unread, COALESCE(C.readCount, 0) AS readCount
+    FROM mangas
+    LEFT JOIN (
+        SELECT manga_id,
+            SUM(CASE WHEN read = 0 THEN 1 ELSE 0 END) AS unread,
+            SUM(CASE WHEN read = 1 THEN 1 ELSE 0 END) AS readCount
+        FROM chapters
+        GROUP BY manga_id
+    ) AS C
+    ON mangas._id = C.manga_id
+    WHERE mangas.favorite = 1
+    GROUP BY mangas._id
+    ORDER BY mangas.title
+) AS M
+LEFT JOIN (
+    SELECT * FROM mangas_categories) AS MC
+    ON MC.manga_id = M._id;
+
+getMangaByUrlAndSourceFlow:
+SELECT * FROM mangas WHERE url = ? AND source = ? LIMIT 1;
+
+getFavoriteMangasFlow:
+SELECT * FROM mangas WHERE favorite = 1 ORDER BY title;
+
+getLastReadManga:
+SELECT mangas.*
+FROM mangas
+JOIN chapters ON mangas._id = chapters.manga_id
+JOIN history ON chapters._id = history.history_chapter_id
+WHERE mangas.favorite = 1
+GROUP BY mangas._id
+ORDER BY MAX(history.history_last_read) DESC;
+
+getTotalChapterManga:
+SELECT mangas.*
+FROM mangas
+JOIN chapters ON mangas._id = chapters.manga_id
+GROUP BY mangas._id
+ORDER BY COUNT(*);
+
+getLatestChapterManga:
+SELECT mangas.*
+FROM mangas
+JOIN chapters ON mangas._id = chapters.manga_id
+GROUP BY mangas._id
+ORDER BY MAX(chapters.date_upload) DESC;
+
+getMangaWithMetadata:
+SELECT mangas.* FROM mangas
+INNER JOIN search_metadata ON mangas._id = search_metadata.manga_id
+ORDER BY mangas._id;
+
+getFavoriteMangaWithMetadata:
+SELECT mangas.* FROM mangas
+INNER JOIN search_metadata ON mangas._id = search_metadata.manga_id
+WHERE mangas.favorite = 1
+ORDER BY mangas._id;
+
+getIdsOfFavoriteMangaWithMetadata:
+SELECT mangas._id FROM mangas
+INNER JOIN search_metadata ON mangas._id = search_metadata.manga_id
+WHERE mangas.favorite = 1
+ORDER BY mangas._id;
+
+getMangasBySource:
+SELECT * FROM mangas WHERE source = ?;
+
+updateMangaUrl:
+UPDATE mangas SET url = ? WHERE _id = ?;

@@ -22,6 +22,7 @@ import eu.kanade.tachiyomi.ui.manga.MangaController
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.source.browse.ProgressItem
 import eu.kanade.tachiyomi.util.system.toast
+import eu.kanade.tachiyomi.util.view.deferStateRestorationUntilItemsAreLoaded
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
@@ -84,7 +85,7 @@ class HistoryController :
 
         // Initialize adapter
         binding.recycler.layoutManager = LinearLayoutManager(view.context)
-        adapter = HistoryAdapter(this@HistoryController)
+        adapter = HistoryAdapter(this@HistoryController).apply { deferStateRestorationUntilItemsAreLoaded() }
         binding.recycler.setHasFixedSize(true)
         binding.recycler.adapter = adapter
     }

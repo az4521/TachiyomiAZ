@@ -18,6 +18,12 @@ import eu.kanade.tachiyomi.ui.base.controller.BaseController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.isActive
 import rx.Observable
 import rx.Subscription
 import rx.subscriptions.CompositeSubscription
@@ -29,6 +35,9 @@ abstract class SettingsController : PreferenceController() {
     val scope = CoroutineScope(Job() + Dispatchers.Main)
 
     var untilDestroySubscriptions = CompositeSubscription()
+
+    /** Scope with the same lifetime as [untilDestroySubscriptions]. */
+    var viewScope: CoroutineScope = MainScope()
         private set
 
     override fun onCreateView(
@@ -39,12 +48,16 @@ abstract class SettingsController : PreferenceController() {
         if (untilDestroySubscriptions.isUnsubscribed) {
             untilDestroySubscriptions = CompositeSubscription()
         }
+        if (!viewScope.isActive) {
+            viewScope = MainScope()
+        }
         return super.onCreateView(inflater, container, savedInstanceState)
     }
 
     override fun onDestroyView(view: View) {
         super.onDestroyView(view)
         untilDestroySubscriptions.unsubscribe()
+        viewScope.cancel()
     }
 
     override fun onCreatePreferences(
@@ -94,4 +107,8 @@ abstract class SettingsController : PreferenceController() {
     fun <T> Observable<T>.subscribeUntilDestroy(onNext: (T) -> Unit): Subscription {
         return subscribe(onNext).also { untilDestroySubscriptions.add(it) }
     }
+
+    /** Coroutine counterpart of [subscribeUntilDestroy]. */
+    fun <T> Flow<T>.collectUntilDestroy(onNext: (T) -> Unit): Job =
+        onEach(onNext).launchIn(viewScope)
 }

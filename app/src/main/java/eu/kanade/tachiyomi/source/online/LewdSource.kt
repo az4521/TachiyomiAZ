@@ -57,7 +57,7 @@ interface LewdSource<M : RaisedSearchMetadata, I> : CatalogueSource {
             if (mangaId != null) {
                 // We have to use fromCallable because StorIO messes up the thread scheduling if we use their rx functions
                 Single.fromCallable {
-                    db.getFlatMetadataForManga(mangaId).executeAsBlocking()
+                    db.getFlatMetadataForManga(mangaId)
                 }.map {
                     it?.raise(metaClass) ?: newMetaInstance()
                 }
@@ -72,7 +72,7 @@ interface LewdSource<M : RaisedSearchMetadata, I> : CatalogueSource {
         }.flatMapCompletable {
             if (mangaId != null) {
                 it.mangaId = mangaId
-                db.insertFlatMetadata(it.flatten())
+                Completable.fromCallable { db.insertFlatMetadata(it.flatten()) }
             } else {
                 Completable.complete()
             }
@@ -94,7 +94,7 @@ interface LewdSource<M : RaisedSearchMetadata, I> : CatalogueSource {
             if (mangaId != null) {
                 // We have to use fromCallable because StorIO messes up the thread scheduling if we use their rx functions
                 Single.fromCallable {
-                    db.getFlatMetadataForManga(mangaId).executeAsBlocking()
+                    db.getFlatMetadataForManga(mangaId)
                 }.map {
                     it?.raise(metaClass)
                 }
@@ -110,7 +110,8 @@ interface LewdSource<M : RaisedSearchMetadata, I> : CatalogueSource {
                     val newMetaSingle = Single.just(newMeta)
                     if (mangaId != null) {
                         newMeta.mangaId = mangaId
-                        db.insertFlatMetadata(newMeta.flatten()).andThen(newMetaSingle)
+                        Completable.fromCallable { db.insertFlatMetadata(newMeta.flatten()) }
+                            .andThen(newMetaSingle)
                     } else {
                         newMetaSingle
                     }

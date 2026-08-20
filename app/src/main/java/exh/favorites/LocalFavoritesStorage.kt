@@ -28,7 +28,6 @@ class LocalFavoritesStorage {
             parseToFavoriteEntries(
                 loadDbCategories(
                     db.getFavoriteMangas()
-                        .executeAsBlocking()
                         .asSequence()
                 )
             )
@@ -57,7 +56,6 @@ class LocalFavoritesStorage {
             parseToFavoriteEntries(
                 loadDbCategories(
                     db.getFavoriteMangas()
-                        .executeAsBlocking()
                         .asSequence()
                 )
             )
@@ -113,10 +111,10 @@ class LocalFavoritesStorage {
     }
 
     private fun loadDbCategories(manga: Sequence<Manga>): Sequence<Pair<Int, Manga>> {
-        val dbCategories = db.getCategories().executeAsBlocking()
+        val dbCategories = db.getCategories()
 
         return manga.filter(this::validateDbManga).mapNotNull {
-            val category = db.getCategoriesForManga(it).executeAsBlocking()
+            val category = db.getCategoriesForManga(it)
 
             Pair(
                 dbCategories.indexOf(

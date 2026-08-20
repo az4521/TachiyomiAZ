@@ -7,11 +7,8 @@ import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.TrackService
 import eu.kanade.tachiyomi.data.track.mangabaka.dto.MangaBakaOAuth
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
-import eu.kanade.tachiyomi.util.lang.runAsObservable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import rx.Completable
-import rx.Observable
 import uy.kohesive.injekt.injectLazy
 
 class MangaBaka(private val context: Context, id: Int) : TrackService(id) {
@@ -55,12 +52,12 @@ class MangaBaka(private val context: Context, id: Int) : TrackService(id) {
         return track.score.toInt().toString()
     }
 
-    override fun add(track: Track): Observable<Track> {
-        return runAsObservable({ api.addLibManga(track) })
+    override suspend fun add(track: Track): Track {
+        return api.addLibManga(track)
     }
 
-    override fun update(track: Track): Observable<Track> {
-        return runAsObservable({ updateInternal(track) })
+    override suspend fun update(track: Track): Track {
+        return updateInternal(track)
     }
 
     private suspend fun updateInternal(track: Track): Track {
@@ -70,50 +67,48 @@ class MangaBaka(private val context: Context, id: Int) : TrackService(id) {
         return api.updateLibManga(track)
     }
 
-    override fun bind(track: Track): Observable<Track> {
-        return runAsObservable({
-            val remoteTrack = api.findLibManga(track)
-            if (remoteTrack != null) {
-                track.copyPersonalFrom(remoteTrack)
-                track.library_id = remoteTrack.library_id
-                if (track.status != COMPLETED) {
-                    track.status = if (track.last_chapter_read > 0) READING else track.status
-                }
-                updateInternal(track)
-            } else {
-                track.status = if (track.last_chapter_read > 0) READING else PLAN_TO_READ
-                track.score = 0f
-                api.addLibManga(track)
-            }
-        })
-    }
-
-    override fun search(query: String): Observable<List<TrackSearch>> {
-        return runAsObservable({ api.search(query) })
-    }
-
-    override fun refresh(track: Track): Observable<Track> {
-        return runAsObservable({
-            val remoteTrack = api.findLibManga(track) ?: throw Exception("Could not find manga")
+    override suspend fun bind(track: Track): Track {
+        val remoteTrack = api.findLibManga(track)
+        return if (remoteTrack != null) {
             track.copyPersonalFrom(remoteTrack)
-            track.total_chapters = remoteTrack.total_chapters
-            track
-        })
+            track.library_id = remoteTrack.library_id
+            if (track.status != COMPLETED) {
+                track.status = if (track.last_chapter_read > 0) READING else track.status
+            }
+            updateInternal(track)
+        } else {
+            track.status = if (track.last_chapter_read > 0) READING else PLAN_TO_READ
+            track.score = 0f
+            api.addLibManga(track)
+        }
     }
 
-    override fun login(
+    override suspend fun search(query: String): List<TrackSearch> {
+        return api.search(query)
+    }
+
+    override suspend fun refresh(track: Track): Track {
+        val remoteTrack = api.findLibManga(track) ?: throw Exception("Could not find manga")
+        track.copyPersonalFrom(remoteTrack)
+        track.total_chapters = remoteTrack.total_chapters
+        return track
+    }
+
+    override suspend fun login(
         username: String,
         password: String
     ) = login(password)
 
-    fun login(code: String): Completable {
-        return runAsObservable({
+    suspend fun login(code: String) {
+        try {
             val oauth = api.getAccessToken(code)
             interceptor.setAuth(oauth)
             val user = api.getCurrentUser()
             saveCredentials(user.preferredUsername ?: user.nickname ?: user.id, oauth.accessToken)
-        }).doOnError { logout() }
-            .toCompletable()
+        } catch (e: Throwable) {
+            logout()
+            throw e
+        }
     }
 
     override fun logout() {

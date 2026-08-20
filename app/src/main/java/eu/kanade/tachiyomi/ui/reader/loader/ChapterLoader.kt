@@ -11,11 +11,8 @@ import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import eu.kanade.tachiyomi.util.storage.openReadOnlyChannel
 import eu.kanade.tachiyomi.util.storage.toInputStream
+import eu.kanade.tachiyomi.util.system.withIOContext
 import exh.debug.DebugFunctions.prefs
-import rx.Completable
-import rx.Observable
-import rx.android.schedulers.AndroidSchedulers
-import rx.schedulers.Schedulers
 import timber.log.Timber
 
 /**
@@ -28,61 +25,59 @@ class ChapterLoader(
     private val source: Source
 ) {
     /**
-     * Returns a completable that assigns the page loader and loads the its pages. It just
-     * completes if the chapter is already loaded.
+     * Assigns the page loader and loads its pages. Returns immediately if the chapter is
+     * already loaded.
      */
-    fun loadChapter(chapter: ReaderChapter): Completable {
+    suspend fun loadChapter(chapter: ReaderChapter) {
         if (chapterIsReady(chapter)) {
-            return Completable.complete()
+            return
         }
 
-        return Observable.just(chapter)
-            .doOnNext { chapter.state = ReaderChapter.State.Loading }
-            .observeOn(Schedulers.io())
-            .flatMap { readerChapter ->
-                Timber.d("Loading pages for ${chapter.chapter.name}")
+        chapter.state = ReaderChapter.State.Loading
+        try {
+            Timber.d("Loading pages for ${chapter.chapter.name}")
 
-                val loader = getPageLoader(readerChapter)
-                chapter.pageLoader = loader
+            val loader = getPageLoader(chapter)
+            chapter.pageLoader = loader
 
-                loader.getPages().take(1).doOnNext { pages ->
-                    pages.forEach { it.chapter = chapter }
-                }
-            }
-            .observeOn(AndroidSchedulers.mainThread())
-            .doOnNext { pages ->
-                if (pages.isEmpty()) {
-                    throw Exception("Page list is empty")
+            val pages =
+                withIOContext {
+                    loader.getPages().also { pages ->
+                        pages.forEach { it.chapter = chapter }
+                    }
                 }
 
-                chapter.state = ReaderChapter.State.Loaded(pages)
-
-                // If the chapter is partially read, set the starting page to the last the user read
-                // otherwise use the requested page.
-                if (!chapter.chapter.read /* --> EH */ ||
-                    prefs
-                        .eh_preserveReadingPosition()
-                        .get() // <-- EH
-                ) {
-                    chapter.requestedPage = chapter.chapter.last_page_read
-                }
+            if (pages.isEmpty()) {
+                throw Exception("Page list is empty")
             }
-            .toCompletable()
-            .doOnError {
-                // [EXH]
-                XLog.w("> Failed to fetch page list!", it)
-                XLog.w(
-                    "> (source.id: %s, source.name: %s, manga.id: %s, manga.url: %s, chapter.id: %s, chapter.url: %s)",
-                    source.id,
-                    source.name,
-                    manga.id,
-                    manga.url,
-                    chapter.chapter.id,
-                    chapter.chapter.url
-                )
 
-                chapter.state = ReaderChapter.State.Error(it)
+            chapter.state = ReaderChapter.State.Loaded(pages)
+
+            // If the chapter is partially read, set the starting page to the last the user read
+            // otherwise use the requested page.
+            if (!chapter.chapter.read /* --> EH */ ||
+                prefs
+                    .eh_preserveReadingPosition()
+                    .get() // <-- EH
+            ) {
+                chapter.requestedPage = chapter.chapter.last_page_read
             }
+        } catch (e: Throwable) {
+            // [EXH]
+            XLog.w("> Failed to fetch page list!", e)
+            XLog.w(
+                "> (source.id: %s, source.name: %s, manga.id: %s, manga.url: %s, chapter.id: %s, chapter.url: %s)",
+                source.id,
+                source.name,
+                manga.id,
+                manga.url,
+                chapter.chapter.id,
+                chapter.chapter.url
+            )
+
+            chapter.state = ReaderChapter.State.Error(e)
+            throw e
+        }
     }
 
     /**

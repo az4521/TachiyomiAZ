@@ -1,0 +1,220 @@
+
+
+"RENAME" = "სახელის შეცვლა";
+"START_READING" = "კითხვის დაწყება";
+"REMOVE" = "ამოშლა";
+// General
+"CONTINUE" = "გაგრძელება";
+"CANCEL" = "გაუქმება";
+"OK" = "კარგი";
+"UNKNOWN" = "უცნობი";
+"UNAVAILABLE" = "მიუწვდომელი";
+"RESET" = "გადატვირთვა";
+"DELETE" = "წაშლა";
+"CLEAR" = "გაწმენდა";
+"SHARE" = "გაზიარება";
+
+// Downloads
+"DOWNLOAD" = "ჩამოტვირთვა";
+"DOWNLOADED" = "ჩატვირთული";
+"DOWNLOAD_QUEUE" = "ჩამოტვირთვის რიგი";
+"REMOVE_DOWNLOAD" = "ჩამოტვირთვის წაშლა";
+"REMOVE_DOWNLOADS" = "ჩატვირთულების წაშლა";
+"REMOVE_DOWNLOADS_CONFIRM" = "გსურთ ყველა არჩეული ჩამოტვირთვის წაშლა?";
+"LIBRARY_SEARCH" = "იპოვეთ ბიბლიოთეკაში";
+"SORT_BY" = "დალაგება";
+"FILTER_BY" = "გაფილტვრა";
+"SORT_TITLE" = "სათაური";
+"SORT_LAST_OPENED" = "ბოლოს გახსნილი";
+"SORT_LAST_READ" = "ბოლოს წაკითხული";
+"SORT_LATEST_CHAPTER" = "უახლესი თავი";
+"SORT_DATE_ADDED" = "დამატების თარიღი";
+
+// Categories
+"ALL" = "ყველა";
+"NONE" = "არცერთი";
+"CATEGORIES" = "კატეგორიები";
+"EDIT_CATEGORIES" = "კატეგორიების რედაქტირება";
+"DEFAULT_CATEGORY" = "ნაგულისხმევი კატეგორია";
+
+// Browse
+"BROWSE" = "დათვალიერება";
+"BROWSE_NO_SOURCES" = "წყაროები არ არსებობს";
+"ADDING_SOURCES_GUIDE_BUTTON" = "წყაროების დამატების ინსტრუქცია";
+
+// Source
+"SOURCE_INFO" = "წყაროს ინფორმაცია";
+"LANGUAGE" = "ენა";
+"LANGUAGES" = "ენები";
+"BUTTON_FILTER" = "გაფილტვრა";
+"LIST_HEADER" = "სია";
+"LIST_ALL" = "ყველა";
+
+// Manga
+"UNTITLED" = "უსათაურო";
+"SUGGESTIVE" = "დამაფიქრებელი";
+"NSFW" = "NSFW";
+"MORE" = "მეტი";
+"MISSING_SOURCE" = "არარსებული წყარო";
+"SELECT_ALL" = "ყველას არჩევა";
+
+// Reader
+"CHAPTER" = "თავი";
+"CH_X" = "თავი.%g";
+"CH_SPACE_X" = "თავი. %g";
+"NO_CHAPTERS" = "არ არის თავები";
+"UNREAD" = "წაუკითხავი";
+"NEXT_COLON" = "შემდეგი:";
+"CURRENT_COLON" = "მიმდინარე:";
+"NO_PREVIOUS_CHAPTER" = "წინა თავი არ არსებობს";
+"INFINITE_VERTICAL_SCROLL" = "უსასრულო ვერტიკალური სქროლვა";
+"SAVE_TO_PHOTOS" = "ფოტოებში შენახვა";
+
+// History
+"HISTORY" = "ისტორია";
+"REMOVE_ALL_MANGA_HISTORY" = "ყველა მანგის ისტორიის წაშლა";
+"HISTORY_LOCKED" = "ისტორია დაბლოკილია.";
+"VIEW_HISTORY" = "ისტორიის ნახვა";
+"AUTH_TO_ENABLE" = "გაიარეთ ავტორიზაცია ჩასართავად.";
+"ABOUT" = "აპლიკაციის შესახებ";
+"GITHUB_REPO" = "GitHub საცავი";
+"DISCORD_SERVER" = "Discord სერვერი";
+"SUPPPORT_DEVELOPMENT" = "განვითარების მხარდაჭერა";
+"GENERAL" = "მთავარი";
+"ICLOUD_SYNC" = "iCloud სინქრონიზაცია";
+"INCOGNITO_MODE" = "ინკოგნიტო რეჟიმი";
+"APPEARANCE_LIGHT" = "ნათელი";
+"APPEARANCE_DARK" = "მუქი";
+"PORTRAIT" = "პორტრეტი";
+"UNREAD_CHAPTER_BADGES" = "წაუკითხავი თავების ნიშნები";
+"PIN_UNREAD" = "წაუკითხავი";
+"LIBRARY_UPDATING" = "ბიბლიოთეკის განახლება";
+"UPDATE_INTERVAL" = "განახლების ინტერვალი";
+"EVERY_12_HOURS" = "ყოველ 12 საათში";
+"WITH_UNREAD_CHAPTERS" = "წაუკითხავ თავებთან ერთად";
+"THAT_HAVENT_BEEN_READ" = "ეს არ არის წაკითხული";
+"SOURCE_LISTS" = "წყაროების სიები";
+"SOURCE_LIST_ADDED_TEXT" = "ახლა შეგიძლიათ გარე წყაროების დათვალიერება დათვალიერების ჩანართში.";
+"SOURCE_LIST_URL" = "წყაროს სიის URL";
+"SOURCE_LIST_ADD" = "დაამატეთ წყაროების სია";
+"SOURCE_LIST_ADD_TEXT" = "შეიყვანეთ წყაროს სიის URL";
+"SOURCE_LIST_ADD_FAIL" = "წყაროების სიის დამატება ვერ მოხერხდა";
+"LOCK_HISTORY_TAB" = "ისტორიის ჩანართის ჩაკეტვა";
+"RENAME_BACKUP" = "სარეზერვო ასლის გადარქმევა";
+"RENAME_BACKUP_TEXT" = "შეიყვანეთ ახალი სახელი თქვენი სარეზერვო ასლისთვის";
+"BACKUP_IMPORT_SUCCESS" = "სარეზერვო ასლი იმპორტირებულია";
+"DISPLAY_LOGS" = "ჟურნალების ჩვენება";
+"RESET_TEXT" = "ეს ქმედება შეუქცევადია. ყველა მონაცემი, პარამეტრი და ქეში წაიშლება და აღდგება.";
+"LOADING_ELLIPSIS" = "იტვირთება…";
+"CANCEL_DOWNLOAD" = "ჩამოტვირთვის გაუქმება";
+"MANGA_INFO" = "მანგას ინფორმაცია";
+"REMOVE_ALL_DOWNLOADS" = "ყველა ჩატვირთულის წაშლა";
+"LIBRARY_EMPTY" = "ბიბლიოთეკა ცარიელია";
+"ADD_TO_LIBRARY" = "ბიბლიოთეკაში დამატება";
+"CATEGORY_ADD_TEXT" = "შეიყვანეთ შესაქმნელი ახალი კატეგორიის სახელი.";
+"INFO" = "ინფორმაცია";
+"VERSION" = "ვერსია";
+"STATUS_ONGOING" = "მიმდინარე";
+"STATUS_CANCELLED" = "გაუქმებული";
+
+// Library
+"LIBRARY" = "ბიბლიოთეკა";
+"REMOVE_FROM_LIBRARY" = "ბიბლიოთეკიდან ამოშლა";
+"BUTTON_UPDATE" = "განახლება";
+"UNINSTALL" = "წაშლა";
+"CATEGORY_ADD" = "კატეგორიის დამატება";
+"INSTALLED" = "დაყენებული";
+"EXTERNAL" = "გარე";
+"CHAPTERS" = "თავები";
+"UPDATES" = "განახლებები";
+"BUTTON_GET" = "მიღება";
+"BUTTON_ERROR" = "შეცდომა";
+"STATUS_COMPLETED" = "დასრულებული";
+"STATUS_HIATUS" = "ჰიატუსი";
+"SOURCE_ORDER" = "წყაროების რიგი";
+"MISSING_SOURCE_TEXT" = "როგორც ჩანს, ორიგინალი წყარო აკლია ამ მანგას. გთხოვთ, ხელახლა გადმოწეროთ ან წაშალოთ ეს სათაური თქვენი ბიბლიოთეკიდან.";
+"DESELECT_ALL" = "გააუქმეთ ყველა მონიშვნა";
+"NO_CHAPTERS_AVAILABLE" = "თავები არ არის ხელმისაწვდომი";
+"CONTINUE_READING" = "კითხვის გაგრძელება";
+"MARK" = "მონიშვნა";
+"AUTH_TO_DISABLE" = "გაიარეთ ავტორიზაცია გასათიშად.";
+"APPEARANCE" = "გარეგნობა";
+"SELECT_CHAPTERS" = "აირჩიეთ თავები";
+"MARK_ALL" = "ყველას მონიშვნა";
+"MARK_PREVIOUS" = "წინას მონიშვნა";
+"VERTICAL_SCROLL" = "ვერტიკალური სქროლვა";
+"VOLUME_X" = "ტომი %g";
+"CHAPTER_X" = "თავი %g";
+"VOL_SPACE_X" = "ტომი.%g";
+"READ" = "წაკითხვა";
+"MARK_READ" = "წაკითხულად მონიშვნა";
+"MARK_UNREAD" = "წაუკითხავად მონიშვნა";
+"PREVIOUS_COLON" = "წინა:";
+"FINISHED_COLON" = "დასრულებული:";
+"VOL_X" = "ტომი.%g";
+"DEFAULT" = "ნაგულისხმევი";
+"LTR" = "მარცხნიდან მარჯვნივ";
+"RTL" = "მარჯვნიდან მარცხნივ";
+"VERTICAL" = "ვერტიკალური";
+"NO_NEXT_CHAPTER" = "შემდეგი თავი არ არის";
+"READER_SETTINGS" = "მკითხველის პარამეტრები";
+"PAGE_X" = "გვერდი %i";
+"AUTH_FOR_HISTORY" = "გაიარეთ ავტორიზაცია კითხვის ისტორიის სანახავად.";
+
+// Search
+"SEARCH" = "ძიება";
+"READING_MODE" = "კითხვის რეჟიმი";
+"EXPERIMENTAL" = "ექსპერიმენტული";
+
+// Settings
+"SETTINGS" = "პარამეტრები";
+"BACKUP_INFO" = "დიდხანს დააჭირეთ სარეზერვო ასლს მისი ექსპორტისთვის, ან გადაფურცლეთ მარცხნივ წასაშლელად.";
+"BACKUP_IMPORT_FAIL_TEXT" = "სარეზერვო ასლის შენახვა ვერ მოხერხდა. გთხოვთ, დარწმუნდეთ, რომ თქვენი სარეზერვო ასლი არის სათანადო ფორმატში.";
+"%@_AGO" = "%@ წინ";
+"REMOVE_CHAPTER_HISTORY_TEXT" = "ეს წაშლის ამ თავის ისტორიას. დარწმუნებული ხართ, რომ გსურთ გაგრძელება?";
+"VIEW_MORE" = "იხილეთ მეტი";
+"INCOGNITO_MODE_TEXT" = "აჩერებს წაკითხვის ისტორიას, როდესაც ჩართულია";
+"NEVER" = "არასოდეს";
+"LANDSCAPE" = "პეიზაჟი";
+"BACKUPS" = "სარეზერვო ასლები";
+"READER" = "მკითხველი";
+"SKIP_TITLES" = "სათაურების გამოტოვება";
+"ONLY_UPDATE_ON_WIFI" = "მხოლოდ Wi-Fi-ზე განახლება";
+"EXCLUDED_CATEGORIES" = "გამორიცხული კატეგორიები";
+"REFRESH_METADATA" = "მეტამონაცემების განახლება";
+"DAILY" = "ყოველდღიური";
+"WEEKLY" = "ყოველკვირეული";
+"EVERY_2_DAYS" = "ყოველ 2 დღეში";
+"WITH_COMPLETED_STATUS" = "დასრულებულის სტატუსით";
+"IMPORT_FAIL" = "იმპორტი ვერ მოხერხდა";
+"RESTORE" = "აღდგენა";
+"SOURCE_LIST_ADDED" = "დამატებულია წყაროების სია";
+"SOURCE_LIST_ADD_FAIL_TEXT" = "მოწოდებული წყაროს სიის URL არასწორია ან უკვე დამატებულია.";
+"CORRUPTED_BACKUP" = "დაზიანებულია სარეზერვო ასლი";
+"BACKUP_NAME" = "სარეზერვო ასლის სახელი";
+"CORRUPTED_BACKUP_TEXT" = "როგორც ჩანს, ამ სარეზერვო ასლს არასწორად აქვს კონფიგურირებული მონაცემები. სახელის გადარქმევა შეუძლებელია.";
+"MISSING_SOURCES" = "დაკარგული წყაროები";
+"MISSING_SOURCES_TEXT" = "აღდგენილი სარეზერვო ასლი შეიძლება შეიცავდეს მონაცემებს შემდეგი წყაროებიდან, რომლებიც ამჟამად არ არის დაინსტალირებული:";
+"RESTORE_BACKUP" = "გსურთ ამ სარეზერვო ასლის აღდგენა?";
+"LOGS" = "ჟურნალი";
+"RESTORE_BACKUP_TEXT" = "ყველა მიმდინარე მონაცემი წაიშლება და ჩანაცვლდება ამ სარეზერვო მონაცემებით.";
+"BACKUP_IMPORT_SUCCESS_TEXT" = "ამ სარეზერვო ასლის აღსადგენად, იპოვეთ ის სარეზერვო ასლების გვერდზე პარამეტრებში.";
+"EXPORT_LOGS" = "ჟურნალების ექსპორტი";
+"EXPORT" = "ექსპორტი";
+"LOG_SERVER" = "ჟურნალის სერვერი";
+"ALWAYS_ASK" = "ყოველთვის იკითხე";
+"BUILD" = "ასამბლეა";
+"USE_SYSTEM_APPEARANCE" = "სისტემის გარეგნობის გამოყენება";
+"OPEN_READER_VIEW" = "გახსენით Reading View";
+"DOWNSAMPLE_IMAGES" = "სურათების ხარისხის შემცირება";
+"LOGGING" = "ლოგები";
+"ADVANCED" = "გაფართოებული";
+"CLEAR_NETWORK_CACHE" = "ქსელის ქეშის გასუფთავება";
+"CLEAR_NETWORK_CACHE_TEXT" = "ეს ქმედება შეუქცევადია. ქეშირებული ქსელის მოთხოვნები და სურათები გასუფთავდება.";
+"CLEAR_READ_HISTORY" = "წაკითხვის ისტორიის გასუფთავება";
+"CLEAR_READ_HISTORY_TEXT" = "ეს ქმედება შეუქცევადია. წაკითხვის მთელი ისტორია წაიშლება.";
+"RESET_SETTINGS" = "პარამეტრების გადატვირთვა";
+"RESET_SETTINGS_TEXT" = "ეს ქმედება შეუქცევადია. აპისა და წყაროს ყველა პარამეტრი გადაყენდება.";
+"START_TRACKING" = "ტრეკინგის დაწყება";
+"STOP_TRACKING" = "ტრეკინგის შეჩერება";
+"ONESHOT" = "ერთი-ცდით";

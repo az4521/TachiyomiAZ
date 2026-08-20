@@ -2,7 +2,7 @@ package eu.kanade.tachiyomi.ui.reader.loader
 
 import androidx.annotation.CallSuper
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
-import rx.Observable
+import kotlinx.coroutines.flow.Flow
 
 /**
  * A loader used to load pages into the reader. Any open resources must be cleaned up when the
@@ -25,16 +25,15 @@ abstract class PageLoader {
     }
 
     /**
-     * Returns an observable containing the list of pages of a chapter. Only the first emission
-     * will be used.
+     * Returns the list of pages of a chapter.
      */
-    abstract fun getPages(): Observable<List<ReaderPage>>
+    abstract suspend fun getPages(): List<ReaderPage>
 
     /**
-     * Returns an observable that should inform of the progress of the page (see the Page class
-     * for the available states)
+     * Returns a flow that informs of the progress of the page (see the Page class for the
+     * available states).
      */
-    abstract fun getPage(page: ReaderPage): Observable<Int>
+    abstract fun getPage(page: ReaderPage): Flow<Int>
 
     /**
      * Retries the given [page] in case it failed to load. This method only makes sense when an

@@ -102,7 +102,6 @@
     <string name="pref_library_update_restriction_summary">Actualizează doar când condițiile sunt împlinite</string>
     <string name="wifi">Wi-Fi</string>
     <string name="charging">Se încarcă</string>
-    <string name="pref_update_only_non_completed">Actualizează doar manga în curs de desfășurare</string>
     <string name="pref_auto_update_manga_sync">Sincronizează capitolele după citire</string>
     <string name="pref_start_screen">Ecran principal</string>
     <string name="pref_language">Limbă</string>

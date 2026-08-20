@@ -7,10 +7,10 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
 import android.widget.ProgressBar
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.ui.main.MainActivity
-import rx.android.schedulers.AndroidSchedulers
-import rx.schedulers.Schedulers
+import kotlinx.coroutines.launch
 import uy.kohesive.injekt.injectLazy
 
 class AnilistLoginActivity : AppCompatActivity() {
@@ -25,17 +25,15 @@ class AnilistLoginActivity : AppCompatActivity() {
         val regex = "(?:access_token=)(.*?)(?:&)".toRegex()
         val matchResult = regex.find(intent.data?.fragment.toString())
         if (matchResult?.groups?.get(1) != null) {
-            trackManager.aniList.login(matchResult.groups[1]!!.value)
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(
-                    {
-                        returnToSettings()
-                    },
-                    {
-                        returnToSettings()
-                    }
-                )
+            lifecycleScope.launch {
+                try {
+                    trackManager.aniList.login(matchResult.groups[1]!!.value)
+                } catch (e: Throwable) {
+                    // The previous Rx chain returned to settings on both success and
+                    // failure; the tracker itself logs out on a failed login.
+                }
+                returnToSettings()
+            }
         } else {
             trackManager.aniList.logout()
             returnToSettings()

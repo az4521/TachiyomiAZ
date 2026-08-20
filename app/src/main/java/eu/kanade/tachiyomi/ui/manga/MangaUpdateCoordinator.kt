@@ -5,6 +5,8 @@ import eu.kanade.tachiyomi.data.database.DatabaseHelper
 import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.source.Source
+import eu.kanade.tachiyomi.source.model.SManga
+import eu.kanade.tachiyomi.source.model.SMangaUpdate
 import eu.kanade.tachiyomi.util.chapter.syncChaptersFromUpdate
 import eu.kanade.tachiyomi.util.saveMangaUpdate
 import kotlinx.coroutines.CoroutineScope
@@ -12,6 +14,7 @@ import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import uy.kohesive.injekt.Injekt
@@ -46,45 +49,90 @@ class MangaUpdateCoordinator(
      */
     class Result(val chapters: Pair<List<Chapter>, List<Chapter>>?)
 
+    /** The shared fetch: what the source returned, and the chapter sync it was used for. */
+    private class Fetch(val update: SMangaUpdate, val chapters: Pair<List<Chapter>, List<Chapter>>?)
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private val mutex = Mutex()
 
-    private var inFlight: Deferred<Result>? = null
+    private var inFlight: Deferred<Fetch>? = null
+
+    /** Whether the current [inFlight] fetch has already had its full metadata persisted. */
+    private var metadataSaved = false
 
     /**
      * Returns the shared update, starting the fetch if no other tab has already done so.
      *
      * @param force starts a new fetch even if a result is already available, for manual refreshes.
+     * @param updateMetadata persists everything the source returned about the manga -- description,
+     *  status, genres, cover -- rather than just the memo. The info tab always passes true, since
+     *  showing the details is what it is for; the chapters tab defers to the "automatically refresh
+     *  metadata" setting, because a refresh from there is a request for chapters. The fetch itself
+     *  is shared either way, so this never costs an extra network call.
      */
-    suspend fun awaitUpdate(force: Boolean = false): Result {
+    suspend fun awaitUpdate(force: Boolean = false, updateMetadata: Boolean = false): Result {
         val deferred =
             mutex.withLock {
                 val current = inFlight
                 if (current != null && !(force && current.isCompleted)) {
                     current
                 } else {
-                    scope.async { fetchAndSave(force) }.also { inFlight = it }
+                    metadataSaved = false
+                    scope.async { fetch() }.also { inFlight = it }
                 }
             }
 
-        try {
-            return deferred.await()
-        } catch (e: Throwable) {
-            mutex.withLock {
-                if (inFlight === deferred) inFlight = null
+        val fetched =
+            try {
+                deferred.await()
+            } catch (e: Throwable) {
+                // A caller may stop waiting when its view is destroyed, while the coordinator's
+                // own deferred continues. Keep that shared fetch registered so a recreated tab
+                // joins it instead of starting a duplicate request.
+                if (deferred.isCancelled) {
+                    mutex.withLock {
+                        if (inFlight === deferred) inFlight = null
+                    }
+                }
+                throw e
             }
-            throw e
-        }
+
+        // In this coordinator's scope for the same reason the fetch is: a tab that goes away
+        // mid-save cancels only its own wait, never the write. Doing it in the caller's scope
+        // would let leaving the screen abandon a fetch that had already succeeded.
+        scope.async { save(fetched.update.manga, updateMetadata, force) }.await()
+
+        return Result(fetched.chapters)
     }
 
-    private suspend fun fetchAndSave(manualFetch: Boolean): Result {
+    /**
+     * Abandons any in-flight update. Called when the controller goes away for good: the scope
+     * deliberately outlives individual tabs, so nothing else would ever stop it.
+     */
+    fun cancel() {
+        scope.cancel()
+    }
+
+    private suspend fun fetch(): Fetch {
         val update = source.getMangaUpdate(manga, emptyList(), fetchDetails = true, fetchChapters = true)
+        return Fetch(update, syncChaptersFromUpdate(db, update, manga, source))
+    }
 
-        // Opening the manga is an explicit request for its details, so metadata is always updated
-        // here; the library setting only governs background library updates.
-        manga.saveMangaUpdate(update.manga, db, coverCache, updateMetadata = true, manualFetch = manualFetch)
+    /**
+     * Writes the fetched manga row on behalf of one caller.
+     *
+     * Guarded so the two tabs sharing a fetch cannot fight over it: a full metadata save happens at
+     * most once per fetch, and a memo-only save is skipped once one has already run, since the full
+     * save wrote the memo too.
+     */
+    private suspend fun save(sManga: SManga, updateMetadata: Boolean, manualFetch: Boolean) {
+        mutex.withLock {
+            if (metadataSaved) return
+            if (updateMetadata) metadataSaved = true
 
-        return Result(syncChaptersFromUpdate(db, update, manga, source))
+            // Already on Dispatchers.IO -- this only ever runs in [scope].
+            manga.saveMangaUpdate(sManga, db, coverCache, updateMetadata, manualFetch)
+        }
     }
 }

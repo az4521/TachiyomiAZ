@@ -18,3 +18,8 @@ pluginManagement {
 }
 
 include(":app")
+include(":core-model")
+include(":core-database")
+include(":core-domain")
+// iOS packaging only. Contributes no code and is not part of any Android build.
+include(":shared-ios")

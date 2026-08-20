@@ -15,7 +15,10 @@ import eu.kanade.tachiyomi.ui.reader.model.ViewerChapters
 import eu.kanade.tachiyomi.ui.reader.viewer.BaseViewer
 import eu.kanade.tachiyomi.util.view.gone
 import eu.kanade.tachiyomi.util.view.visible
-import rx.subscriptions.CompositeSubscription
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.cancel
 import timber.log.Timber
 import kotlin.math.max
 import kotlin.math.min
@@ -69,7 +72,9 @@ class WebtoonViewer(
     /**
      * Subscriptions to keep while this viewer is used.
      */
-    val subscriptions = CompositeSubscription()
+    val scope = CoroutineScope(MainScope().coroutineContext)
+
+    val jobs = mutableListOf<Job>()
 
     init {
         recycler.gone() // Don't let the recycler layout yet
@@ -176,7 +181,9 @@ class WebtoonViewer(
      */
     override fun destroy() {
         super.destroy()
-        subscriptions.unsubscribe()
+        jobs.forEach { it.cancel() }
+        jobs.clear()
+        scope.cancel()
     }
 
     /**

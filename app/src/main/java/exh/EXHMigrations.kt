@@ -2,17 +2,15 @@ package exh
 
 import android.content.Context
 import com.elvishew.xlog.XLog
-import com.pushtorefresh.storio.sqlite.queries.Query
-import com.pushtorefresh.storio.sqlite.queries.RawQuery
 import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.data.backup.BackupCreatorJob
 import eu.kanade.tachiyomi.data.backup.legacy.models.DHistory
 import eu.kanade.tachiyomi.data.database.DatabaseHelper
+import eu.kanade.tachiyomi.data.database.DbOpenCallback
 import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.data.database.models.MangaImpl
 import eu.kanade.tachiyomi.data.database.models.Track
-import eu.kanade.tachiyomi.data.database.resolvers.MangaUrlPutResolver
 import eu.kanade.tachiyomi.data.database.tables.MangaTable
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
@@ -47,42 +45,23 @@ object EXHMigrations {
                 if (oldVersion < 1) {
                     db.inTransaction {
                         // Migrate HentaiCafe source IDs
-                        db.lowLevel().executeSQL(
-                            RawQuery.builder()
-                                .query(
-                                    """
+                        db.executeSQL(
+"""
                                     UPDATE ${MangaTable.TABLE}
                                         SET ${MangaTable.COL_SOURCE} = $HENTAI_CAFE_SOURCE_ID
                                         WHERE ${MangaTable.COL_SOURCE} = 6908
-                                    """.trimIndent()
-                                )
-                                .affectsTables(MangaTable.TABLE)
-                                .build()
+""".trimIndent()
                         )
 
                         // Migrate nhentai URLs
                         val nhentaiManga =
-                            db.db.get()
-                                .listOfObjects(Manga::class.java)
-                                .withQuery(
-                                    Query.builder()
-                                        .table(MangaTable.TABLE)
-                                        .where("${MangaTable.COL_SOURCE} = $NHENTAI_SOURCE_ID")
-                                        .build()
-                                )
-                                .prepare()
-                                .executeAsBlocking()
+                            db.getMangasBySource(NHENTAI_SOURCE_ID)
 
                         nhentaiManga.forEach {
                             it.url = getUrlWithoutDomain(it.url)
                         }
 
-                        db.db.put()
-                            .objects(nhentaiManga)
-                            // Extremely slow without the resolver :/
-                            .withPutResolver(MangaUrlPutResolver())
-                            .prepare()
-                            .executeAsBlocking()
+                        db.updateMangaUrls(nhentaiManga)
                     }
                 }
 
@@ -94,17 +73,12 @@ object EXHMigrations {
                 if (oldVersion < 8405) {
                     db.inTransaction {
                         // Migrate HBrowse source IDs
-                        db.lowLevel().executeSQL(
-                            RawQuery.builder()
-                                .query(
-                                    """
+                        db.executeSQL(
+"""
                                     UPDATE ${MangaTable.TABLE}
                                         SET ${MangaTable.COL_SOURCE} = 6912
                                         WHERE ${MangaTable.COL_SOURCE} = 1401584337232758222
-                                    """.trimIndent()
-                                )
-                                .affectsTables(MangaTable.TABLE)
-                                .build()
+""".trimIndent()
                         )
                     }
 
@@ -114,17 +88,12 @@ object EXHMigrations {
                 if (oldVersion < 8408) {
                     db.inTransaction {
                         // Migrate Tsumino source IDs
-                        db.lowLevel().executeSQL(
-                            RawQuery.builder()
-                                .query(
-                                    """
+                        db.executeSQL(
+"""
                                     UPDATE ${MangaTable.TABLE}
                                         SET ${MangaTable.COL_SOURCE} = $TSUMINO_SOURCE_ID
                                         WHERE ${MangaTable.COL_SOURCE} = 6909
-                                    """.trimIndent()
-                                )
-                                .affectsTables(MangaTable.TABLE)
-                                .build()
+""".trimIndent()
                         )
                     }
                 }
@@ -132,26 +101,12 @@ object EXHMigrations {
                     db.inTransaction {
                         // Migrate tsumino URLs
                         val tsuminoManga =
-                            db.db.get()
-                                .listOfObjects(Manga::class.java)
-                                .withQuery(
-                                    Query.builder()
-                                        .table(MangaTable.TABLE)
-                                        .where("${MangaTable.COL_SOURCE} = $TSUMINO_SOURCE_ID")
-                                        .build()
-                                )
-                                .prepare()
-                                .executeAsBlocking()
+                            db.getMangasBySource(TSUMINO_SOURCE_ID)
                         tsuminoManga.forEach {
                             it.url = "/entry/" + it.url.split("/").last()
                         }
 
-                        db.db.put()
-                            .objects(tsuminoManga)
-                            // Extremely slow without the resolver :/
-                            .withPutResolver(MangaUrlPutResolver())
-                            .prepare()
-                            .executeAsBlocking()
+                        db.updateMangaUrls(tsuminoManga)
                     }
                 }
                 if (oldVersion < 8410) {
@@ -180,30 +135,20 @@ object EXHMigrations {
                 if (oldVersion < 8810) {
                     db.inTransaction {
                         // Migrate 8Muses source IDs
-                        db.lowLevel().executeSQL(
-                            RawQuery.builder()
-                                .query(
-                                    """
+                        db.executeSQL(
+"""
                                     UPDATE ${MangaTable.TABLE}
                                         SET ${MangaTable.COL_SOURCE} = $EIGHTMUSES_SOURCE_ID
                                         WHERE ${MangaTable.COL_SOURCE} = 6911
-                                    """.trimIndent()
-                                )
-                                .affectsTables(MangaTable.TABLE)
-                                .build()
+""".trimIndent()
                         )
                         // Migrate Hitomi source IDs
-                        db.lowLevel().executeSQL(
-                            RawQuery.builder()
-                                .query(
-                                    """
+                        db.executeSQL(
+"""
                                     UPDATE ${MangaTable.TABLE}
                                         SET ${MangaTable.COL_SOURCE} = $HITOMI_SOURCE_ID
                                         WHERE ${MangaTable.COL_SOURCE} = 6910
-                                    """.trimIndent()
-                                )
-                                .affectsTables(MangaTable.TABLE)
-                                .build()
+""".trimIndent()
                         )
                     }
                 }
@@ -266,7 +211,7 @@ object EXHMigrations {
         val backupLocation = File(File(context.filesDir, "exh_db_bck"), "$oldMigrationVersion.bck.db")
         if (backupLocation.exists()) return // Do not backup same version twice
 
-        val dbLocation = context.getDatabasePath(db.lowLevel().sqliteOpenHelper().databaseName)
+        val dbLocation = context.getDatabasePath(DbOpenCallback.DATABASE_NAME)
         try {
             dbLocation.copyTo(backupLocation, overwrite = true)
         } catch (t: Throwable) {

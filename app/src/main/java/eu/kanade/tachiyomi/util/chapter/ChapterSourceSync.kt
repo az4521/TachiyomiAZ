@@ -4,6 +4,7 @@ import eu.kanade.tachiyomi.data.database.DatabaseHelper
 import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.data.download.DownloadManager
+import eu.kanade.tachiyomi.domain.chapter.ChapterSyncPlatform
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SMangaUpdate
@@ -13,7 +14,46 @@ import exh.EXH_SOURCE_ID
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.util.Date
-import java.util.TreeSet
+import eu.kanade.tachiyomi.domain.chapter.syncChaptersWithSource as syncChapters
+
+/**
+ * The Android half of chapter syncing.
+ *
+ * The diffing itself lives in :core-domain so both platforms reach the same conclusion about which
+ * chapters are new, deleted or renamed. What stays here is everything that cannot be shared: the
+ * extension API, the download directory, and the exh source ids.
+ */
+private class AndroidChapterSyncPlatform(
+    private val source: Source,
+    private val downloadManager: DownloadManager
+) : ChapterSyncPlatform {
+    override fun prepareNewChapter(
+        chapter: SChapter,
+        manga: Manga
+    ) {
+        if (source is HttpSource) {
+            @Suppress("DEPRECATION")
+            source.prepareNewChapter(chapter, manga)
+        }
+    }
+
+    override fun isChapterDownloaded(
+        chapter: Chapter,
+        manga: Manga
+    ): Boolean = downloadManager.isChapterDownloaded(chapter, manga)
+
+    override fun renameDownloadedChapter(
+        manga: Manga,
+        from: Chapter,
+        to: Chapter
+    ) {
+        downloadManager.renameChapter(source, manga, from, to)
+    }
+
+    override fun carriesOverReadingProgress(manga: Manga): Boolean = manga.source == EH_SOURCE_ID || manga.source == EXH_SOURCE_ID
+
+    override fun now(): Long = Date().time
+}
 
 /**
  * Syncs the chapter half of a [SMangaUpdate], which sources may fill in even when
@@ -47,157 +87,12 @@ fun syncChaptersWithSource(
     manga: Manga,
     source: Source
 ): Pair<List<Chapter>, List<Chapter>> {
-    if (rawSourceChapters.isEmpty()) {
-        throw NoChaptersException()
-    }
-
     val downloadManager: DownloadManager = Injekt.get()
 
-    // Chapters from db.
-    val dbChapters = db.getChapters(manga).executeAsBlocking()
-
-    val sourceChapters =
-        rawSourceChapters
-            .distinctBy { it.url }
-            .mapIndexed { i, sChapter ->
-                Chapter.create().apply {
-                    copyFrom(sChapter)
-                    manga_id = manga.id
-                    source_order = i
-                }
-            }
-
-    // Chapters from the source not in db.
-    val toAdd = mutableListOf<Chapter>()
-
-    // Chapters whose metadata have changed.
-    val toChange = mutableListOf<Chapter>()
-
-    for (sourceChapter in sourceChapters) {
-        val dbChapter = dbChapters.find { it.url == sourceChapter.url }
-
-        // Add the chapter if not in db already, or update if the metadata changed.
-        if (dbChapter == null) {
-            toAdd.add(sourceChapter)
-        } else {
-            // this forces metadata update for the main viewable things in the chapter list
-            if (source is HttpSource) {
-                @Suppress("DEPRECATION")
-                source.prepareNewChapter(sourceChapter, manga)
-            }
-
-            ChapterRecognition.parseChapterNumber(sourceChapter, manga)
-
-            if (shouldUpdateDbChapter(dbChapter, sourceChapter)) {
-                if (dbChapter.name != sourceChapter.name && downloadManager.isChapterDownloaded(dbChapter, manga)) {
-                    downloadManager.renameChapter(source, manga, dbChapter, sourceChapter)
-                }
-                dbChapter.scanlator = sourceChapter.scanlator
-                dbChapter.name = sourceChapter.name
-                dbChapter.date_upload = sourceChapter.date_upload
-                dbChapter.chapter_number = sourceChapter.chapter_number
-                dbChapter.memo = sourceChapter.memo
-                toChange.add(dbChapter)
-            }
-        }
-    }
-
-    // Recognize number for new chapters.
-    toAdd.forEach {
-        if (source is HttpSource) {
-            @Suppress("DEPRECATION")
-            source.prepareNewChapter(it, manga)
-        }
-        ChapterRecognition.parseChapterNumber(it, manga)
-    }
-
-    // Chapters from the db not in the source.
-    val toDelete =
-        dbChapters.filterNot { dbChapter ->
-            sourceChapters.any { sourceChapter ->
-                dbChapter.url == sourceChapter.url
-            }
-        }
-
-    // Return if there's nothing to add, delete or change, avoiding unnecessary db transactions.
-    if (toAdd.isEmpty() && toDelete.isEmpty() && toChange.isEmpty()) {
-        return Pair(emptyList(), emptyList())
-    }
-
-    val readded = mutableListOf<Chapter>()
-
-    db.inTransaction {
-        val deletedChapterNumbers = TreeSet<Float>()
-        val deletedReadChapterNumbers = TreeSet<Float>()
-        if (toDelete.isNotEmpty()) {
-            for (c in toDelete) {
-                if (c.read) {
-                    deletedReadChapterNumbers.add(c.chapter_number)
-                }
-                deletedChapterNumbers.add(c.chapter_number)
-            }
-            db.deleteChapters(toDelete).executeAsBlocking()
-        }
-
-        if (toAdd.isNotEmpty()) {
-            // Set the date fetch for new items in reverse order to allow another sorting method.
-            // Sources MUST return the chapters from most to less recent, which is common.
-            var now = Date().time
-
-            for (i in toAdd.indices.reversed()) {
-                val c = toAdd[i]
-                c.date_fetch = now++
-                // Try to mark already read chapters as read when the source deletes them
-                if (c.isRecognizedNumber && c.chapter_number in deletedReadChapterNumbers) {
-                    c.read = true
-                }
-                if (c.isRecognizedNumber && c.chapter_number in deletedChapterNumbers) {
-                    readded.add(c)
-                }
-            }
-
-            // --> EXH (carry over reading progress)
-            if (manga.source == EH_SOURCE_ID || manga.source == EXH_SOURCE_ID) {
-                val finalAdded = toAdd.subtract(readded)
-                if (finalAdded.isNotEmpty()) {
-                    val max = dbChapters.maxByOrNull { it.last_page_read }
-                    if (max != null && max.last_page_read > 0) {
-                        for (chapter in finalAdded) {
-                            chapter.last_page_read = max.last_page_read
-                        }
-                    }
-                }
-            }
-            // <-- EXH
-
-            val chapters = db.insertChapters(toAdd).executeAsBlocking()
-            toAdd.forEach { chapter ->
-                chapter.id = chapters.results().getValue(chapter).insertedId()
-            }
-        }
-
-        if (toChange.isNotEmpty()) {
-            db.insertChapters(toChange).executeAsBlocking()
-        }
-
-        // Fix order in source.
-        db.fixChaptersSourceOrder(sourceChapters).executeAsBlocking()
-
-        // Set this manga as updated since chapters were changed
-        manga.last_update = Date().time
-        db.updateLastUpdated(manga).executeAsBlocking()
-    }
-
-    return Pair(toAdd.subtract(readded).toList(), toDelete.subtract(readded).toList())
-}
-
-// checks if the chapter in db needs updated
-private fun shouldUpdateDbChapter(
-    dbChapter: Chapter,
-    sourceChapter: SChapter
-): Boolean {
-    return dbChapter.scanlator != sourceChapter.scanlator || dbChapter.name != sourceChapter.name ||
-        dbChapter.date_upload != sourceChapter.date_upload ||
-        dbChapter.chapter_number != sourceChapter.chapter_number ||
-        dbChapter.memo != sourceChapter.memo
+    return syncChapters(
+        db,
+        rawSourceChapters,
+        manga,
+        AndroidChapterSyncPlatform(source, downloadManager)
+    )
 }

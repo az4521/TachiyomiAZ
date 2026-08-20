@@ -30,14 +30,17 @@ import eu.kanade.tachiyomi.ui.reader.viewer.ReaderProgressBar
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import eu.kanade.tachiyomi.util.system.ImageUtil
 import eu.kanade.tachiyomi.util.system.dpToPx
+import eu.kanade.tachiyomi.util.system.withIOContext
 import eu.kanade.tachiyomi.util.view.gone
 import eu.kanade.tachiyomi.util.view.visible
-import rx.Observable
-import rx.Subscription
-import rx.android.schedulers.AndroidSchedulers
-import rx.schedulers.Schedulers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import java.io.InputStream
-import java.util.concurrent.TimeUnit
 
 /**
  * Holder of the webtoon reader for a single page of a chapter.
@@ -95,18 +98,18 @@ class WebtoonPageHolder(
     /**
      * Subscription for status changes of the page.
      */
-    private var statusSubscription: Subscription? = null
+    private var statusJob: Job? = null
 
     /**
      * Subscription for progress changes of the page.
      */
-    private var progressSubscription: Subscription? = null
+    private var progressJob: Job? = null
 
     /**
      * Subscription used to read the header of the image. This is needed in order to instantiate
      * the appropiate image view depending if the image is animated (GIF).
      */
-    private var readImageHeaderSubscription: Subscription? = null
+    private var readImageHeaderJob: Job? = null
 
     init {
         refreshLayoutParams()
@@ -160,12 +163,12 @@ class WebtoonPageHolder(
 
         val page = page ?: return
         val loader = page.chapter.pageLoader ?: return
-        statusSubscription =
+        statusJob =
             loader.getPage(page)
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe { processStatus(it) }
+                .onEach { processStatus(it) }
+                .launchIn(viewer.scope)
 
-        addSubscription(statusSubscription)
+        addJob(statusJob)
     }
 
     /**
@@ -176,15 +179,23 @@ class WebtoonPageHolder(
 
         val page = page ?: return
 
-        progressSubscription =
-            Observable.interval(100, TimeUnit.MILLISECONDS)
-                .map { page.progress }
-                .distinctUntilChanged()
-                .onBackpressureLatest()
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe { value -> progressBar.setProgress(value) }
+        progressJob =
+            viewer.scope.launch {
+                // Polls instead of observing because Page.progress has no change notification.
+                // The loop only advances after the update runs, so it cannot outpace the view the
+                // way onBackpressureLatest was there to prevent.
+                var lastProgress = -1
+                while (isActive) {
+                    val value = page.progress
+                    if (value != lastProgress) {
+                        lastProgress = value
+                        progressBar.setProgress(value)
+                    }
+                    delay(100)
+                }
+            }
 
-        addSubscription(progressSubscription)
+        addJob(progressJob)
     }
 
     /**
@@ -215,24 +226,24 @@ class WebtoonPageHolder(
      * Unsubscribes from the status subscription.
      */
     private fun unsubscribeStatus() {
-        removeSubscription(statusSubscription)
-        statusSubscription = null
+        removeJob(statusJob)
+        statusJob = null
     }
 
     /**
      * Unsubscribes from the progress subscription.
      */
     private fun unsubscribeProgress() {
-        removeSubscription(progressSubscription)
-        progressSubscription = null
+        removeJob(progressJob)
+        progressJob = null
     }
 
     /**
      * Unsubscribes from the read image header subscription.
      */
     private fun unsubscribeReadImageHeader() {
-        removeSubscription(readImageHeaderSubscription)
-        readImageHeaderSubscription = null
+        removeJob(readImageHeaderJob)
+        readImageHeaderJob = null
     }
 
     /**
@@ -279,17 +290,15 @@ class WebtoonPageHolder(
         val streamFn = page?.stream ?: return
 
         var openStream: InputStream? = null
-        readImageHeaderSubscription =
-            Observable
-                .fromCallable {
-                    val stream = streamFn().buffered(16)
-                    openStream = stream
-
-                    ImageUtil.findImageType(stream) == ImageUtil.ImageType.GIF
-                }
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .doOnNext { isAnimated ->
+        readImageHeaderJob =
+            viewer.scope.launch {
+                try {
+                    val isAnimated =
+                        withIOContext {
+                            val stream = streamFn().buffered(16)
+                            openStream = stream
+                            ImageUtil.findImageType(stream) == ImageUtil.ImageType.GIF
+                        }
                     if (!isAnimated) {
                         val subsamplingView = initSubsamplingImageView()
                         subsamplingView.visible()
@@ -299,13 +308,15 @@ class WebtoonPageHolder(
                         imageView.visible()
                         imageView.setImage(openStream!!)
                     }
+                    // The views read from the stream lazily, so it must stay open until this
+                    // job is cancelled. Observable.never + doOnUnsubscribe did the same.
+                    awaitCancellation()
+                } finally {
+                    openStream?.close()
                 }
-                // Keep the Rx stream alive to close the input stream only when unsubscribed
-                .flatMap { Observable.never<Unit>() }
-                .doOnUnsubscribe { openStream?.close() }
-                .subscribe({}, {})
+            }
 
-        addSubscription(readImageHeaderSubscription)
+        addJob(readImageHeaderJob)
     }
 
     /**

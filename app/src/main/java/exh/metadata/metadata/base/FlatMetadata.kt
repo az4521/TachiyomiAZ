@@ -1,6 +1,5 @@
 package exh.metadata.metadata.base
 
-import com.pushtorefresh.storio.operations.PreparedOperation
 import eu.kanade.tachiyomi.data.database.DatabaseHelper
 import exh.metadata.metadata.RaisedSearchMetadata
 import exh.metadata.sql.models.SearchMetadata
@@ -9,8 +8,6 @@ import exh.metadata.sql.models.SearchTitle
 import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.serializer
-import rx.Completable
-import rx.Single
 import kotlin.reflect.KClass
 
 @Serializable
@@ -29,77 +26,19 @@ data class FlatMetadata(
             }
 }
 
-fun DatabaseHelper.getFlatMetadataForManga(mangaId: Long): PreparedOperation<FlatMetadata?> {
-    // We have to use fromCallable because StorIO messes up the thread scheduling if we use their rx functions
-    val single =
-        Single.fromCallable {
-            val meta = getSearchMetadataForManga(mangaId).executeAsBlocking()
-            if (meta != null) {
-                val tags = getSearchTagsForManga(mangaId).executeAsBlocking()
-                val titles = getSearchTitlesForManga(mangaId).executeAsBlocking()
-
-                FlatMetadata(meta, tags, titles)
-            } else {
-                null
-            }
-        }
-
-    return preparedOperationFromSingle(single)
+fun DatabaseHelper.getFlatMetadataForManga(mangaId: Long): FlatMetadata? {
+    val meta = getSearchMetadataForManga(mangaId) ?: return null
+    val tags = getSearchTagsForManga(mangaId)
+    val titles = getSearchTitlesForManga(mangaId)
+    return FlatMetadata(meta, tags, titles)
 }
 
-private fun <T> preparedOperationFromSingle(single: Single<T>): PreparedOperation<T> {
-    return object : PreparedOperation<T> {
-        /**
-         * Creates [rx.Observable] that emits result of Operation.
-         *
-         *
-         * Observable may be "Hot" or "Cold", please read documentation of the concrete implementation.
-         *
-         * @return observable result of operation with only one [rx.Observer.onNext] call.
-         */
-        override fun createObservable() = single.toObservable()
+fun DatabaseHelper.insertFlatMetadata(flatMetadata: FlatMetadata) {
+    require(flatMetadata.metadata.mangaId != -1L)
 
-        /**
-         * Executes operation synchronously in current thread.
-         *
-         *
-         * Notice: Blocking I/O operation should not be executed on the Main Thread,
-         * it can cause ANR (Activity Not Responding dialog), block the UI and drop animations frames.
-         * So please, execute blocking I/O operation only from background thread.
-         * See [WorkerThread].
-         *
-         * @return nullable result of operation.
-         */
-        override fun executeAsBlocking() = single.toBlocking().value()
-
-        /**
-         * Creates [rx.Observable] that emits result of Operation.
-         *
-         *
-         * Observable may be "Hot" (usually "Warm") or "Cold", please read documentation of the concrete implementation.
-         *
-         * @return observable result of operation with only one [rx.Observer.onNext] call.
-         */
-        override fun asRxObservable() = single.toObservable()
-
-        /**
-         * Creates [rx.Single] that emits result of Operation lazily when somebody subscribes to it.
-         *
-         *
-         *
-         * @return single result of operation.
-         */
-        override fun asRxSingle() = single
+    inTransaction {
+        insertSearchMetadata(flatMetadata.metadata)
+        setSearchTagsForManga(flatMetadata.metadata.mangaId, flatMetadata.tags)
+        setSearchTitlesForManga(flatMetadata.metadata.mangaId, flatMetadata.titles)
     }
 }
-
-fun DatabaseHelper.insertFlatMetadata(flatMetadata: FlatMetadata): Completable =
-    Completable.fromCallable {
-        require(flatMetadata.metadata.mangaId != -1L)
-
-        inTransaction {
-            insertSearchMetadata(flatMetadata.metadata).executeAsBlocking()
-            setSearchTagsForManga(flatMetadata.metadata.mangaId, flatMetadata.tags)
-            setSearchTitlesForManga(flatMetadata.metadata.mangaId, flatMetadata.titles)
-        }
-    }

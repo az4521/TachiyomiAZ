@@ -35,6 +35,7 @@ import eu.kanade.tachiyomi.ui.video.VideoActivity
 import eu.kanade.tachiyomi.util.chapter.NoChaptersException
 import eu.kanade.tachiyomi.util.system.getResourceColor
 import eu.kanade.tachiyomi.util.system.toast
+import eu.kanade.tachiyomi.util.view.deferStateRestorationUntilItemsAreLoaded
 import eu.kanade.tachiyomi.util.view.getCoordinates
 import eu.kanade.tachiyomi.util.view.snack
 import exh.EH_SOURCE_ID
@@ -43,7 +44,6 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import reactivecircus.flowbinding.android.view.clicks
 import reactivecircus.flowbinding.swiperefreshlayout.refreshes
-import rx.android.schedulers.AndroidSchedulers
 import timber.log.Timber
 import uy.kohesive.injekt.injectLazy
 
@@ -84,9 +84,9 @@ class ChaptersController :
         return ChaptersPresenter(
             ctrl.manga!!,
             ctrl.source!!,
-            ctrl.chapterCountRelay,
-            ctrl.lastUpdateRelay,
-            ctrl.mangaFavoriteRelay,
+            ctrl.chapterCountFlow,
+            ctrl.lastUpdateFlow,
+            ctrl.mangaFavoriteFlow,
             ctrl.updateCoordinator
         )
     }
@@ -106,7 +106,7 @@ class ChaptersController :
         if (ctrl.manga == null || ctrl.source == null) return
 
         // Init RecyclerView and adapter
-        adapter = ChaptersAdapter(this, view.context)
+        adapter = ChaptersAdapter(this, view.context).apply { deferStateRestorationUntilItemsAreLoaded() }
 
         binding.recycler.adapter = adapter
         binding.recycler.layoutManager = LinearLayoutManager(view.context)
@@ -141,9 +141,8 @@ class ChaptersController :
             }
             .launchIn(scope)
 
-        presenter.redirectUserRelay
-            .observeOn(AndroidSchedulers.mainThread())
-            .subscribeUntilDestroy { redirect ->
+        presenter.redirectUserFlow
+            .collectUntilDestroy { redirect ->
                 XLog.d(
                     "Redirecting to updated manga (manga.id: %s, manga.title: %s, update: %s)!",
                     redirect.manga.id,

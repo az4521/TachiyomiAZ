@@ -4,15 +4,13 @@ import android.os.Bundle
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.extension.api.ExtensionGithubApi
 import eu.kanade.tachiyomi.ui.base.presenter.BasePresenter
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import rx.Observable
-import rx.android.schedulers.AndroidSchedulers
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -22,14 +20,14 @@ import uy.kohesive.injekt.api.get
 class RepoPresenter(
     private val preferences: PreferencesHelper = Injekt.get()
 ) : BasePresenter<RepoController>() {
-    val scope = CoroutineScope(Job() + Dispatchers.Main)
-
     private val api = ExtensionGithubApi()
 
     /**
      * List containing repos.
      */
     private var repos: List<String> = emptyList()
+
+    private var reposJob: Job? = null
 
     /**
      * Called when the presenter is created.
@@ -42,11 +40,10 @@ class RepoPresenter(
         preferences.extensionRepos().asFlow().onEach { repos ->
             this.repos = repos.toList().sortedBy { it.lowercase() }
 
-            Observable.just(this.repos)
-                .map { it.map(::RepoItem) }
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribeLatestCache(RepoController::setRepos)
-        }.launchIn(scope)
+            val items = this.repos.map(::RepoItem)
+            reposJob?.cancel()
+            reposJob = flowOf(items).collectLatestCache(onNext = { view, list -> view.setRepos(list) })
+        }.launchIn(presenterScope)
     }
 
     /**
@@ -57,13 +54,13 @@ class RepoPresenter(
     fun createRepo(name: String) {
         // Do not allow duplicate repos.
         if (repoExists(name)) {
-            Observable.just(Unit).subscribeFirst({ view, _ -> view.onRepoExistsError() })
+            deliverToView { it.onRepoExistsError() }
             return
         }
 
         // Do not allow invalid formats
         if (!name.matches(repoRegex) && !name.matches(urlRegex)) {
-            Observable.just(Unit).subscribeFirst({ view, _ -> view.onRepoInvalidNameError() })
+            deliverToView { it.onRepoInvalidNameError() }
             return
         }
 
@@ -75,12 +72,12 @@ class RepoPresenter(
 
         // The index file behind a URL can be named anything, so the only way to tell a repo index
         // from, say, the repo's web page is to ask the server what it is.
-        scope.launch {
+        presenterScope.launch {
             // Reading the response body off the socket blocks, so keep it off the main thread.
             if (withContext(Dispatchers.IO) { api.isRepoIndexUrl(name) }) {
                 addRepo(name)
             } else {
-                Observable.just(Unit).subscribeFirst({ view, _ -> view.onRepoInvalidUrlError() })
+                deliverToView { it.onRepoInvalidUrlError() }
             }
         }
     }

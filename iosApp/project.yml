@@ -1,0 +1,272 @@
+name: TachiyomiAZ
+options:
+  bundleIdPrefix: eu.kanade.tachiyomi
+  deploymentTarget:
+    iOS: "15.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+
+# Generated with XcodeGen so the project is a reviewable text file rather than a
+# merge-hostile .pbxproj. Regenerate after adding files:
+#
+#     cd iosApp && xcodegen generate
+#
+# Two things this target needs that are not in git, both large binaries:
+#
+#   TachiyomiKit.xcframework  ./gradlew :shared-ios:assembleTachiyomiKitDebugXCFramework
+#   Vendor/ and Resources/JVM  the OpenJDK Mobile runtime; see IOS_PORT.md
+#
+# Stage the JVM resources for the platform you are building before generating:
+#
+#     ./Scripts/stage-jvm-resources.sh simulator
+
+packages:
+  TachiJVMRunner:
+    path: Packages/TachiJVMRunner
+  # The source-facing model layer the vendored UI binds to. Vendored from tachiyomiazios, where
+  # it was called AidokuRunner -- but that project had already replaced Aidoku's WASM runner with
+  # one driving JVM extensions, so the Aidoku name described nothing that remained. Renamed to
+  # match what it actually is.
+  ExtensionRunner:
+    path: Packages/ExtensionRunner
+  # Versions matched to tachiyomiazios so the vendored UI compiles against what it was written
+  # for. Nuke is also the image cache, which is why covers behave the same here as there.
+  Nuke:
+    url: https://github.com/kean/Nuke
+    majorVersion: 13.0.0
+  Gifu:
+    url: https://github.com/kaishin/Gifu.git
+    majorVersion: 3.4.0
+  # Pinned to the same commit tachiyomiazios uses: the vendored manga list introspects with
+  # `.iOS(.v18, .v26, .v27)`, and no tagged release declares those versions yet.
+  SwiftUIIntrospect:
+    url: https://github.com/siteline/swiftui-introspect
+    revision: d2987affc5482a94d94aa730914aa26b124648a6
+  SwiftSoup:
+    url: https://github.com/scinfu/SwiftSoup
+    majorVersion: 2.10.1
+  # Downloads are stored as CBZ, which is a zip; the vendored download subsystem reads and writes
+  # them through this.
+  ZIPFoundation:
+    url: https://github.com/weichsel/ZIPFoundation
+    majorVersion: 0.9.0
+  # Manga descriptions arrive as markdown from some sources; the details header renders them.
+  MarkdownUI:
+    url: https://github.com/gonzalezreal/swift-markdown-ui
+    majorVersion: 2.0.0
+
+targets:
+  TachiyomiAZ:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources
+        excludes:
+          # Kept for reference, not compiled -- see Sources/Vendored/_excluded/README.md
+          - "Vendored/_excluded/**"
+      # The JVM runtime is copied in wholesale. JVMRuntimeConfiguration resolves these by name
+      # against the bundle's resource root, so the folder must land flattened rather than nested
+      # under a group -- hence "folder" rather than "group".
+      # Image assets. Xcode generates the symbol accessors the vendored UI uses (UIImage
+      # .mangaPlaceholder and friends) from this catalog.
+      - path: Resources/Assets.xcassets
+        buildPhase: resources
+      # The vendored UI's strings. Every label goes through NSLocalizedString, so without these
+      # the interface renders raw keys (APPEARANCE, INCOGNITO_MODE). Each .lproj is referenced
+      # directly rather than their parent directory: iOS resolves localizations only at the bundle
+      # root, so copying a "Localization" folder in would leave every string unfound.
+      - path: Resources/Localization/af.lproj
+        type: folder
+        buildPhase: resources
+      - path: Resources/Localization/ar.lproj
+        type: folder
+        buildPhase: resources
+      - path: Resources/Localization/bg.lproj
+        type: folder
+        buildPhase: resources
+      - path: Resources/Localization/cs.lproj
+        type: folder
+        buildPhase: resources
+      - path: Resources/Localization/de.lproj
+        type: folder
+        buildPhase: resources
+      - path: Resources/Localization/el.lproj
+        type: folder
+        buildPhase: resources
+      - path: Resources/Localization/en.lproj
+        type: folder
+        buildPhase: resources
+      - path: Resources/Localization/eo.lproj
+        type: folder
+        buildPhase: resources
+      - path: Resources/Localization/es.lproj
+        type: folder
+        buildPhase: resources
+      - path: Resources/Localization/fr.lproj
+        type: folder
+        buildPhase: resources
+      - path: Resources/Localization/he.lproj
+        type: folder
+        buildPhase: resources
+      - path: Resources/Localization/hi.lproj
+        type: folder
+        buildPhase: resources
+      - path: Resources/Localization/hr.lproj
+        type: folder
+        buildPhase: resources
+      - path: Resources/Localization/hu.lproj
+        type: folder
+        buildPhase: resources
+      - path: Resources/Localization/id.lproj
+        type: folder
+        buildPhase: resources
+      - path: Resources/Localization/it.lproj
+        type: folder
+        buildPhase: resources
+      - path: Resources/Localization/ja.lproj
+        type: folder
+        buildPhase: resources
+      - path: Resources/Localization/ka.lproj
+        type: folder
+        buildPhase: resources
+      - path: Resources/Localization/km.lproj
+        type: folder
+        buildPhase: resources
+      - path: Resources/Localization/ko.lproj
+        type: folder
+        buildPhase: resources
+      - path: Resources/Localization/ml.lproj
+        type: folder
+        buildPhase: resources
+      - path: Resources/Localization/nb-NO.lproj
+        type: folder
+        buildPhase: resources
+      - path: Resources/Localization/ne.lproj
+        type: folder
+        buildPhase: resources
+      - path: Resources/Localization/nl.lproj
+        type: folder
+        buildPhase: resources
+      - path: Resources/Localization/pl.lproj
+        type: folder
+        buildPhase: resources
+      - path: Resources/Localization/pt-BR.lproj
+        type: folder
+        buildPhase: resources
+      - path: Resources/Localization/pt.lproj
+        type: folder
+        buildPhase: resources
+      - path: Resources/Localization/ro.lproj
+        type: folder
+        buildPhase: resources
+      - path: Resources/Localization/ru.lproj
+        type: folder
+        buildPhase: resources
+      - path: Resources/Localization/sq.lproj
+        type: folder
+        buildPhase: resources
+      - path: Resources/Localization/sr.lproj
+        type: folder
+        buildPhase: resources
+      - path: Resources/Localization/sv.lproj
+        type: folder
+        buildPhase: resources
+      - path: Resources/Localization/sw.lproj
+        type: folder
+        buildPhase: resources
+      - path: Resources/Localization/ta.lproj
+        type: folder
+        buildPhase: resources
+      - path: Resources/Localization/th.lproj
+        type: folder
+        buildPhase: resources
+      - path: Resources/Localization/tr.lproj
+        type: folder
+        buildPhase: resources
+      - path: Resources/Localization/uk.lproj
+        type: folder
+        buildPhase: resources
+      - path: Resources/Localization/ur.lproj
+        type: folder
+        buildPhase: resources
+      - path: Resources/Localization/vi.lproj
+        type: folder
+        buildPhase: resources
+      - path: Resources/Localization/zh-Hans.lproj
+        type: folder
+        buildPhase: resources
+      - path: Resources/Localization/zh-Hant.lproj
+        type: folder
+        buildPhase: resources
+      - path: Resources/JVM/java_bundle
+        type: folder
+        buildPhase: resources
+      - path: Resources/JVM/tachiaz-compat
+        type: folder
+        buildPhase: resources
+      - path: Resources/JVM/tachiaz-extension-host.jar
+        buildPhase: resources
+      - path: Resources/JVM/tachiaz-mobile-shims.jar
+        buildPhase: resources
+    dependencies:
+      # Static frameworks: linked at build time, so they must not also be embedded.
+      - framework: ../shared-ios/build/XCFrameworks/debug/TachiyomiKit.xcframework
+        embed: false
+        link: true
+      - framework: Vendor/jvm/OpenJDK.xcframework
+        embed: false
+        link: true
+      # The webtoon reader renders pages as Texture nodes, from the same fork tachiyomiazios pins.
+      # Declared as a package it is a binaryTarget, and SPM's artifact download for it hangs
+      # indefinitely, so the xcframework is fetched once and linked directly instead. Replace with
+      #   ./Scripts/fetch-texture.sh
+      - framework: Vendor/AsyncDisplayKit.xcframework
+        embed: true
+        link: true
+      - package: TachiJVMRunner
+      - package: ExtensionRunner
+        product: ExtensionRunner
+      - package: Nuke
+        product: Nuke
+      - package: Nuke
+        product: NukeUI
+      - package: Gifu
+      - package: SwiftUIIntrospect
+      - package: SwiftSoup
+      - package: ZIPFoundation
+      - package: MarkdownUI
+    info:
+      path: Sources/Info.plist
+      properties:
+        CFBundleDisplayName: TachiyomiAZ
+        CFBundleShortVersionString: "0.1"
+        CFBundleVersion: "1"
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UIUserInterfaceStyle: Automatic
+        # OAuth callback for MyAnimeList and AniList sign-in.
+        CFBundleURLTypes:
+          - CFBundleURLName: eu.kanade.tachiyomi.az.ios.oauth
+            CFBundleURLSchemes: [tachiyomiaz]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: eu.kanade.tachiyomi.az.ios
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
+        # The asset catalog carries image assets only. Left unset, Xcode requires an "AppIcon" set
+        # in it; the app has no icon artwork of its own yet, and the fork's is Aidoku's.
+        ASSETCATALOG_COMPILER_APPICON_NAME: ""
+        # Simulator only. allow-jit and allow-unsigned-executable-memory are macOS
+        # hardened-runtime entitlements: the Simulator needs them because it runs as a macOS
+        # process, a real device neither needs nor is granted them, and requesting them on a
+        # personal team makes device signing fail outright.
+        "CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]": Sources/TachiyomiAZ.entitlements
+        DEVELOPMENT_TEAM: RRKT2YAH28
+        CODE_SIGN_STYLE: Automatic
+        # -lsqlite3 for SQLDelight's native driver; the rest are what the statically linked
+        # mobile VM pulls in -- it has no dynamic framework to carry its own dependencies.
+        OTHER_LDFLAGS: "-lsqlite3 -lz -liconv -lc++ -framework CoreGraphics -framework CoreText -framework ImageIO -framework JavaScriptCore -framework Security"

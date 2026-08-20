@@ -7,7 +7,9 @@ import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.ui.base.presenter.BasePresenter
-import rx.android.schedulers.AndroidSchedulers
+import eu.kanade.tachiyomi.util.system.withIOContext
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -28,16 +30,16 @@ class VideoPresenter(
     fun init(episodeId: Long) {
         if (!needsInit()) return
 
-        db.getChapter(episodeId).asRxObservable()
-            .first()
-            .observeOn(AndroidSchedulers.mainThread())
-            .doOnNext { init(it) }
-            .subscribeFirst(
-                { _, _ ->
-                    // Ignore onNext event
-                },
-                VideoActivity::initError
-            )
+        presenterScope.launch {
+            try {
+                val chapter = withIOContext { db.getChapter(episodeId) }
+                if (chapter != null) init(chapter)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Throwable) {
+                deliverToView { it.initError(error) }
+            }
+        }
     }
 
     fun init(initEpisode: Chapter) {

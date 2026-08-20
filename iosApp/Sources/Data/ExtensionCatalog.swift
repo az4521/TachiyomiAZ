@@ -1,0 +1,348 @@
+import CryptoKit
+import Foundation
+import TachiyomiKit
+
+/// One installable extension, flattened out of a repository index.
+///
+/// The shared `NetworkExtensionStore.Extension` is the wire format; this is what the UI needs.
+/// Kept separate so the wire model stays a faithful mirror of `index.proto` rather than growing
+/// display concerns.
+struct AvailableExtension: Identifiable, Hashable {
+    let name: String
+    let packageName: String
+    let versionName: String
+    let versionCode: Int64
+    let extensionLib: String
+    /// nil when the repository publishes only an APK, which this app cannot load.
+    let jarURL: String?
+    let iconURL: String
+    let languages: [String]
+    /// Only CONTENT_WARNING_NSFW. Kept separate from [hasMixedContent] on purpose -- see below.
+    let isNsfw: Bool
+    /// CONTENT_WARNING_MIXED: the source carries both kinds of content.
+    let hasMixedContent: Bool
+    let repositoryName: String
+
+    var id: String { packageName }
+
+    /// The host loads Mihon extension libraries 1.4 through 1.6 and refuses anything else, so
+    /// offering the rest would only produce failures at install time.
+    var isSupported: Bool {
+        // No JAR means no way to load it here, whatever its library version says.
+        guard jarURL?.isEmpty == false else { return false }
+        guard let major = extensionLib.split(separator: ".").first,
+              let minorText = extensionLib.split(separator: ".").dropFirst().first,
+              major == "1", let minor = Int(minorText) else { return false }
+        return (4...6).contains(minor)
+    }
+
+    /// Tachiyomi uses "all" for extensions that serve every language.
+    var isMultiLanguage: Bool { languages.contains("all") }
+
+    var displayLanguages: String {
+        if isMultiLanguage { return "All languages" }
+        return languages
+            .compactMap { Locale.current.localizedString(forLanguageCode: $0) ?? $0 }
+            .joined(separator: ", ")
+    }
+}
+
+extension AvailableExtension {
+    init(entry: NetworkExtensionStore.Extension, repositoryName: String) {
+        // Extensions are published as "Tachiyomi: Name"; the prefix is noise in a list of them.
+        self.name = entry.name.replacingOccurrences(of: "Tachiyomi: ", with: "")
+        self.packageName = entry.packageName
+        self.versionName = entry.versionName
+        self.versionCode = entry.versionCode
+        self.extensionLib = entry.extensionLib
+        // resources.jarUrl, never apkUrl. The APK is an Android package with a binary manifest;
+        // the host wants the JAR, and rejects an APK with "AndroidManifest.xml is not the textual
+        // manifest used by tachiyomix jar artifacts".
+        self.jarURL = entry.resources.jarUrl
+        self.iconURL = entry.resources.iconUrl
+        self.languages = Array(Set(entry.sources.map { $0.language })).sorted()
+        // MIXED is deliberately *not* folded into NSFW here. :app's toAvailableExtensions uses
+        // contentWarning >= MIXED, which is fine for a flag it merely displays -- but this drives
+        // a filter that defaults to hiding, and MangaDex and Weeb Central are both MIXED. Treating
+        // them as adult-only silently removes the two largest sources in the repository.
+        self.isNsfw = entry.contentWarning == .nsfw
+        self.hasMixedContent = entry.contentWarning == .mixed
+        self.repositoryName = repositoryName
+    }
+}
+
+/// An extension that has been downloaded and validated by the host.
+struct InstalledExtension: Codable, Identifiable, Hashable {
+    let packageName: String
+    let name: String
+    let versionName: String
+    let versionCode: Int64
+    let entryClass: String
+    /// File name only, never an absolute path.
+    ///
+    /// iOS rewrites the app's data-container UUID on reinstall and on update, so a stored absolute
+    /// path goes stale and the host fails with NoSuchFileException against a directory that no
+    /// longer exists. Resolving against the current container at use time is the only thing that
+    /// survives.
+    let jarFileName: String
+
+    var id: String { packageName }
+
+    /// Older builds persisted `jarPath`. Decode either, keeping only the file name.
+    private enum CodingKeys: String, CodingKey {
+        case packageName, name, versionName, versionCode, entryClass, jarFileName, jarPath
+    }
+
+    init(
+        packageName: String,
+        name: String,
+        versionName: String,
+        versionCode: Int64,
+        entryClass: String,
+        jarFileName: String
+    ) {
+        self.packageName = packageName
+        self.name = name
+        self.versionName = versionName
+        self.versionCode = versionCode
+        self.entryClass = entryClass
+        self.jarFileName = jarFileName
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(packageName, forKey: .packageName)
+        try container.encode(name, forKey: .name)
+        try container.encode(versionName, forKey: .versionName)
+        try container.encode(versionCode, forKey: .versionCode)
+        try container.encode(entryClass, forKey: .entryClass)
+        // jarPath is deliberately not written: it is read for migration only.
+        try container.encode(jarFileName, forKey: .jarFileName)
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        packageName = try container.decode(String.self, forKey: .packageName)
+        name = try container.decode(String.self, forKey: .name)
+        versionName = try container.decode(String.self, forKey: .versionName)
+        versionCode = try container.decode(Int64.self, forKey: .versionCode)
+        entryClass = try container.decode(String.self, forKey: .entryClass)
+        if let fileName = try container.decodeIfPresent(String.self, forKey: .jarFileName) {
+            jarFileName = fileName
+        } else {
+            let legacyPath = try container.decode(String.self, forKey: .jarPath)
+            jarFileName = (legacyPath as NSString).lastPathComponent
+        }
+    }
+}
+
+/// Downloads extension JARs and has the JVM validate them.
+///
+/// Installing is deliberately two steps. Downloading is just a file; an extension is only
+/// "installed" once `inspectExtension` has opened the JAR inside the VM and agreed it is a
+/// supported Mihon extension. That keeps a truncated download or an APK-in-disguise from sitting
+/// in the list looking healthy.
+@MainActor
+final class ExtensionCatalog: ObservableObject {
+    @Published private(set) var installed: [InstalledExtension] = []
+    @Published private(set) var installing: Set<String> = []
+    @Published private(set) var lastError: String?
+
+    private let key = "extensions.installed"
+    private unowned let jvm: JVMHost
+
+    init(jvm: JVMHost) {
+        self.jvm = jvm
+        if let data = UserDefaults.standard.data(forKey: key),
+           let stored = try? JSONDecoder().decode([InstalledExtension].self, from: data) {
+            installed = stored
+        }
+    }
+
+    func isInstalled(_ extensionItem: AvailableExtension) -> Bool {
+        installed.contains { $0.packageName == extensionItem.packageName }
+    }
+
+    func installedVersion(of extensionItem: AvailableExtension) -> Int64? {
+        installed.first { $0.packageName == extensionItem.packageName }?.versionCode
+    }
+
+    /// Resolves an installed extension's JAR against the *current* container.
+    static func jarURL(for item: InstalledExtension) throws -> URL {
+        try extensionsDirectory().appendingPathComponent(item.jarFileName)
+    }
+
+    static func extensionsDirectory() throws -> URL {
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        let directory = base.appendingPathComponent("Extensions", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory
+    }
+
+    func install(_ extensionItem: AvailableExtension) async {
+        guard !installing.contains(extensionItem.packageName) else { return }
+        installing.insert(extensionItem.packageName)
+        lastError = nil
+        defer { installing.remove(extensionItem.packageName) }
+
+        guard let jarURL = extensionItem.jarURL, let url = URL(string: jarURL) else {
+            lastError = "\(extensionItem.name): this repository publishes no JAR for it, only an APK."
+            return
+        }
+
+        do {
+            let (temporaryURL, response) = try await URLSession.shared.download(from: url)
+            if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+                lastError = "\(extensionItem.name): download failed with HTTP \(http.statusCode)."
+                return
+            }
+
+            let destination = try Self.extensionsDirectory()
+                .appendingPathComponent("\(extensionItem.packageName).jar")
+            try? FileManager.default.removeItem(at: destination)
+            try FileManager.default.moveItem(at: temporaryURL, to: destination)
+
+            // The VM is the authority on whether this is loadable, not the index metadata.
+            let inspection: JVMExtensionInspection
+            do {
+                inspection = try await jvm.inspect(jarPath: destination.path)
+            } catch {
+                try? FileManager.default.removeItem(at: destination)
+                lastError = "\(extensionItem.name): \(error.localizedDescription)"
+                return
+            }
+            let entryClass = inspection.entryClass
+
+            // Hand the JAR to JVMSourceRuntime, which owns the VM and keeps the layout its own
+            // installedManifests() reads. Without this the extension installs but no source ever
+            // appears, because the two halves look in different directories.
+            do {
+                let manifest = JVMExtensionManifest(
+                    inspection: inspection,
+                    sourceURL: url,
+                    iconURL: URL(string: extensionItem.iconURL),
+                    sha256: try Self.sha256(of: destination),
+                    versionCode: String(extensionItem.versionCode),
+                    isNsfw: extensionItem.isNsfw
+                )
+                _ = try await JVMSourceRuntime.shared.install(jar: destination, manifest: manifest)
+            } catch {
+                try? FileManager.default.removeItem(at: destination)
+                lastError = "\(extensionItem.name): \(error.localizedDescription)"
+                return
+            }
+
+            installed.removeAll { $0.packageName == extensionItem.packageName }
+            installed.append(
+                InstalledExtension(
+                    packageName: extensionItem.packageName,
+                    name: extensionItem.name,
+                    versionName: extensionItem.versionName,
+                    versionCode: extensionItem.versionCode,
+                    entryClass: entryClass,
+                    jarFileName: destination.lastPathComponent
+                )
+            )
+            installed.sort { $0.name < $1.name }
+            persist()
+        } catch {
+            lastError = "\(extensionItem.name): \(error.localizedDescription)"
+        }
+    }
+
+    func uninstall(_ item: InstalledExtension) {
+        if let url = try? Self.jarURL(for: item) {
+            try? FileManager.default.removeItem(at: url)
+        }
+        installed.removeAll { $0.packageName == item.packageName }
+        persist()
+        // The VM holds the loaded classes and its own copy of the JAR.
+        let packageName = item.packageName
+        Task { try? await JVMSourceRuntime.shared.uninstall(extensionId: packageName) }
+    }
+
+    /// Checksum the manifest records, so a later load can tell the JAR has not been swapped.
+    private static func sha256(of url: URL) throws -> String {
+        let digest = SHA256.hash(data: try Data(contentsOf: url))
+        return digest.map { String(format: "%02x", $0) }.joined()
+    }
+
+    private func persist() {
+        guard let data = try? JSONEncoder().encode(installed) else { return }
+        UserDefaults.standard.set(data, forKey: key)
+    }
+
+    // MARK: - Migration
+
+    /// Re-registers extensions installed before JVMSourceRuntime became the sole VM owner.
+    ///
+    /// Installs used to land as flat JARs in `Extensions/`, which the runtime never reads -- it
+    /// keeps its own `JVMExtensions/<id>/<version>/` layout with a manifest. Anything recorded here
+    /// but missing from that layout would silently produce no sources, so it is handed over on
+    /// launch using the JAR already on disk. No re-download.
+    func migrateToRuntimeLayout() async {
+        let known = Set(((try? await JVMSourceRuntime.shared.installedManifests()) ?? []).map(\.id))
+        let stale = installed.filter { !known.contains($0.packageName) }
+        guard !stale.isEmpty else { return }
+
+        for item in stale {
+            guard
+                let jar = try? Self.jarURL(for: item),
+                FileManager.default.fileExists(atPath: jar.path)
+            else { continue }
+
+            do {
+                let inspection = try await jvm.inspect(jarPath: jar.path)
+                let manifest = JVMExtensionManifest(
+                    inspection: inspection,
+                    sourceURL: nil,
+                    sha256: try Self.sha256(of: jar),
+                    versionCode: String(item.versionCode)
+                )
+                _ = try await JVMSourceRuntime.shared.install(jar: jar, manifest: manifest)
+            } catch {
+                lastError = "\(item.name): could not be migrated to the runtime (\(error.localizedDescription))."
+            }
+        }
+    }
+
+    /// Installs an extension from a JAR the user opened from Files.
+    ///
+    /// Same path as a repository install -- inspect, then hand to the runtime -- so a sideloaded
+    /// extension ends up in the identical layout and loads the same way.
+    func installLocalJar(at url: URL) async {
+        let secured = url.startAccessingSecurityScopedResource()
+        defer { if secured { url.stopAccessingSecurityScopedResource() } }
+
+        do {
+            let inspection = try await jvm.inspect(jarPath: url.path)
+            let destination = try Self.extensionsDirectory()
+                .appendingPathComponent("\(inspection.packageName).jar")
+            try? FileManager.default.removeItem(at: destination)
+            try FileManager.default.copyItem(at: url, to: destination)
+
+            let manifest = JVMExtensionManifest(
+                inspection: inspection,
+                sourceURL: nil,
+                sha256: try Self.sha256(of: destination)
+            )
+            _ = try await JVMSourceRuntime.shared.install(jar: destination, manifest: manifest)
+
+            installed.removeAll { $0.packageName == inspection.packageName }
+            installed.append(
+                InstalledExtension(
+                    packageName: inspection.packageName,
+                    name: inspection.name,
+                    versionName: inspection.version,
+                    versionCode: Int64(inspection.versionCode) ?? 0,
+                    entryClass: inspection.entryClass,
+                    jarFileName: destination.lastPathComponent
+                )
+            )
+            installed.sort { $0.name < $1.name }
+            persist()
+        } catch {
+            lastError = "Import failed: \(error.localizedDescription)"
+        }
+    }
+}

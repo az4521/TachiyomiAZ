@@ -97,7 +97,6 @@
     <string name="pref_library_update_restriction_summary">Nur aktualisieren, wenn diese Bedingungen eintreffen</string>
     <string name="wifi">WLAN</string>
     <string name="charging">Am Laden</string>
-    <string name="pref_update_only_non_completed">Nur fortlaufende Manga aktualisieren</string>
     <string name="pref_auto_update_manga_sync">Kapitel nach dem Lesen synchronisieren</string>
     <string name="pref_start_screen">Startbildschirm</string>
     <string name="pref_language">Sprache</string>

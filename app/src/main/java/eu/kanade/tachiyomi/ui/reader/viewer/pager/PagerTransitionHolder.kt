@@ -15,8 +15,10 @@ import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import eu.kanade.tachiyomi.ui.reader.viewer.ReaderTransitionView
 import eu.kanade.tachiyomi.util.system.dpToPx
 import eu.kanade.tachiyomi.widget.ViewPagerAdapter
-import rx.Subscription
-import rx.android.schedulers.AndroidSchedulers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 
 /**
  * View of the ViewPager that contains a chapter transition.
@@ -35,7 +37,9 @@ class PagerTransitionHolder(
     /**
      * Subscription for status changes of the transition page.
      */
-    private var statusSubscription: Subscription? = null
+    private val scope = MainScope()
+
+    private var statusJob: Job? = null
 
     /**
      * View container of the current status of the transition page. Child views will be added
@@ -68,8 +72,11 @@ class PagerTransitionHolder(
      */
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
-        statusSubscription?.unsubscribe()
-        statusSubscription = null
+        statusJob?.cancel()
+        statusJob = null
+        // Not scope.cancel(): the pager re-attaches this view, and a cancelled scope stays
+        // cancelled, so observeStatus() would silently never observe again. Cancelling the job
+        // is the direct equivalent of the old unsubscribe().
     }
 
     /**
@@ -77,11 +84,10 @@ class PagerTransitionHolder(
      * state, the pages container is cleaned up before setting the new state.
      */
     private fun observeStatus(chapter: ReaderChapter) {
-        statusSubscription?.unsubscribe()
-        statusSubscription =
+        statusJob?.cancel()
+        statusJob =
             chapter.stateObserver
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe { state ->
+                .onEach { state ->
                     pagesContainer.removeAllViews()
                     when (state) {
                         is ReaderChapter.State.Wait -> {
@@ -91,6 +97,7 @@ class PagerTransitionHolder(
                         is ReaderChapter.State.Loaded -> setLoaded()
                     }
                 }
+                .launchIn(scope)
     }
 
     /**

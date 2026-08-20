@@ -4,10 +4,9 @@ import android.view.MenuItem
 import eu.davidea.flexibleadapter.FlexibleAdapter
 import eu.kanade.tachiyomi.data.database.DatabaseHelper
 import eu.kanade.tachiyomi.data.database.models.Manga
-import eu.kanade.tachiyomi.data.database.models.MangaCategory
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
-import eu.kanade.tachiyomi.ui.migration.MigrationFlags
-import eu.kanade.tachiyomi.util.lang.launchUI
+import eu.kanade.tachiyomi.domain.migration.migrateMangaData
+import eu.kanade.tachiyomi.util.system.launchUI
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.withContext
@@ -61,19 +60,22 @@ class MigrationProcessAdapter(
 
     suspend fun performMigrations(copy: Boolean) {
         withContext(Dispatchers.IO) {
-            db.inTransaction {
-                currentItems.forEach { migratingManga ->
+            // searchResult.get() and manga() suspend, so resolve them before opening the
+            // transaction. That also stops a DB transaction being held open across
+            // suspension points, which the previous version did.
+            val pending =
+                currentItems.mapNotNull { migratingManga ->
                     val manga = migratingManga.manga
-                    if (manga.searchResult.initialized) {
-                        val toMangaObj =
-                            db.getManga(manga.searchResult.get() ?: return@forEach).executeAsBlocking()
-                                ?: return@forEach
-                        migrateMangaInternal(
-                            manga.manga() ?: return@forEach,
-                            toMangaObj,
-                            !copy
-                        )
-                    }
+                    if (!manga.searchResult.initialized) return@mapNotNull null
+                    val targetId = manga.searchResult.get() ?: return@mapNotNull null
+                    val toMangaObj = db.getManga(targetId) ?: return@mapNotNull null
+                    val fromManga = manga.manga() ?: return@mapNotNull null
+                    fromManga to toMangaObj
+                }
+
+            db.inTransaction {
+                pending.forEach { (fromManga, toMangaObj) ->
+                    migrateMangaInternal(fromManga, toMangaObj, !copy)
                 }
             }
         }
@@ -85,15 +87,11 @@ class MigrationProcessAdapter(
     ) {
         launchUI {
             val manga = getItem(position)?.manga ?: return@launchUI
+            val targetId = manga.searchResult.get() ?: return@launchUI
+            val toMangaObj = db.getManga(targetId) ?: return@launchUI
+            val fromManga = manga.manga() ?: return@launchUI
             db.inTransaction {
-                val toMangaObj =
-                    db.getManga(manga.searchResult.get() ?: return@launchUI).executeAsBlocking()
-                        ?: return@launchUI
-                migrateMangaInternal(
-                    manga.manga() ?: return@launchUI,
-                    toMangaObj,
-                    !copy
-                )
+                migrateMangaInternal(fromManga, toMangaObj, !copy)
             }
             removeManga(position)
         }
@@ -114,45 +112,14 @@ class MigrationProcessAdapter(
         replace: Boolean
     ) {
         if (controller.config == null) return
-        val flags = preferences.migrateFlags().get()
-        // Update chapters read
-        if (MigrationFlags.hasChapters(flags)) {
-            val prevMangaChapters = db.getChapters(prevManga).executeAsBlocking()
-            val maxChapterRead =
-                prevMangaChapters.filter { it.read }.maxByOrNull { it.chapter_number }?.chapter_number
-            if (maxChapterRead != null) {
-                val dbChapters = db.getChapters(manga).executeAsBlocking()
-                for (chapter in dbChapters) {
-                    if (chapter.isRecognizedNumber && chapter.chapter_number <= maxChapterRead) {
-                        chapter.read = true
-                    }
-                }
-                db.insertChapters(dbChapters).executeAsBlocking()
-            }
-        }
-        // Update categories
-        if (MigrationFlags.hasCategories(flags)) {
-            val categories = db.getCategoriesForManga(prevManga).executeAsBlocking()
-            val mangaCategories = categories.map { MangaCategory.create(manga, it) }
-            db.setMangaCategories(mangaCategories, listOf(manga))
-        }
-        // Update track
-        if (MigrationFlags.hasTracks(flags)) {
-            val tracks = db.getTracks(prevManga).executeAsBlocking()
-            for (track in tracks) {
-                track.id = null
-                track.manga_id = manga.id!!
-            }
-            db.insertTracks(tracks).executeAsBlocking()
-        }
-        // Update favorite status
-        if (replace) {
-            prevManga.favorite = false
-            db.updateMangaFavorite(prevManga).executeAsBlocking()
-        }
-        manga.favorite = true
 
-        db.updateMangaFavorite(manga).executeAsBlocking()
-        db.updateMangaTitle(manga).executeAsBlocking()
+        // The rule itself is shared so both platforms carry the same data across a migration.
+        migrateMangaData(
+            db = db,
+            prevManga = prevManga,
+            manga = manga,
+            flags = preferences.migrateFlags().get(),
+            replace = replace
+        )
     }
 }

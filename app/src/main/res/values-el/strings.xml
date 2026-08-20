@@ -106,7 +106,6 @@
     <string name="pref_library_update_restriction_summary">Ενημέρωση μόνο όταν πληρούνται οι προϋποθέσεις</string>
     <string name="wifi">Wi-Fi</string>
     <string name="charging">Φορτίζει</string>
-    <string name="pref_update_only_non_completed">Ενημέρωση μόνο manga σε εξέλιξη</string>
     <string name="pref_auto_update_manga_sync">Συγχρονισμός κεφαλαίων μετά τη ανάγνωση</string>
     <string name="pref_start_screen">Οθόνη εκκίνησης</string>
     <string name="pref_language">Γλώσσα</string>

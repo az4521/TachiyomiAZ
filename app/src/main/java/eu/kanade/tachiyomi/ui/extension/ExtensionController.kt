@@ -19,6 +19,7 @@ import eu.kanade.tachiyomi.databinding.ExtensionControllerBinding
 import eu.kanade.tachiyomi.extension.model.Extension
 import eu.kanade.tachiyomi.ui.base.controller.NucleusController
 import eu.kanade.tachiyomi.ui.base.controller.withFadeTransaction
+import eu.kanade.tachiyomi.util.view.deferStateRestorationUntilItemsAreLoaded
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
@@ -73,7 +74,7 @@ open class ExtensionController :
             .launchIn(scope)
 
         // Initialize adapter, scroll listener and recycler views
-        adapter = ExtensionAdapter(this)
+        adapter = ExtensionAdapter(this).apply { deferStateRestorationUntilItemsAreLoaded() }
         // Create recycler and set adapter.
         binding.extRecycler.layoutManager = LinearLayoutManager(view.context)
         binding.extRecycler.adapter = adapter

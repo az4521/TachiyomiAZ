@@ -40,15 +40,14 @@ import eu.kanade.tachiyomi.util.system.MiuiUtil
 import eu.kanade.tachiyomi.util.system.isPackageInstalled
 import eu.kanade.tachiyomi.util.system.powerManager
 import eu.kanade.tachiyomi.util.system.toast
+import eu.kanade.tachiyomi.util.system.withIOContext
 import exh.EH_SOURCE_ID
 import exh.EXH_SOURCE_ID
 import exh.NHENTAI_SOURCE_ID
 import exh.debug.SettingsDebugController
 import exh.log.EHLogLevel
 import exh.source.BlacklistedSources
-import rx.Observable
-import rx.android.schedulers.AndroidSchedulers
-import rx.schedulers.Schedulers
+import kotlinx.coroutines.launch
 import uy.kohesive.injekt.injectLazy
 import eu.kanade.tachiyomi.data.preference.PreferenceKeys as Keys
 
@@ -323,23 +322,22 @@ class SettingsAdvancedController : SettingsController() {
 
         var deletedFiles = 0
 
-        Observable.defer { Observable.from(files) }
-            .doOnNext { file ->
-                if (chapterCache.removeFileFromCache(file.name)) {
-                    deletedFiles++
+        viewScope.launch {
+            try {
+                withIOContext {
+                    files.forEach { file ->
+                        if (chapterCache.removeFileFromCache(file.name)) {
+                            deletedFiles++
+                        }
+                    }
                 }
-            }
-            .subscribeOn(Schedulers.io())
-            .observeOn(AndroidSchedulers.mainThread())
-            .doOnError {
-                activity?.toast(R.string.cache_delete_error)
-            }
-            .doOnCompleted {
                 activity?.toast(resources?.getString(R.string.cache_deleted, deletedFiles))
                 findPreference(CLEAR_CACHE_KEY)?.summary =
                     resources?.getString(R.string.used_cache, chapterCache.readableSize)
+            } catch (e: Throwable) {
+                activity?.toast(R.string.cache_delete_error)
             }
-            .subscribe()
+        }
     }
 
     class ClearDatabaseDialogController : DialogController() {
@@ -365,13 +363,13 @@ class SettingsAdvancedController : SettingsController() {
     }
 
     private fun clearHistory() {
-        db.deleteHistory().executeAsBlocking()
+        db.deleteHistory()
         activity?.toast(R.string.clear_history_completed)
     }
 
     private fun clearDatabase() {
-        db.deleteMangasNotInLibrary().executeAsBlocking()
-        db.deleteHistoryNoLastRead().executeAsBlocking()
+        db.deleteMangasNotInLibrary()
+        db.deleteHistoryNoLastRead()
         activity?.toast(R.string.clear_database_completed)
     }
 

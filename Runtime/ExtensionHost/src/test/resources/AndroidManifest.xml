@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="fixture"
+    android:versionCode="1"
+    android:versionName="1.0">
+    <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="34" />
+    <uses-feature android:name="tachiyomi.extension" />
+    <application>
+        <meta-data android:name="tachiyomix.name"
+            android:value="Echo Fixture" />
+        <meta-data android:name="tachiyomix.extensionLib"
+            android:value="1.6" />
+        <meta-data android:name="tachiyomi.extension.class"
+            android:value=".EchoExtension" />
+    </application>
+</manifest>
