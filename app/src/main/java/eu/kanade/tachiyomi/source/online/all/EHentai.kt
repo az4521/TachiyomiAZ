@@ -59,6 +59,7 @@ import org.jsoup.nodes.TextNode
 import rx.Observable
 import rx.Single
 import uy.kohesive.injekt.injectLazy
+import java.io.IOException
 import java.net.URLEncoder
 
 // TODO Consider gallery updating when doing tabbed browsing
@@ -585,27 +586,36 @@ class EHentai(
         throw UnsupportedOperationException("Unused method was called somehow!")
     }
 
-    fun fetchFavorites(): Pair<List<ParsedManga>, List<String>> {
+    fun fetchFavorites(
+        onPageDownloaded: (page: Int, favoritesDownloaded: Int) -> Unit = { _, _ -> }
+    ): Pair<List<ParsedManga>, List<String>> {
         val favoriteUrl = "$baseUrl/favorites.php"
         val result = mutableListOf<ParsedManga>()
         var page = 1
+        var pagesDownloaded = 0
+        val seenCursors = mutableSetOf<Int>()
 
         var favNames: List<String>? = null
 
         do {
-            val response2 =
-                client.newCall(
-                    exGet(
-                        favoriteUrl,
-                        page = page,
-                        cache = false
-                    )
-                ).execute()
-            val doc = response2.asJsoup()
+            val doc = client.newCall(
+                exGet(
+                    favoriteUrl,
+                    page = page,
+                    cache = false
+                )
+            ).execute().use { response ->
+                if (!response.isSuccessful) {
+                    throw IOException("Favorites request failed with HTTP ${response.code}")
+                }
+                response.asJsoup()
+            }
 
             // Parse favorites
             val parsed = extendedGenericMangaParse(doc)
             result += parsed.first
+            pagesDownloaded++
+            onPageDownloaded(pagesDownloaded, result.size)
 
             // Parse fav names
             if (favNames == null) {
@@ -616,10 +626,24 @@ class EHentai(
             }
             // Next page
 
-            page = parsed.first.lastOrNull()?.manga?.url?.let { EHentaiSearchMetadata.galleryId(it) }?.toInt() ?: 0
+            if (parsed.second) {
+                val nextCursor = parsed.first.lastOrNull()?.manga?.url
+                    ?.let(EHentaiSearchMetadata::galleryId)
+                    ?.toIntOrNull()
+                    ?.takeIf { it > 0 }
+                    ?: throw IOException("Favorites page has a next link but no usable pagination cursor")
+
+                if (!seenCursors.add(nextCursor)) {
+                    throw IOException("Favorites pagination repeated cursor $nextCursor")
+                }
+                page = nextCursor
+            }
         } while (parsed.second)
 
-        return Pair(result as List<ParsedManga>, favNames!!)
+        return Pair(
+            result,
+            favNames ?: throw IOException("Favorites response did not contain category names")
+        )
     }
 
     fun spPref() =

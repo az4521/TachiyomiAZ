@@ -96,9 +96,19 @@ class FavoritesSyncHelper(val context: Context) {
         val favorites =
             try {
                 status.onNext(FavoritesSyncStatus.Processing("Downloading favorites from remote server"))
-                exh.fetchFavorites()
+                exh.fetchFavorites { page, downloaded ->
+                    status.onNext(
+                        FavoritesSyncStatus.Processing(
+                            "Downloading favorites from remote server: $downloaded downloaded (page $page)"
+                        )
+                    )
+                }
             } catch (e: Exception) {
-                status.onNext(FavoritesSyncStatus.Error("Failed to fetch favorites from remote server!"))
+                status.onNext(
+                    FavoritesSyncStatus.Error(
+                        "Failed to fetch favorites from remote server: ${e.message ?: e.javaClass.simpleName}"
+                    )
+                )
                 logger.e("Could not fetch favorites!", e)
                 return
             }
