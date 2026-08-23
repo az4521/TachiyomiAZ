@@ -18,4 +18,23 @@ class SChapterImpl : SChapter {
     override var note: String? = null
 
     override var memo: JsonObject = JsonObject(emptyMap())
+
+    /**
+     * JavaBean ABI alias used by extensions that normalize Kotlin's legacy
+     * `chapter_number` property to `chapterNumber` before resolving accessors.
+     *
+     * Keep this alongside the generated `setChapter_number(float)` method: released
+     * extensions exist against both spellings.
+     */
+    fun setChapterNumber(value: Float) {
+        chapter_number = value
+    }
+
+    fun getChapterNumber(): Float = chapter_number
+
+    fun setDateUpload(value: Long) {
+        date_upload = value
+    }
+
+    fun getDateUpload(): Long = date_upload
 }
