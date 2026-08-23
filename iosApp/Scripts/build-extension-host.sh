@@ -141,6 +141,11 @@ if [[ "${1:-}" == "--test" ]]; then
         run_test_java \
             -cp \
             "$TACHIAZ_COMPAT_CLASSPATH:$output_jar:$compat_test_classes_root" \
+            app.tachiaz.runtime.ChapterModelBridgeTest
+
+        run_test_java \
+            -cp \
+            "$TACHIAZ_COMPAT_CLASSPATH:$output_jar:$compat_test_classes_root" \
             app.tachiaz.runtime.AndroidMainLooperTest
 
         run_test_java \
