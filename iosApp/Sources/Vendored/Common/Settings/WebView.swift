@@ -581,7 +581,7 @@ struct SourceWebBrowserView: View {
                 // so a newly-created extension WebView cannot race WebKit's
                 // cross-process persistence.
                 _ = await webViewSession.captureLocalStorage()
-                if let runner {
+                if let runner, !detailedCookies.isEmpty {
                     let resolvedUserAgent = userAgent.isEmpty
                         ? (try await runner.webLoginUserAgent())
                         : userAgent

@@ -145,6 +145,7 @@ class LibraryViewModel {
     }
     private(set) var hasUncategorizedManga = false
     private(set) var actuallyEmpty = true
+    private(set) var categoryEntryCounts = LibraryCategoryEntryCounts()
 
     init() {
         let filtersData = UserDefaults.standard.data(forKey: "Library.filters")
@@ -249,12 +250,11 @@ extension LibraryViewModel {
         )
         let previouslyHadUncategorizedManga = hasUncategorizedManga
         if refreshCategoryAvailability {
-            hasUncategorizedManga = await DatabaseContainer.shared
+            categoryEntryCounts = await DatabaseContainer.shared
                 .performBackgroundTask { @Sendable context in
-                // Answered by the library query itself. This walked every library entry and ran a
-                // category lookup per entry -- two queries each, on every single library load.
-                SharedDataStore.shared.hasUncategorizedLibraryManga()
+                SharedDataStore.shared.libraryCategoryEntryCounts(context: context)
             }
+            hasUncategorizedManga = categoryEntryCounts.uncategorized > 0
             normalizeCurrentCategory()
         }
 
@@ -939,6 +939,8 @@ extension LibraryViewModel {
         manga.removeAll { identifiers.contains($0.identifier) }
         storedPinnedManga?.removeAll { identifiers.contains($0.identifier) }
         storedManga?.removeAll { identifiers.contains($0.identifier) }
+        categoryEntryCounts.remove(identifiers)
+        hasUncategorizedManga = categoryEntryCounts.uncategorized > 0
     }
 
     func addToCurrentCategory(manga: [MangaInfo]) async {

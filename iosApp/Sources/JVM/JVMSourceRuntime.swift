@@ -1726,6 +1726,11 @@ actor TachiyomiXSourceRunner: ExtensionRunner.Runner {
             type: setting.type,
             value: value
         )
+        await EnhancedSourceBridge.mirrorSettings(
+            extensionId: extensionId,
+            sourceId: descriptor.id,
+            sourceName: descriptor.name
+        )
     }
 
     func getMangaList(

@@ -340,6 +340,21 @@ class LibraryViewController: OldMangaCollectionViewController {
                 self.refreshCategoryHeader()
             }
         }
+        addObserver(forName: .removeFromLibrary) { [weak self] notification in
+            guard let self, let manga = notification.object as? ExtensionRunner.Manga else { return }
+            Task { @MainActor in
+                // Removals from a manga-detail or source screen used to leave this controller's
+                // in-memory snapshot untouched until a later full reload. Remove the matching
+                // identity now; the updateLibrary notification after the write remains the
+                // authoritative reconciliation step.
+                self.viewModel.removeFromLibrary(manga: [
+                    MangaInfo(mangaId: manga.key, sourceId: manga.sourceKey)
+                ])
+                self.updateEmptyStack()
+                self.updateDataSource()
+                self.refreshCategoryHeader()
+            }
+        }
         addObserver(forName: .updateLibraryLock) { [weak self] _ in
             guard let self else { return }
             Task { @MainActor in
@@ -990,20 +1005,44 @@ extension LibraryViewController {
     private func makeCategoryHeaderOptions() -> [LibraryCategorySelectionHeader.Section] {
         var options: [LibraryCategorySelectionHeader.Section] = []
         var primaryOptions: [String] = []
+        var primaryLabels: [String] = []
         if UserDefaults.standard.bool(forKey: "Library.showAllCategory") {
             primaryOptions.append(NSLocalizedString("ALL"))
+            primaryLabels.append(categoryLabel(NSLocalizedString("ALL"), count: viewModel.categoryEntryCounts.total))
         }
         if viewModel.hasUncategorizedManga {
             primaryOptions.append(NSLocalizedString("UNCATEGORIZED"))
+            primaryLabels.append(
+                categoryLabel(
+                    NSLocalizedString("UNCATEGORIZED"),
+                    count: viewModel.categoryEntryCounts.uncategorized
+                )
+            )
         }
-        options.append(.init(options: primaryOptions))
+        options.append(.init(options: primaryOptions, labels: primaryLabels))
         if !viewModel.categories.isEmpty {
-            options.append(.init(title: NSLocalizedString("CATEGORIES"), options: viewModel.categories))
+            options.append(
+                .init(
+                    title: NSLocalizedString("CATEGORIES"),
+                    options: viewModel.categories,
+                    labels: viewModel.categories.map {
+                        categoryLabel($0, count: viewModel.categoryEntryCounts.count(for: $0))
+                    }
+                )
+            )
         }
         if !viewModel.filterGroups.isEmpty {
             options.append(.init(title: NSLocalizedString("FILTER_GROUPS"), options: viewModel.filterGroups.map(\.title)))
         }
         return options
+    }
+
+    private func categoryLabel(_ title: String, count: Int) -> String {
+        let localizedCount = NumberFormatter.localizedString(
+            from: NSNumber(value: count),
+            number: .decimal
+        )
+        return "\(title) (\(localizedCount))"
     }
 
     private func categoryIndexPaths() -> [IndexPath] {

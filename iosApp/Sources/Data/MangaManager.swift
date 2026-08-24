@@ -39,11 +39,13 @@ final class MangaManager {
 
     func removeFromLibrary(sourceId: String, mangaId: String) async {
         guard let library, let source = SourceIdentity.numericId(sourceId) else { return }
+        let manga = ExtensionRunner.Manga(sourceKey: sourceId, key: mangaId, title: "")
+        // Source and detail screens are often presented over a live library controller. Let it
+        // discard the row before the shared write/reload completes, then reconcile from the
+        // database below.
+        NotificationCenter.default.post(name: .removeFromLibrary, object: manga)
         await library.remove(url: mangaId, sourceId: source)
-        NotificationCenter.default.post(
-            name: .removeFromLibrary,
-            object: ExtensionRunner.Manga(sourceKey: sourceId, key: mangaId, title: "")
-        )
+        NotificationCenter.default.post(name: .updateLibrary, object: nil)
     }
 
     /// Re-fetches details purely to refresh a broken cover URL.

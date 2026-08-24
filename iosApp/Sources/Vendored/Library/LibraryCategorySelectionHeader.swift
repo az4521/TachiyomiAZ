@@ -19,6 +19,9 @@ class LibraryCategorySelectionHeader: UICollectionReusableView {
     struct Section {
         var title: String?
         var options: [String] = []
+        /// What the user sees. `options` deliberately remains the stable category/group key used
+        /// by selection, locking and persistence.
+        var labels: [String]? = nil
     }
 
     var options: [Section] = [] {
@@ -132,11 +135,13 @@ class LibraryCategorySelectionHeader: UICollectionReusableView {
         tabIndexPaths.removeAll(keepingCapacity: true)
 
         for (sectionIndex, section) in options.enumerated() {
-            for (rowIndex, title) in section.options.enumerated() {
+            for (rowIndex, option) in section.options.enumerated() {
                 let indexPath = IndexPath(row: rowIndex, section: sectionIndex)
                 let button = UIButton(type: .system)
                 var configuration = UIButton.Configuration.plain()
-                configuration.title = title
+                configuration.title = section.labels.flatMap {
+                    rowIndex < $0.count ? $0[rowIndex] : nil
+                } ?? option
                 configuration.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16)
                 configuration.imagePadding = 5
                 if lockedOptions.contains(indexPath) {

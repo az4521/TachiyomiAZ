@@ -1,9 +1,79 @@
 import Foundation
 import TachiyomiKit
 
+/// Counts for the library's category tabs, with the membership map retained so an optimistic
+/// removal can update the labels before the database-refresh notification arrives.
+struct LibraryCategoryEntryCounts {
+    private(set) var total = 0
+    private(set) var uncategorized = 0
+    private var identifiersByCategory: [String: Set<MangaIdentifier>] = [:]
+    private var categoriesByIdentifier: [MangaIdentifier: Set<String>] = [:]
+    private var allIdentifiers: Set<MangaIdentifier> = []
+
+    init(
+        allIdentifiers: Set<MangaIdentifier> = [],
+        categoriesByIdentifier: [MangaIdentifier: Set<String>] = [:]
+    ) {
+        self.allIdentifiers = allIdentifiers
+        self.categoriesByIdentifier = categoriesByIdentifier
+        total = allIdentifiers.count
+        uncategorized = allIdentifiers.subtracting(Set(categoriesByIdentifier.keys)).count
+        for (identifier, categories) in categoriesByIdentifier {
+            for category in categories {
+                identifiersByCategory[category, default: []].insert(identifier)
+            }
+        }
+    }
+
+    func count(for category: String) -> Int {
+        identifiersByCategory[category]?.count ?? 0
+    }
+
+    mutating func remove(_ identifiers: Set<MangaIdentifier>) {
+        for identifier in identifiers where allIdentifiers.remove(identifier) != nil {
+            total -= 1
+            guard let categories = categoriesByIdentifier.removeValue(forKey: identifier) else {
+                uncategorized -= 1
+                continue
+            }
+            for category in categories {
+                identifiersByCategory[category]?.remove(identifier)
+            }
+        }
+    }
+}
+
 /// The library, which in the shared schema is the `favorite` flag on a manga row rather than a
 /// separate table. `LibraryManga` is the shared read model, carrying the unread/last-read columns.
 extension SharedDataStore {
+    /// Counts every title once in each category it belongs to. A title with multiple categories is
+    /// intentionally counted in each of those tabs, but only once in the All tab.
+    func libraryCategoryEntryCounts(context: Any? = nil) -> LibraryCategoryEntryCounts {
+        let namesById = Dictionary(
+            libraryRepository.categories().compactMap { category in
+                category.id.map { ($0.int32Value, category.name) }
+            },
+            uniquingKeysWith: { first, _ in first }
+        )
+        var allIdentifiers = Set<MangaIdentifier>()
+        var categoriesByIdentifier: [MangaIdentifier: Set<String>] = [:]
+
+        for row in libraryRepository.entries() {
+            let identifier = MangaIdentifier(
+                sourceKey: SourceIdentity.key(for: row.source),
+                mangaKey: row.url
+            )
+            allIdentifiers.insert(identifier)
+            guard row.category != 0, let name = namesById[row.category] else { continue }
+            categoriesByIdentifier[identifier, default: []].insert(name)
+        }
+
+        return LibraryCategoryEntryCounts(
+            allIdentifiers: allIdentifiers,
+            categoriesByIdentifier: categoriesByIdentifier
+        )
+    }
+
     /// Library entries, optionally limited to one category.
     ///
     /// The category filter is free. `getLibraryMangas` returns one row per manga-category pairing

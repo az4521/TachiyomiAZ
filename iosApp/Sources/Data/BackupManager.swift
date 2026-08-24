@@ -267,6 +267,7 @@ final class BackupManager {
         let declared = backup.backupSources.map(\.sourceId)
         return Set(declared + restored)
             .map { SourceIdentity.key(for: $0) }
+            .filter { $0 != MergedSourceSupport.sourceKey }
             .filter { !installedSources.contains($0) }
             .map { SourceManager.shared.name(for: $0) ?? $0 }
             .sorted()

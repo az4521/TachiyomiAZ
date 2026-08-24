@@ -96,6 +96,13 @@ enum SourceLanguageFilter {
             .joined(separator: ", ")
     }
 
+    /// A source belongs to one language section only when it declares exactly one language.
+    /// Sources declared for multiple languages remain together in the all-languages section.
+    static func groupKey(for languages: [String]) -> String {
+        let languages = Set(languages.map(normalize))
+        return languages.count == 1 ? languages.first! : "multi"
+    }
+
     private static func normalize(_ language: String) -> String {
         let normalized = language
             .replacingOccurrences(of: "_", with: "-")

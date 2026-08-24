@@ -28,14 +28,14 @@ actor KomgaApi {
     func getState(sourceKey: String, seriesId: String) async throws -> TrackState? {
         let helper = KomgaHelper(sourceKey: sourceKey)
 
-        guard let auth = helper.getAuthorizationHeader() else {
+        guard let auth = helper.authorizationHeaders() else {
             throw KomgaTrackerError.notLoggedIn
         }
 
         let url = try helper.getServerUrl(path: "api/v2/series/\(seriesId)/read-progress/tachiyomi")
 
         var request = URLRequest(url: url)
-        request.setValue(auth, forHTTPHeaderField: "Authorization")
+        auth.forEach { request.setValue($0.value, forHTTPHeaderField: $0.key) }
         request.setValue("application/json", forHTTPHeaderField: "Accept")
 
         let data: KomgaReadProgress = try await URLSession.shared.object(from: request)
@@ -60,14 +60,14 @@ actor KomgaApi {
         else { return }
 
         let helper = KomgaHelper(sourceKey: sourceKey)
-        guard let auth = helper.getAuthorizationHeader() else {
+        guard let auth = helper.authorizationHeaders() else {
             throw KomgaTrackerError.notLoggedIn
         }
 
         let url = try helper.getServerUrl(path: "api/v2/series/\(seriesId)/read-progress/tachiyomi")
 
         var request = URLRequest(url: url)
-        request.setValue(auth, forHTTPHeaderField: "Authorization")
+        auth.forEach { request.setValue($0.value, forHTTPHeaderField: $0.key) }
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.httpMethod = "PUT"
 
@@ -87,12 +87,12 @@ actor KomgaApi {
 
         guard let url = URL(string: "read-progress", relativeTo: bookUrl) else { return }
 
-        guard let auth = helper.getAuthorizationHeader() else {
+        guard let auth = helper.authorizationHeaders() else {
             throw KomgaTrackerError.notLoggedIn
         }
 
         var request = URLRequest(url: url)
-        request.setValue(auth, forHTTPHeaderField: "Authorization")
+        auth.forEach { request.setValue($0.value, forHTTPHeaderField: $0.key) }
         request.setValue("application/json", forHTTPHeaderField: "Accept")
 
         if !progress.completed && progress.page <= 0 {

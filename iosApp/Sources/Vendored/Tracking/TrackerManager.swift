@@ -205,6 +205,28 @@ actor TrackerManager {
 
             do {
                 try await tracker.update(trackId: item.id, update: update)
+
+                // Keep the shared row in step with the update accepted by the service. The state
+                // fetched above is persisted before deciding whether an update is needed, but
+                // without applying this delta the next refresh (or Android) sees the old progress.
+                var persistedState = state
+                if let score = update.score { persistedState.score = score }
+                if let status = update.status { persistedState.status = status }
+                if let lastReadChapter = update.lastReadChapter {
+                    persistedState.lastReadChapter = lastReadChapter
+                }
+                if let startReadDate = update.startReadDate {
+                    persistedState.startReadDate = startReadDate
+                }
+                if let finishReadDate = update.finishReadDate {
+                    persistedState.finishReadDate = finishReadDate
+                }
+                SharedDataStore.shared.setTrackState(
+                    trackerId: item.trackerId,
+                    sourceId: sourceId,
+                    mangaId: mangaId,
+                    state: persistedState
+                )
             } catch {
                 LogManager.logger.error("Failed to set tracker chapter as completed (\(tracker.id)): \(error)")
             }

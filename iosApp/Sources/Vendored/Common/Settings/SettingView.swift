@@ -972,7 +972,7 @@ extension SettingView {
                 Button(NSLocalizedString("DONE")) {
                     commitJVMWebLogin()
                 }
-                .disabled(loginLoading || loginDetailedCookies.isEmpty)
+                .disabled(loginLoading)
             }
         }
     }
@@ -1091,25 +1091,29 @@ extension SettingView {
     }
 
     private func commitJVMWebLogin() {
-        guard
-            let runner = source?.runner as? TachiyomiXSourceRunner,
-            !loginDetailedCookies.isEmpty
-        else { return }
+        guard let runner = source?.runner as? TachiyomiXSourceRunner else { return }
         loginLoading = true
         Task {
             defer { loginLoading = false }
             do {
-                try await runner.commitWebLogin(
-                    cookies: loginDetailedCookies,
-                    userAgent: loginUserAgent.isEmpty
-                        ? loginPreferredUserAgent
-                        : loginUserAgent
-                )
+                // A first visit (or a local-storage-only login) legitimately has no cookies.
+                // Do not make the modal impossible to close just because WebKit has nothing to
+                // export yet.
+                if !loginDetailedCookies.isEmpty {
+                    try await runner.commitWebLogin(
+                        cookies: loginDetailedCookies,
+                        userAgent: loginUserAgent.isEmpty
+                            ? loginPreferredUserAgent
+                            : loginUserAgent
+                    )
+                }
                 let settingKey = key(setting.key)
-                SettingsStore.shared.set(
-                    key: settingKey,
-                    value: "logged_in"
-                )
+                if !loginDetailedCookies.isEmpty {
+                    SettingsStore.shared.set(
+                        key: settingKey,
+                        value: "logged_in"
+                    )
+                }
                 showLoginWebView = false
             } catch {
                 LogManager.logger.error(

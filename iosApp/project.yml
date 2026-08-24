@@ -247,10 +247,16 @@ targets:
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         UIUserInterfaceStyle: Automatic
+        # Extension sources and self-hosted servers such as Komga may use user-configured HTTP
+        # endpoints on a private LAN. Their hosts cannot be enumerated as ATS exceptions.
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
         # OAuth callback for MyAnimeList and AniList sign-in.
         CFBundleURLTypes:
           - CFBundleURLName: eu.kanade.tachiyomi.az.ios.oauth
-            CFBundleURLSchemes: [tachiyomiaz]
+            # Existing tracker applications registered Aidoku's callback URI. Keep accepting it
+            # alongside the app's own scheme so those OAuth sessions can return to the app.
+            CFBundleURLSchemes: [tachiyomiaz, aidoku]
           # The repository links the Android app answers: `tachiyomi://add-repo?url=` and
           # `mihon://extension-store?url=`, which is what a repository's "add to app" button
           # produces. `TachiyomiXJarRepository.repositoryURL(fromDeepLink:)` already read both,
