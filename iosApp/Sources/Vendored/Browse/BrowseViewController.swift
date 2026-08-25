@@ -84,8 +84,7 @@ class BrowseViewController: BaseTableViewController {
 
         // load data
         Task {
-            await viewModel.loadInstalledSources()
-            await viewModel.loadPinnedSources()
+            await viewModel.loadSourceSections()
             updateNavbar()
             updateDataSource()
         }
@@ -105,8 +104,7 @@ class BrowseViewController: BaseTableViewController {
         addObserver(forName: .updateSourceList) { [weak self] _ in
             guard let self = self else { return }
             Task { @MainActor in
-                await self.viewModel.loadInstalledSources()
-                await self.viewModel.loadPinnedSources()
+                await self.viewModel.loadSourceSections()
                 self.viewModel.loadUpdates()
                 if let query = self.navigationItem.searchController?.searchBar.text, !query.isEmpty {
                     self.viewModel.search(query: query)
@@ -148,8 +146,7 @@ class BrowseViewController: BaseTableViewController {
 
             if sourceList.isEmpty { self.stopEditing() }
             Task { @MainActor in
-                await self.viewModel.loadInstalledSources()
-                await self.viewModel.loadPinnedSources()
+                await self.viewModel.loadSourceSections()
                 self.updateDataSource()
             }
         }
@@ -193,7 +190,7 @@ extension BrowseViewController {
                 SourceManager.shared.remove(source: source)
             }
             Task {
-                await self.viewModel.loadInstalledSources()
+                await self.viewModel.loadSourceSections()
                 self.updateDataSource()
                 self.setEditing(false, animated: true)
             }
@@ -408,7 +405,7 @@ extension BrowseViewController {
                     SourceManager.shared.pin(source: source)
                 }
                 Task {
-                    await self.viewModel.loadPinnedSources()
+                    await self.viewModel.loadSourceSections()
                     self.updateDataSource()
                 }
             }

@@ -147,7 +147,9 @@ final class SourceManager {
 
     /// Reads the one canonical list, migrating pins written by builds that used the old key.
     /// The array, rather than a Set, is intentional: its order is the order shown in Browse.
-    private nonisolated func pinnedSourceKeys() -> [String] {
+    /// The canonical ordered pin list. Reads made by Browse also pass through here so old
+    /// `Browse.pinnedSources` values are migrated before the UI decides which section to show.
+    nonisolated func pinnedSourceKeys() -> [String] {
         let defaults = UserDefaults.standard
         var current = defaults.stringArray(forKey: Self.pinnedKey) ?? []
         if let legacy = defaults.stringArray(forKey: Self.legacyPinnedKey) {

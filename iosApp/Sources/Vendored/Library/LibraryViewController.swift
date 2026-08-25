@@ -378,6 +378,11 @@ class LibraryViewController: OldMangaCollectionViewController {
                 }
             }
         }
+        addObserver(forName: Notification.Name("updateCategoryCountDisplay")) { [weak self] _ in
+            Task { @MainActor in
+                self?.refreshCategoryHeader()
+            }
+        }
         addObserver(forName: .searchLibrary) { [weak self] notification in
             guard let self, let query = notification.object as? String else { return }
             navigationController?.popToViewController(self, animated: true)
@@ -1038,6 +1043,9 @@ extension LibraryViewController {
     }
 
     private func categoryLabel(_ title: String, count: Int) -> String {
+        guard UserDefaults.standard.bool(forKey: "Library.showCategoryMangaCounts") else {
+            return title
+        }
         let localizedCount = NumberFormatter.localizedString(
             from: NSNumber(value: count),
             number: .decimal

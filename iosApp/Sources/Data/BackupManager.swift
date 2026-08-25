@@ -22,7 +22,7 @@ final class BackupManager {
 
     private init() {}
 
-    static let directory: URL = {
+    nonisolated static let directory: URL = {
         let base = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         let directory = base.appendingPathComponent("Backups", isDirectory: true)
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -46,9 +46,13 @@ final class BackupManager {
 
     // MARK: - Reading
 
-    func loadBackup(from url: URL) -> TachibkBackupCodec.Decoded? {
-        guard let data = try? Data(contentsOf: url) else { return nil }
-        return try? TachibkBackupCodec.decode(from: data, url: url)
+    /// Decoding inflates and deserializes an entire library. Keep it off the main actor: the
+    /// backups list only needs it after a row becomes visible or the user opens that backup.
+    func loadBackup(from url: URL) async -> TachibkBackupCodec.Decoded? {
+        await Task.detached(priority: .utility) {
+            guard let data = try? Data(contentsOf: url) else { return nil }
+            return try? TachibkBackupCodec.decode(from: data, url: url)
+        }.value
     }
 
     // MARK: - Writing
@@ -86,16 +90,17 @@ final class BackupManager {
     /// Snapshots the library, its chapters, history, categories and tracks.
     @discardableResult
     func saveNewBackup(name: String = "", options: BackupOptions = .init()) -> Bool {
+        let date = Date()
+        let backupName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolvedName = backupName.isEmpty ? Self.defaultBackupName(date: date) : backupName
         let backup = makeBackup(options: options)
-        let state = BackupState(name: name.isEmpty ? nil : name, date: Date(), automatic: options.automatic)
+        let state = BackupState(name: resolvedName, date: date, automatic: options.automatic)
         guard let data = try? TachibkBackupCodec.encode(backup, state: state) else { return false }
 
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
-        let filename = "backup_\(formatter.string(from: Date())).tachibk"
-        let url = Self.directory.appendingPathComponent(filename)
+        let url = Self.availableBackupURL(stem: Self.defaultBackupName(date: date))
         do {
-            try data.write(to: url)
+            try data.write(to: url, options: .atomic)
+            NotificationCenter.default.post(name: .updateBackupList, object: nil)
             return true
         } catch {
             LogManager.logger.error("Failed to write backup: \(error)")
@@ -274,12 +279,35 @@ final class BackupManager {
     }
     // MARK: - Managing files
 
-    func importBackup(from url: URL) -> Bool {
+    /// Validates and copies an imported file without blocking or destabilizing the backups screen.
+    ///
+    /// The old path ran the entire copy on the main actor, overwrote a same-named existing backup,
+    /// and allowed malformed data into the directory. The list then tried to decode that malformed
+    /// file while rendering, which could make the settings scene disappear under memory pressure.
+    func importBackup(from url: URL) async -> Bool {
+        let imported = await Task.detached(priority: .userInitiated) {
+            Self.copyValidatedBackup(from: url)
+        }.value
+        if imported {
+            NotificationCenter.default.post(name: .updateBackupList, object: nil)
+        }
+        return imported
+    }
+
+    nonisolated private static func copyValidatedBackup(from url: URL) -> Bool {
         let secured = url.startAccessingSecurityScopedResource()
         defer { if secured { url.stopAccessingSecurityScopedResource() } }
-        let destination = Self.directory.appendingPathComponent(url.lastPathComponent)
+
+        guard url.pathExtension.lowercased() == "tachibk",
+              let data = try? Data(contentsOf: url),
+              (try? TachibkBackupCodec.decode(from: data, url: url)) != nil
+        else { return false }
+
+        let stem = url.deletingPathExtension().lastPathComponent
+        let destination = availableBackupURL(
+            stem: stem.isEmpty ? defaultBackupName() : stem
+        )
         do {
-            try? FileManager.default.removeItem(at: destination)
             try FileManager.default.copyItem(at: url, to: destination)
             return true
         } catch {
@@ -292,11 +320,33 @@ final class BackupManager {
         try? FileManager.default.removeItem(at: url)
     }
 
-    func renameBackup(url: URL, name: String) {
-        guard var decoded = loadBackup(from: url) else { return }
+    func renameBackup(url: URL, name: String) async {
+        guard var decoded = await loadBackup(from: url) else { return }
         decoded.state.name = name
         guard let data = try? TachibkBackupCodec.encode(decoded.backup, state: decoded.state) else { return }
-        try? data.write(to: url)
+        guard (try? data.write(to: url, options: .atomic)) != nil else { return }
+        NotificationCenter.default.post(name: .updateBackupList, object: nil)
+    }
+
+    /// Android's full-backup chooser proposes this stem. Keep it as both this app's default file
+    /// name and its visible backup name, so Create Backup is usable without manual text entry.
+    nonisolated static func defaultBackupName(date: Date = Date()) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd_HH-mm"
+        return "tachiyomi_full_\(formatter.string(from: date))"
+    }
+
+    nonisolated private static func availableBackupURL(stem: String) -> URL {
+        var suffix = 0
+        while true {
+            let candidateStem = suffix == 0 ? stem : "\(stem)_\(suffix)"
+            let candidate = directory.appendingPathComponent(candidateStem).appendingPathExtension("tachibk")
+            if !FileManager.default.fileExists(atPath: candidate.path) {
+                return candidate
+            }
+            suffix += 1
+        }
     }
 
     // MARK: - Scheduling

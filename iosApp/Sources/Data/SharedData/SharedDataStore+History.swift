@@ -114,7 +114,13 @@ extension SharedDataStore {
 extension SharedDataStore {
     /// Accumulates time spent reading a chapter, in `history.time_read`.
     func addReadTime(seconds: Int64, sourceId: String, mangaId: String, chapterId: String) {
-        historyRepository.addReadTime(chapterUrl: chapterId, amount: seconds)
+        guard let source = SourceIdentity.numericId(sourceId) else { return }
+        historyRepository.addReadTime(
+            mangaUrl: mangaId,
+            sourceId: source,
+            chapterUrl: chapterId,
+            amount: seconds
+        )
     }
 }
 

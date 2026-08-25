@@ -35,45 +35,35 @@ class BrowseViewModel {
             }
     }
 
-    // load installed sources
-    func loadInstalledSources() async {
-        let installedSources = await getInstalledSources()
-        if storedInstalledSources != nil {
-            storedInstalledSources = installedSources
-            search(query: query)
-        } else {
-            self.installedSources = installedSources
+    /// Rebuilds both source sections from the same loaded snapshot and pin order.
+    ///
+    /// Previously `loadPinnedSources()` removed current pins from the installed array in place.
+    /// After an unpin it had nothing that put that source back, so it vanished until a broader
+    /// reload. Keeping both arrays derived from one snapshot makes pin, unpin, reload and search
+    /// deterministic.
+    func loadSourceSections() async {
+        let allSources = await getInstalledSources()
+        let sourcesById = Dictionary(uniqueKeysWithValues: allSources.map { ($0.sourceId, $0) })
+        let pinIds = SourceManager.shared.pinnedSourceKeys()
+        let pinned = pinIds.compactMap { sourcesById[$0] }
+        let pinnedIds = Set(pinned.map(\.sourceId))
+        let installed = allSources.filter { !pinnedIds.contains($0.sourceId) }
+
+        // Drop only pins whose extension is no longer installed. SourceManager also performs the
+        // legacy-key migration before this list is read.
+        if pinned.count != pinIds.count {
+            UserDefaults.standard.set(pinned.map(\.sourceId), forKey: "Browse.pinnedList")
         }
-    }
 
-    func loadPinnedSources() async {
-        let installedSources = await getInstalledSources()
-        var defaultPinnedSources = UserDefaults.standard.stringArray(forKey: "Browse.pinnedList") ?? []
-
-        var pinnedSources: [SourceInfo2] = []
-        for sourceId in defaultPinnedSources {
-            guard let source = installedSources.first(where: { $0.sourceId == sourceId }) else {
-                // remove sourceId from userdefault stored pinned list in cases such as uninstall.
-                defaultPinnedSources = defaultPinnedSources.filter({ $0 != sourceId })
-                UserDefaults.standard.set(defaultPinnedSources, forKey: "Browse.pinnedList")
-                continue
-            }
-
-            pinnedSources.append(source)
-            // remove sources from the installed array.
-            if let index = self.installedSources.firstIndex(of: source) {
-                self.installedSources.remove(at: index)
-            }
-            // remove sources from the stored installed array.
-            if let index = self.storedInstalledSources?.firstIndex(of: source) {
-                self.storedInstalledSources?.remove(at: index)
-            }
-        }
-        if storedPinnedSources != nil {
-            storedPinnedSources = pinnedSources
-            search(query: query)
+        if let query, !query.isEmpty {
+            storedPinnedSources = pinned
+            storedInstalledSources = installed
+            let normalizedQuery = query.lowercased()
+            pinnedSources = pinned.filter { $0.name.lowercased().contains(normalizedQuery) }
+            installedSources = installed.filter { $0.name.lowercased().contains(normalizedQuery) }
         } else {
-            self.pinnedSources = pinnedSources
+            pinnedSources = pinned
+            installedSources = installed
         }
     }
 
@@ -162,7 +152,11 @@ class BrowseViewModel {
             // store full source arrays
             if storedUpdatesSources == nil {
                 storedUpdatesSources = updatesSources
+            }
+            if storedPinnedSources == nil {
                 storedPinnedSources = pinnedSources
+            }
+            if storedInstalledSources == nil {
                 storedInstalledSources = installedSources
             }
             guard

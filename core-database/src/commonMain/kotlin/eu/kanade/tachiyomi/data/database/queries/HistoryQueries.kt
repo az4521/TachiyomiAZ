@@ -78,6 +78,12 @@ interface HistoryQueries : DbProvider {
     fun getHistoryByMangaId(mangaId: Long): List<History> =
         sqlDatabase.historyQueries.getHistoryByMangaId(mangaId, ::mapHistory).executeAsList()
 
+    /** Looks up history by the chapter's database identity, avoiding source-local URL collisions. */
+    fun getHistoryByChapterId(chapterId: Long): History? =
+        sqlDatabase.historyQueries
+            .getHistoryByChapterId(chapterId, ::mapHistory)
+            .executeAsOneOrNull()
+
     fun getHistoryByChapterUrl(chapterUrl: String): History? =
         sqlDatabase.historyQueries
             .getHistoryByChapterUrl(chapterUrl, ::mapHistory)

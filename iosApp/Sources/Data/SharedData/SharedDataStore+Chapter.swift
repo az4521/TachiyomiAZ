@@ -17,6 +17,25 @@ extension SharedDataStore {
         return chapterRepository.getChapters(sourceId: source, mangaUrl: mangaId)
     }
 
+    /// The same row-driven chapter state consumed by Android's chapter presenter, adapted once
+    /// at the platform boundary for the SwiftUI list.
+    func chapterListSnapshot(
+        sourceId: String,
+        mangaId: String
+    ) -> (chapters: [ExtensionRunner.Chapter], history: [String: (page: Int, date: Int)]) {
+        guard let source = SourceIdentity.numericId(sourceId) else { return ([], [:]) }
+        let entries = chapterRepository.chapterList(sourceId: source, mangaUrl: mangaId)
+        return (
+            entries.map { $0.chapter.toNewChapter() },
+            Dictionary(uniqueKeysWithValues: entries.map { entry in
+                (
+                    entry.chapter.url,
+                    (page: Int(entry.page), date: Int((entry.lastRead?.int64Value ?? 0) / 1_000))
+                )
+            })
+        )
+    }
+
     /// `context` is required here, unlike its siblings: the async overload in ModelConversions
     /// shares these argument labels, and a default would make every call ambiguous.
     func getChapters(sourceId: String, mangaId: String, context: Any?) -> [ChapterObject] {

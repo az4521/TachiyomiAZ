@@ -149,6 +149,7 @@
 "EDIT_FILTER_GROUP" = "Edit Filter Group";
 "CLEAR_FILTERS" = "Clear Filters";
 "SHOW_ALL_CATEGORY" = "Show All Category";
+"SHOW_CATEGORY_MANGA_COUNTS" = "Show category manga counts";
 
 // Browse
 "BROWSE" = "Browse";

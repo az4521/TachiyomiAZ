@@ -14,6 +14,20 @@ class ChapterRepository(private val db: DatabaseHandler) {
     fun getChapters(sourceId: Long, mangaUrl: String): List<Chapter> =
         db.getManga(mangaUrl, sourceId)?.let { db.getChapters(it) } ?: emptyList()
 
+    /**
+     * Database-backed chapter-list state for presentation. Read and page progress come directly
+     * from the chapter row, as they do in Android's ChaptersPresenter; history contributes only
+     * the optional last-read timestamp.
+     */
+    fun chapterList(sourceId: Long, mangaUrl: String): List<ChapterListEntry> =
+        getChapters(sourceId, mangaUrl).map { chapter ->
+            ChapterListEntry(
+                chapter = chapter,
+                page = if (chapter.read) -1 else chapter.last_page_read,
+                lastRead = chapter.id?.let(db::getHistoryByChapterId)?.last_read
+            )
+        }
+
     fun getChaptersBySource(sourceId: Long): List<Chapter> =
         db.getMangasBySource(sourceId).flatMap { db.getChapters(it) }
 
@@ -87,3 +101,9 @@ class LibraryUnreadCount(
 )
 
 data class ChapterWithMangaUrl(val chapter: Chapter, val mangaUrl: String)
+
+data class ChapterListEntry(
+    val chapter: Chapter,
+    val page: Int,
+    val lastRead: Long?
+)

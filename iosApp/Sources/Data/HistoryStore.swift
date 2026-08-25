@@ -88,7 +88,11 @@ final class HistoryStore: ObservableObject {
     }
 
     func remove(_ entry: RecentReadEntry) async {
-        repository.remove(chapterUrl: entry.chapterUrl)
+        repository.remove(
+            mangaUrl: entry.mangaUrl,
+            sourceId: entry.sourceId,
+            chapterUrl: entry.chapterUrl
+        )
         await load()
     }
 }

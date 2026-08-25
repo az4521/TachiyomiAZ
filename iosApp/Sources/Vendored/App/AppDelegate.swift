@@ -140,6 +140,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
                 "Library.lockedCategories": [String](),
                 "Library.showAllCategory": true,
+                "Library.showCategoryMangaCounts": false,
 
                 "Library.updateInterval": "daily",
                 "Library.skipTitles": ["hasUnread", "completed", "notStarted"],

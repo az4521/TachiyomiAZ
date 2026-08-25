@@ -134,12 +134,18 @@ actor CloudflareHandler: NSObject {
         }
 
         let sessionKey = cacheKey(for: request)
-        if
-            let cached = recentSessions[sessionKey],
-            Date().timeIntervalSince(cached.0) < 30,
-            cached.1.cookies.contains(where: { $0.name == "cf_clearance" })
-        {
-            return cached.1
+        if let cached = recentSessions[sessionKey] {
+            // A library refresh can outlive the old 30-second window. Reusing a clearance for
+            // its actual cookie lifetime keeps the next blocked request from opening another
+            // human-verification sheet after the first one already succeeded. If the server has
+            // invalidated it early, JVMSourceRuntime discards this entry after the retry fails.
+            let clearanceIsCurrent = cached.1.cookies.contains {
+                $0.name == "cf_clearance" && ($0.expiresDate == nil || $0.expiresDate! > Date())
+            }
+            if clearanceIsCurrent {
+                return cached.1
+            }
+            recentSessions[sessionKey] = nil
         }
 
         completionReason = nil
