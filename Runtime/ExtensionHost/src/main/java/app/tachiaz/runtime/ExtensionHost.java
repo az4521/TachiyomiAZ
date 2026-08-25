@@ -1766,6 +1766,14 @@ public final class ExtensionHost {
         Object httpUrl = httpUrlType
             .getMethod("parse", String.class)
             .invoke(null, baseURL);
+        if (httpUrl == null) {
+            return MiniJson.response(
+                true,
+                "No cookies stored",
+                null,
+                null
+            );
+        }
         List<Object> cookies = (List<Object>) cookieJar.getClass()
             .getMethod("loadForRequest", httpUrlType)
             .invoke(cookieJar, httpUrl);

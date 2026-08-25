@@ -111,9 +111,16 @@ if [[ "${1:-}" == "--test" ]]; then
         app.tachiaz.runtime.ExtensionHostTest \
         "$fixture_jar"
 
-    run_test_java \
-        -cp "$output_jar:$test_classes_root" \
-        app.tachiaz.runtime.KomgaCompatibilityTest
+    if [[ -n "${TACHIAZ_KOMGA_JAR:-}" ]]; then
+        run_test_java \
+            -cp "${TACHIAZ_COMPAT_CLASSPATH:-}:$output_jar:$test_classes_root" \
+            app.tachiaz.runtime.KomgaCompatibilityTest \
+            "$TACHIAZ_KOMGA_JAR"
+    else
+        run_test_java \
+            -cp "$output_jar:$test_classes_root" \
+            app.tachiaz.runtime.KomgaCompatibilityTest
+    fi
 
     if [[ -n "${TACHIAZ_EXTLIB_1_6_JAR:-}" ]]; then
         run_test_java \
