@@ -352,7 +352,7 @@ extension MangaView.ViewModel {
                 history: chapterList.history
             )
         }
-        if storedState.inLibrary || !storedState.chapters.isEmpty {
+        if !storedState.chapters.isEmpty {
             var newManga = self.manga
             newManga.chapters = storedState.chapters
             self.manga = newManga
@@ -364,8 +364,10 @@ extension MangaView.ViewModel {
             initialDataLoaded = true
         }
         bookmarked = storedState.inLibrary
-        if storedState.inLibrary {
-            // Library data is refreshed by the library updater or pull-to-refresh.
+        if storedState.inLibrary && !storedState.chapters.isEmpty {
+            // A populated library entry can render entirely from the shared database.
+            // Empty chapter caches still need one source request; otherwise restored or
+            // newly-added manga can remain stuck at "chapters unavailable" forever.
         } else if let source {
             // load new data from source
             await source.partialMangaPublisher?.sink { @Sendable newManga in

@@ -1085,7 +1085,11 @@ public final class ExtensionHost {
         );
         return MiniJson.response(
             true,
-            serializeMangaUpdate(update, require(request, "mangaURL")),
+            serializeMangaUpdate(
+                update,
+                require(request, "mangaURL"),
+                String.valueOf(getter(manga, "getTitle"))
+            ),
             null,
             null
         );
@@ -2377,15 +2381,23 @@ public final class ExtensionHost {
 
     private static String serializeMangaUpdate(
         Object update,
-        String fallbackMangaURL
+        String fallbackMangaURL,
+        String fallbackMangaTitle
     ) throws Exception {
         Object manga = getter(update, "getManga");
         @SuppressWarnings("unchecked")
         List<Object> chapters =
             (List<Object>) getter(update, "getChapters");
-        String mangaTitle = String.valueOf(getter(manga, "getTitle"));
+        String mangaTitle = String.valueOf(
+            getterOrFallback(manga, "getTitle", fallbackMangaTitle)
+        );
         StringBuilder output = new StringBuilder("{\"manga\":");
-        appendManga(output, manga, fallbackMangaURL);
+        appendManga(
+            output,
+            manga,
+            fallbackMangaURL,
+            fallbackMangaTitle
+        );
         output.append(",\"chapters\":[");
         for (int index = 0; index < chapters.size(); index++) {
             if (index > 0) {
@@ -2441,13 +2453,14 @@ public final class ExtensionHost {
 
     private static void appendManga(StringBuilder output, Object manga)
         throws Exception {
-        appendManga(output, manga, null);
+        appendManga(output, manga, null, null);
     }
 
     private static void appendManga(
         StringBuilder output,
         Object manga,
-        String fallbackURL
+        String fallbackURL,
+        String fallbackTitle
     ) throws Exception {
         output.append('{');
         appendJsonField(
@@ -2456,7 +2469,12 @@ public final class ExtensionHost {
             getterOrFallback(manga, "getUrl", fallbackURL),
             false
         );
-        appendJsonField(output, "title", getter(manga, "getTitle"), true);
+        appendJsonField(
+            output,
+            "title",
+            getterOrFallback(manga, "getTitle", fallbackTitle),
+            true
+        );
         appendJsonField(
             output,
             "thumbnailURL",

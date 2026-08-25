@@ -103,6 +103,32 @@ class TabBarController: UITabBarController {
     private lazy var libraryRefreshAccessory: UIView = {
         let view = UIView()
 
+        let backgroundEffect: UIVisualEffect
+        if #available(iOS 26.0, *) {
+            let glass = UIGlassEffect(style: .regular)
+            // A small material tint keeps the status legible over bright library
+            // covers while retaining the system's Liquid Glass appearance.
+            glass.tintColor = UIColor.secondarySystemBackground.withAlphaComponent(0.72)
+            glass.isInteractive = false
+            backgroundEffect = glass
+        } else {
+            backgroundEffect = UIBlurEffect(style: .systemMaterial)
+        }
+        let backgroundView = UIVisualEffectView(effect: backgroundEffect)
+        backgroundView.isUserInteractionEnabled = false
+        backgroundView.layer.cornerRadius = 24
+        backgroundView.layer.cornerCurve = .continuous
+        backgroundView.layer.borderColor = UIColor.separator.withAlphaComponent(0.35).cgColor
+        backgroundView.layer.borderWidth = 0.5
+        backgroundView.clipsToBounds = true
+        backgroundView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(backgroundView)
+
+        view.layer.shadowColor = UIColor.black.cgColor
+        view.layer.shadowOpacity = 0.18
+        view.layer.shadowRadius = 12
+        view.layer.shadowOffset = CGSize(width: 0, height: 5)
+
         let labelStack = UIStackView(arrangedSubviews: [
             libraryRefreshTitleLabel,
             libraryRefreshDetailLabel
@@ -116,25 +142,12 @@ class TabBarController: UITabBarController {
         libraryProgressView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(libraryProgressView)
 
-        if #unavailable(iOS 26) {
-            // add styling for older versions without the bottom accessory view
-            let backgroundView = UIVisualEffectView(effect: UIBlurEffect(style: .systemMaterial))
-            backgroundView.layer.cornerRadius = 48 / 2
-            backgroundView.layer.borderColor = UIColor.quaternarySystemFill.cgColor
-            backgroundView.layer.borderWidth = 1
-            backgroundView.clipsToBounds = true
-            backgroundView.translatesAutoresizingMaskIntoConstraints = false
-            view.insertSubview(backgroundView, at: 0)
-
-            NSLayoutConstraint.activate([
-                backgroundView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-                backgroundView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-                backgroundView.topAnchor.constraint(equalTo: view.topAnchor),
-                backgroundView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
-            ])
-        }
-
         NSLayoutConstraint.activate([
+            backgroundView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            backgroundView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            backgroundView.topAnchor.constraint(equalTo: view.topAnchor),
+            backgroundView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+
             labelStack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             labelStack.trailingAnchor.constraint(equalTo: libraryProgressView.leadingAnchor, constant: -16),
             labelStack.centerYAnchor.constraint(equalTo: view.centerYAnchor),
