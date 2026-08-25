@@ -331,6 +331,10 @@ class LibraryViewController: OldMangaCollectionViewController {
         addObserver(forName: .updateLibrary) { [weak self] _ in
             guard let self else { return }
             Task { @MainActor in
+                // Backup restore rebuilds the persisted badge cache after importing chapter
+                // read state. The controller survives that restore, so discard its pre-restore
+                // in-memory copy before rebuilding the visible library.
+                self.viewModel.reloadPersistedBadgeCaches()
                 let categoryAvailabilityChanged = await self.viewModel.loadLibrary()
                 if categoryAvailabilityChanged {
                     self.collectionView.collectionViewLayout = self.makeCollectionViewLayout()

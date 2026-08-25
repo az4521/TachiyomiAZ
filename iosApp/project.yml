@@ -251,6 +251,7 @@ targets:
         # endpoints on a private LAN. Their hosts cannot be enumerated as ATS exceptions.
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true
+        NSLocalNetworkUsageDescription: Connect to self-hosted manga servers such as Komga on your local or Tailscale network.
         # OAuth callback for MyAnimeList and AniList sign-in.
         CFBundleURLTypes:
           - CFBundleURLName: eu.kanade.tachiyomi.az.ios.oauth
