@@ -246,8 +246,8 @@ targets:
           - app.tachiyomiaz.library-processing
           - app.tachiyomiaz.backup
           - eu.kanade.tachiyomi.az.ios.download
-        - eu.kanade.tachiyomi.az.ios.download.continued.queue
-        - eu.kanade.tachiyomi.az.ios.library.continued.refresh
+          - eu.kanade.tachiyomi.az.ios.download.continued.queue
+          - eu.kanade.tachiyomi.az.ios.library.continued.refresh
         UIBackgroundModes:
           - fetch
           - processing
