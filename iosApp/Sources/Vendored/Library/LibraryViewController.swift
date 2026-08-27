@@ -765,7 +765,8 @@ extension LibraryViewController {
                             Task {
                                 await MangaManager.shared.backgroundRefreshLibrary(
                                     category: refreshCategory,
-                                    skipReachabilityCheck: true
+                                    skipReachabilityCheck: true,
+                                    userInitiated: true
                                 )
                             }
                         }
@@ -778,7 +779,8 @@ extension LibraryViewController {
         guard !isBlockedByNoWifi else { return }
         Task {
             await MangaManager.shared.backgroundRefreshLibrary(
-                category: refreshCategory
+                category: refreshCategory,
+                userInitiated: true
             )
         }
     }

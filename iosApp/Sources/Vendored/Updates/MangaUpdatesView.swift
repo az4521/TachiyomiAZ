@@ -64,7 +64,7 @@ struct MangaUpdatesView: View {
             }
             .listStyle(.plain)
             .refreshable {
-                await MangaManager.shared.backgroundRefreshLibrary()
+                await MangaManager.shared.backgroundRefreshLibrary(userInitiated: true)
             }
             .overlay {
                 if hasNoUpdates {

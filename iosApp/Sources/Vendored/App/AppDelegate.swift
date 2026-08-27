@@ -328,6 +328,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             name: Notification.Name("Library.updateInterval"),
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleLibraryUpdateIntervalChange(_:)),
+            name: Notification.Name("Library.backgroundRefresh"),
+            object: nil
+        )
 
         buildWindow()
 
@@ -375,6 +381,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         Task {
             await MangaManager.shared.scheduleLibraryRefresh()
         }
+    }
+
+    func applicationDidBecomeActive(_ application: UIApplication) {
+        MangaManager.shared.applicationDidBecomeActive()
+    }
+
+    func applicationDidEnterBackground(_ application: UIApplication) {
+        MangaManager.shared.applicationDidEnterBackground()
     }
 
     @objc private func handleNotifyNewChaptersToggle(_ note: Notification) {

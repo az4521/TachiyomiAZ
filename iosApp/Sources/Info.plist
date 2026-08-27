@@ -41,6 +41,15 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>app.tachiyomiaz.library-refresh</string>
+		<string>app.tachiyomiaz.library-processing</string>
+		<string>app.tachiyomiaz.backup</string>
+		<string>eu.kanade.tachiyomi.az.ios.download</string>
+		<string>eu.kanade.tachiyomi.az.ios.download.continued.queue</string>
+		<string>eu.kanade.tachiyomi.az.ios.library.continued.refresh</string>
+	</array>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<!-- User-configured self-hosted sources, including Komga, commonly run on a private HTTP LAN URL. -->
@@ -59,5 +68,10 @@
 	</array>
 	<key>UIUserInterfaceStyle</key>
 	<string>Automatic</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>processing</string>
+	</array>
 </dict>
 </plist>

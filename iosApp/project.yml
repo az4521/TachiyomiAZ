@@ -241,6 +241,16 @@ targets:
         CFBundleDisplayName: TachiyomiAZ
         CFBundleShortVersionString: "0.1"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        BGTaskSchedulerPermittedIdentifiers:
+          - app.tachiyomiaz.library-refresh
+          - app.tachiyomiaz.library-processing
+          - app.tachiyomiaz.backup
+          - eu.kanade.tachiyomi.az.ios.download
+        - eu.kanade.tachiyomi.az.ios.download.continued.queue
+        - eu.kanade.tachiyomi.az.ios.library.continued.refresh
+        UIBackgroundModes:
+          - fetch
+          - processing
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
