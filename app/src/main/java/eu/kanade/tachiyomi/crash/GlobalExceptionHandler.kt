@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.crash
 import android.content.Context
 import android.content.Intent
 import kotlinx.serialization.KSerializer
+import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.descriptors.PrimitiveKind
 import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
 import kotlinx.serialization.descriptors.SerialDescriptor
@@ -29,7 +30,13 @@ class GlobalExceptionHandler private constructor(
 
     override fun uncaughtException(thread: Thread, exception: Throwable) {
         // logcat(priority = LogPriority.ERROR, throwable = exception)
-        launchActivity(applicationContext, activityToBeLaunched, exception)
+
+        // Best effort: a failed crash screen must not stop [defaultHandler] reporting.
+        try {
+            launchActivity(applicationContext, activityToBeLaunched, exception)
+        } catch (t: Throwable) {
+        }
+
         defaultHandler.uncaughtException(thread, exception)
     }
 
@@ -38,8 +45,18 @@ class GlobalExceptionHandler private constructor(
         activity: Class<*>,
         exception: Throwable
     ) {
+        // A plain string is byte for byte what [ThrowableSerializer] writes, so it still reads back.
+        val trace =
+            exception.stackTraceToString().let {
+                if (it.length > MAX_TRACE_CHARS) {
+                    it.take(MAX_TRACE_CHARS) + "\n... trace truncated"
+                } else {
+                    it
+                }
+            }
+
         val intent = Intent(applicationContext, activity).apply {
-            putExtra(INTENT_EXTRA, Json.encodeToString(ThrowableSerializer, exception))
+            putExtra(INTENT_EXTRA, Json.encodeToString(String.serializer(), trace))
             addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
             addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
         }
@@ -48,6 +65,9 @@ class GlobalExceptionHandler private constructor(
 
     companion object {
         private const val INTENT_EXTRA = "Throwable"
+
+        /** A stack trace is the one part of this intent with no natural bound. */
+        private const val MAX_TRACE_CHARS = 64 * 1024
 
         fun initialize(
             applicationContext: Context,
