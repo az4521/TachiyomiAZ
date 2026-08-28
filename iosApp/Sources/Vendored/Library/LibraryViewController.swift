@@ -10,7 +10,7 @@ import LocalAuthentication
 import SwiftUI
 import ExtensionRunner
 
-private final class LibraryCategorySwipeGestureRecognizer: UISwipeGestureRecognizer {}
+private final class LibraryCategoryPanGestureRecognizer: UIPanGestureRecognizer {}
 
 class LibraryViewController: OldMangaCollectionViewController {
     let viewModel = LibraryViewModel()
@@ -56,6 +56,61 @@ class LibraryViewController: OldMangaCollectionViewController {
     private lazy var refreshControl = UIRefreshControl()
     private lazy var emptyStackView = EmptyPageStackView()
     private lazy var lockedStackView = LockedPageStackView()
+
+    static let categoryHeaderHeight: CGFloat = 48
+
+    /// The category tab strip.
+    ///
+    /// It used to be a pinned boundary supplementary item inside the collection view. Paging
+    /// slides the collection view sideways, and a strip living inside it would slide too, so it is
+    /// a sibling now -- which is also where Android keeps it, above the pager rather than in it.
+    private lazy var categoryHeader: LibraryCategorySelectionHeader = {
+        let header = LibraryCategorySelectionHeader(frame: .zero)
+        header.delegate = self
+        return header
+    }()
+
+    /// The page coming in during a paging drag.
+    ///
+    /// Content only: every touch stays with the real collection view, so none of the selection,
+    /// editing or context menu handling has to know this exists.
+    private lazy var pagingCollectionView: UICollectionView = {
+        let view = UICollectionView(frame: .zero, collectionViewLayout: makeCollectionViewLayout())
+        view.register(MangaGridCell.self, forCellWithReuseIdentifier: "MangaGridCell")
+        view.register(MangaListCell.self, forCellWithReuseIdentifier: "MangaListCell")
+        view.backgroundColor = .clear
+        view.isUserInteractionEnabled = false
+        view.isHidden = true
+        return view
+    }()
+
+    private lazy var pagingDataSource = UICollectionViewDiffableDataSource<Section, MangaInfo>(
+        collectionView: pagingCollectionView
+    ) { [weak self] collectionView, indexPath, item in
+        guard let self else { return UICollectionViewCell() }
+        if usesListLayout {
+            let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "MangaListCell", for: indexPath)
+            if let cell = cell as? MangaListCell {
+                cell.configure(with: item)
+                cell.badgeNumber = viewModel.badgeType.contains(.unread) ? item.unread : 0
+                cell.badgeNumber2 = viewModel.badgeType.contains(.downloaded) ? item.downloads : 0
+            }
+            return cell
+        } else {
+            let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "MangaGridCell", for: indexPath)
+            if let cell = cell as? MangaGridCell {
+                cell.identifier = MangaIdentifier(sourceKey: item.sourceId, mangaKey: item.mangaId)
+                cell.title = item.title
+                cell.badgeNumber = viewModel.badgeType.contains(.unread) ? item.unread : 0
+                cell.badgeNumber2 = viewModel.badgeType.contains(.downloaded) ? item.downloads : 0
+                Task { await cell.loadImage(url: item.coverUrl) }
+            }
+            return cell
+        }
+    }
+
+    /// The tab a drag in progress is heading for, decided once from its initial direction.
+    private var pagingDestination: IndexPath?
 
     private lazy var locked = viewModel.isCategoryLocked()
     private var lastSearch: String?
@@ -175,49 +230,22 @@ class LibraryViewController: OldMangaCollectionViewController {
         collectionView.allowsMultipleSelection = !ProcessInfo.processInfo.isMacCatalystApp
         collectionView.allowsSelectionDuringEditing = true
 
-        let previousCategoryGesture = LibraryCategorySwipeGestureRecognizer(
+        // Interactive paging, in place of the two discrete swipes this had. A swipe fired only
+        // once it was over, which is why a category appeared to arrive after the gesture rather
+        // than with it.
+        let categoryPan = LibraryCategoryPanGestureRecognizer(
             target: self,
-            action: #selector(swipeBetweenCategories(_:))
+            action: #selector(handleCategoryPan(_:))
         )
-        previousCategoryGesture.direction = .right
-        previousCategoryGesture.cancelsTouchesInView = false
-        previousCategoryGesture.delegate = self
-        collectionView.addGestureRecognizer(previousCategoryGesture)
-
-        let nextCategoryGesture = LibraryCategorySwipeGestureRecognizer(
-            target: self,
-            action: #selector(swipeBetweenCategories(_:))
-        )
-        nextCategoryGesture.direction = .left
-        nextCategoryGesture.cancelsTouchesInView = false
-        nextCategoryGesture.delegate = self
-        collectionView.addGestureRecognizer(nextCategoryGesture)
+        categoryPan.cancelsTouchesInView = false
+        categoryPan.delegate = self
+        collectionView.addGestureRecognizer(categoryPan)
 
         // header view
-        let registration = UICollectionView.SupplementaryRegistration<LibraryCategorySelectionHeader>(
-            elementKind: UICollectionView.elementKindSectionHeader
-        ) { [weak self] header, _, _ in
-            guard let self else { return }
-
-            header.delegate = self
-            header.options = makeCategoryHeaderOptions()
-            header.setSelectedOption(selectedCategoryIndexPath())
-
-            // load locked icons
-            if UserDefaults.standard.bool(forKey: "Library.lockLibrary") {
-                header.lockedOptions = lockedCategoryIndexPaths()
-            }
-        }
-
-        dataSource.supplementaryViewProvider = { collectionView, kind, indexPath in
-            if kind == UICollectionView.elementKindSectionHeader {
-                return collectionView.dequeueConfiguredReusableSupplementary(
-                    using: registration,
-                    for: indexPath
-                )
-            }
-            return nil
-        }
+        view.addSubview(pagingCollectionView)
+        view.addSubview(categoryHeader)
+        updateHeaderCategories()
+        updateHeaderLockIcons()
 
         // empty text view
         emptyStackView.isHidden = true
@@ -267,13 +295,31 @@ class LibraryViewController: OldMangaCollectionViewController {
 
         emptyStackView.translatesAutoresizingMaskIntoConstraints = false
         lockedStackView.translatesAutoresizingMaskIntoConstraints = false
+        categoryHeader.translatesAutoresizingMaskIntoConstraints = false
+        pagingCollectionView.translatesAutoresizingMaskIntoConstraints = false
 
         NSLayoutConstraint.activate([
             emptyStackView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             emptyStackView.centerYAnchor.constraint(equalTo: view.centerYAnchor),
             lockedStackView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            lockedStackView.centerYAnchor.constraint(equalTo: view.centerYAnchor)
+            lockedStackView.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+
+            categoryHeader.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            categoryHeader.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            categoryHeader.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            categoryHeader.heightAnchor.constraint(equalToConstant: Self.categoryHeaderHeight),
+
+            // Exactly under the real one, so a translation of one width lands it in place.
+            pagingCollectionView.topAnchor.constraint(equalTo: collectionView.topAnchor),
+            pagingCollectionView.bottomAnchor.constraint(equalTo: collectionView.bottomAnchor),
+            pagingCollectionView.leadingAnchor.constraint(equalTo: collectionView.leadingAnchor),
+            pagingCollectionView.trailingAnchor.constraint(equalTo: collectionView.trailingAnchor)
         ])
+
+        // The strip no longer takes space in the layout, so the content has to clear it.
+        collectionView.contentInset.top += Self.categoryHeaderHeight
+        collectionView.verticalScrollIndicatorInsets.top += Self.categoryHeaderHeight
+        pagingCollectionView.contentInset.top = collectionView.contentInset.top
     }
 
     override func observe() {
@@ -546,28 +592,11 @@ class LibraryViewController: OldMangaCollectionViewController {
     }
 
     // collection view layout with header
+    // The tab strip used to be a pinned boundary supplementary item here. It is a sibling view
+    // now, so the layout is the plain one and this override only exists to keep the paging view
+    // and the real one identical.
     override func makeCollectionViewLayout() -> UICollectionViewLayout {
-        let layout = super.makeCollectionViewLayout()
-        guard let layout = layout as? UICollectionViewCompositionalLayout else { return layout }
-
-        let config = UICollectionViewCompositionalLayoutConfiguration()
-        config.interSectionSpacing = layout.configuration.interSectionSpacing
-        if !categoryIndexPaths().isEmpty {
-            let globalHeader = NSCollectionLayoutBoundarySupplementaryItem(
-                layoutSize: NSCollectionLayoutSize(
-                    widthDimension: .fractionalWidth(1),
-                    heightDimension: .absolute(48)
-                ),
-                elementKind: UICollectionView.elementKindSectionHeader,
-                alignment: .top
-            )
-            globalHeader.pinToVisibleBounds = true
-            globalHeader.zIndex = 2
-            config.boundarySupplementaryItems = [globalHeader]
-        }
-        layout.configuration = config
-
-        return layout
+        super.makeCollectionViewLayout()
     }
 
     // cells with badges
@@ -1099,58 +1128,156 @@ extension LibraryViewController {
         return indexPaths
     }
 
-    @objc private func swipeBetweenCategories(_ gestureRecognizer: UISwipeGestureRecognizer) {
-        guard !isEditing else { return }
-        let indexPaths = categoryIndexPaths()
-        guard
-            indexPaths.count > 1,
-            let currentIndex = indexPaths.firstIndex(of: selectedCategoryIndexPath())
-        else { return }
-
-        let offset = gestureRecognizer.direction == .left ? 1 : -1
-        let destinationIndex = currentIndex + offset
-        guard indexPaths.indices.contains(destinationIndex) else { return }
-
-        let destination = indexPaths[destinationIndex]
-        let header = collectionView.supplementaryView(
-            forElementKind: UICollectionView.elementKindSectionHeader,
-            at: IndexPath(index: 0)
-        ) as? LibraryCategorySelectionHeader
-        header?.setSelectedOption(destination, animated: true)
-        optionSelected(destination)
-        UISelectionFeedbackGenerator().selectionChanged()
-    }
 
     func updateHeaderLockIcons() {
-        guard let header = (collectionView.supplementaryView(
-            forElementKind: UICollectionView.elementKindSectionHeader, at: IndexPath(index: 0)
-        ) as? LibraryCategorySelectionHeader) else {
-            return
-        }
         if UserDefaults.standard.bool(forKey: "Library.lockLibrary") {
-            header.lockedOptions = lockedCategoryIndexPaths()
+            categoryHeader.lockedOptions = lockedCategoryIndexPaths()
         } else {
-            header.lockedOptions = []
+            categoryHeader.lockedOptions = []
         }
     }
 
     func refreshCategoryHeader() {
-        // Applying the snapshot can recreate the supplementary header. Resolve
-        // it only after the collection view has materialized the new layout.
-        collectionView.layoutIfNeeded()
         updateHeaderCategories()
         updateHeaderLockIcons()
     }
 
     // update category options in header
     func updateHeaderCategories() {
-        guard let header = (collectionView.supplementaryView(
-            forElementKind: UICollectionView.elementKindSectionHeader, at: IndexPath(index: 0)
-        ) as? LibraryCategorySelectionHeader) else {
-            return
+        let options = makeCategoryHeaderOptions()
+        categoryHeader.options = options
+        categoryHeader.isHidden = categoryIndexPaths().isEmpty
+        categoryHeader.setSelectedOption(selectedCategoryIndexPath())
+    }
+}
+
+// MARK: - Category Paging
+extension LibraryViewController {
+    /// The tab an index path in the strip stands for, in the terms `currentCategory` uses.
+    private func category(at indexPath: IndexPath) -> String? {
+        if indexPath.section == 0 {
+            let showAllCategory = UserDefaults.standard.bool(forKey: "Library.showAllCategory")
+            return showAllCategory && indexPath.row == 0 ? nil : ""
+        } else if indexPath.section == 1 && !viewModel.categories.isEmpty {
+            return viewModel.categories[indexPath.row]
+        } else if indexPath.section == 2 || (indexPath.section == 1 && viewModel.categories.isEmpty) {
+            return viewModel.filterGroups[indexPath.row].title
         }
-        header.options = makeCategoryHeaderOptions()
-        header.setSelectedOption(selectedCategoryIndexPath())
+        return viewModel.currentCategory
+    }
+
+    private func adjacentCategoryIndexPath(forward: Bool) -> IndexPath? {
+        let indexPaths = categoryIndexPaths()
+        guard
+            indexPaths.count > 1,
+            let currentIndex = indexPaths.firstIndex(of: selectedCategoryIndexPath())
+        else { return nil }
+
+        let destinationIndex = currentIndex + (forward ? 1 : -1)
+        guard indexPaths.indices.contains(destinationIndex) else { return nil }
+        return indexPaths[destinationIndex]
+    }
+
+    /// Fills the incoming page. Costs no database work, which is what makes it possible to do this
+    /// mid-gesture at all.
+    private func preparePagingPage(for indexPath: IndexPath) {
+        let items = viewModel.previewItems(for: category(at: indexPath))
+
+        pagingCollectionView.collectionViewLayout = makeCollectionViewLayout()
+        pagingCollectionView.contentInset.top = collectionView.contentInset.top
+
+        var snapshot = NSDiffableDataSourceSnapshot<Section, MangaInfo>()
+        snapshot.appendSections([.pinned, .regular])
+        snapshot.appendItems(items.pinned, toSection: .pinned)
+        snapshot.appendItems(items.manga, toSection: .regular)
+        pagingDataSource.apply(snapshot, animatingDifferences: false)
+
+        pagingCollectionView.setContentOffset(
+            CGPoint(x: 0, y: -pagingCollectionView.contentInset.top),
+            animated: false
+        )
+        pagingCollectionView.isHidden = false
+    }
+
+    private func endPaging() {
+        collectionView.transform = .identity
+        pagingCollectionView.transform = .identity
+        pagingCollectionView.isHidden = true
+        pagingDestination = nil
+    }
+
+    @objc private func handleCategoryPan(_ gestureRecognizer: UIPanGestureRecognizer) {
+        let width = collectionView.bounds.width
+        guard width > 0 else { return }
+
+        switch gestureRecognizer.state {
+            case .began:
+                pagingDestination = nil
+
+            case .changed:
+                let translation = gestureRecognizer.translation(in: collectionView).x
+
+                if pagingDestination == nil {
+                    // The direction of the first movement picks the destination, and it stays
+                    // picked -- reversing mid-drag cancels rather than swapping sides, which is
+                    // what a pager does.
+                    guard abs(translation) > 1 else { return }
+                    guard let destination = adjacentCategoryIndexPath(forward: translation < 0) else { return }
+                    pagingDestination = destination
+                    preparePagingPage(for: destination)
+                }
+
+                guard let pagingDestination else { return }
+                let forward = pagingDestination > selectedCategoryIndexPath()
+                // Rubber-band a drag pulling away from the destination rather than letting the
+                // page it came from slide back in.
+                let bounded = forward ? min(translation, 0) : max(translation, 0)
+                collectionView.transform = CGAffineTransform(translationX: bounded, y: 0)
+                pagingCollectionView.transform = CGAffineTransform(
+                    translationX: bounded + (forward ? width : -width),
+                    y: 0
+                )
+
+            case .ended:
+                guard let destination = pagingDestination else {
+                    endPaging()
+                    return
+                }
+                let translation = gestureRecognizer.translation(in: collectionView).x
+                let velocity = gestureRecognizer.velocity(in: collectionView).x
+                let forward = destination > selectedCategoryIndexPath()
+                let travelled = abs(translation)
+                let flicked = abs(velocity) > 500 && (velocity < 0) == forward
+                let commit = flicked || travelled > width / 3
+
+                let target = commit ? (forward ? -width : width) : 0
+                UIView.animate(
+                    withDuration: 0.25,
+                    delay: 0,
+                    options: [.curveEaseOut, .allowUserInteraction],
+                    animations: { [self] in
+                        collectionView.transform = CGAffineTransform(translationX: target, y: 0)
+                        pagingCollectionView.transform = CGAffineTransform(
+                            translationX: target + (forward ? width : -width),
+                            y: 0
+                        )
+                    },
+                    completion: { [self] _ in
+                        endPaging()
+                        if commit {
+                            categoryHeader.setSelectedOption(destination, animated: true)
+                            optionSelected(destination)
+                            UISelectionFeedbackGenerator().selectionChanged()
+                        }
+                    }
+                )
+
+            case .cancelled, .failed:
+                endPaging()
+
+            default:
+                break
+        }
     }
 }
 
@@ -1336,40 +1463,25 @@ extension LibraryViewController {
 extension LibraryViewController: LibraryCategorySelectionHeaderDelegate {
     nonisolated func optionSelected(_ indexPath: IndexPath) {
         Task { @MainActor in
-            if indexPath.section == 0 {
-                let showAllCategory = UserDefaults.standard.bool(forKey: "Library.showAllCategory")
-                if showAllCategory, indexPath.row == 0 {
-                    viewModel.currentCategory = nil
-                } else {
-                    viewModel.currentCategory = ""
-                }
-            } else if indexPath.section == 1 && !viewModel.categories.isEmpty {
-                viewModel.currentCategory = viewModel.categories[indexPath.row]
-            } else if indexPath.section == 2 || (indexPath.section == 1 && viewModel.categories.isEmpty) {
-                viewModel.currentCategory = viewModel.filterGroups[indexPath.row].title
-            }
+            // Narrows the library already in memory rather than reloading it, so the tab changes
+            // in the same run loop the tap did.
+            await viewModel.selectCategory(category(at: indexPath))
+
             locked = viewModel.isCategoryLocked()
             updateLockState(updateCollection: false)
             deselectAllItems()
             updateToolbar()
             updateNavbarItems()
-
-            await viewModel.loadLibrary(
-                refreshBadges: false,
-                refreshCategoryAvailability: false
-            )
             updateEmptyStack()
             updateDataSource(animatingDifferences: false)
         }
     }
 }
 
-// MARK: - Category Swipe Gestures
+// MARK: - Category Paging Gesture
 extension LibraryViewController: UIGestureRecognizerDelegate {
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
-        guard let swipeGesture = gestureRecognizer as? LibraryCategorySwipeGestureRecognizer else {
-            return true
-        }
+        guard gestureRecognizer is LibraryCategoryPanGestureRecognizer else { return true }
         guard !isEditing else { return false }
 
         var touchedView: UIView? = touch.view
@@ -1381,24 +1493,34 @@ extension LibraryViewController: UIGestureRecognizerDelegate {
             touchedView = currentView.superview
         }
 
-        // Preserve the navigation drawer's left-edge gesture.
-        if swipeGesture.direction == .right, touch.location(in: view).x <= max(view.safeAreaInsets.left, 24) {
-            return false
-        }
-        // Preserve the filter drawer's right-edge gesture.
-        if swipeGesture.direction == .left,
-           touch.location(in: view).x >= view.bounds.width - max(view.safeAreaInsets.right, 24) {
+        // Preserve the navigation drawer's left edge and the filter drawer's right edge.
+        let x = touch.location(in: view).x
+        if x <= max(view.safeAreaInsets.left, 24) || x >= view.bounds.width - max(view.safeAreaInsets.right, 24) {
             return false
         }
         return true
+    }
+
+    func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        guard let pan = gestureRecognizer as? LibraryCategoryPanGestureRecognizer else { return true }
+        // Paging previews the neighbouring tabs out of the in-memory library, so it is only
+        // offered when there is one to preview from.
+        guard !isEditing, viewModel.canPageBetweenCategories else { return false }
+        guard adjacentCategoryIndexPath(forward: true) != nil
+            || adjacentCategoryIndexPath(forward: false) != nil
+        else { return false }
+
+        // Leave anything more vertical than horizontal to the list's own scrolling.
+        let velocity = pan.velocity(in: collectionView)
+        return abs(velocity.x) > abs(velocity.y)
     }
 
     func gestureRecognizer(
         _ gestureRecognizer: UIGestureRecognizer,
         shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
     ) -> Bool {
-        gestureRecognizer is LibraryCategorySwipeGestureRecognizer
-            || otherGestureRecognizer is LibraryCategorySwipeGestureRecognizer
+        gestureRecognizer is LibraryCategoryPanGestureRecognizer
+            || otherGestureRecognizer is LibraryCategoryPanGestureRecognizer
     }
 }
 

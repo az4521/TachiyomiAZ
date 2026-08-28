@@ -22,6 +22,28 @@ class LibraryViewModel {
     private var unreadBadgeCache: [MangaIdentifier: Int] = [:]
     private var downloadBadgeCache: [MangaIdentifier: Int] = [:]
 
+    /// One library entry, with everything the category tabs and filters read.
+    ///
+    /// Sendable because it is built inside `performBackgroundTask`, which `LibraryMangaObject` --
+    /// wrapping a `DbManga` -- cannot leave.
+    struct LibraryEntry: Sendable {
+        var info: MangaInfo
+        let categories: Set<String>
+        let status: Int16
+        let isUpdated: Bool
+        let hasTrack: Bool
+        let hasHistory: Bool
+    }
+
+    /// The whole library, every category, in sort order.
+    ///
+    /// Android keeps one map of every category and lets the pager pick a page out of it, so
+    /// changing tab touches no database. This is that map: a tab switch narrows this in memory
+    /// rather than re-running the library query, the category-name lookup, and a rebuild of every
+    /// row -- which is what made switching feel like applying a filter.
+    private var librarySnapshot: [LibraryEntry]?
+    private var refreshEligibleSnapshot: Set<MangaIdentifier>?
+
     enum PinType: String, CaseIterable {
         case none
         case unread
@@ -184,10 +206,14 @@ class LibraryViewModel {
 
 extension LibraryViewModel {
     private var effectiveFilters: [LibraryFilter] {
+        effectiveFilters(for: currentCategory)
+    }
+
+    private func effectiveFilters(for tab: String?) -> [LibraryFilter] {
         if
-            let currentCategory,
+            let tab,
             let group = filterGroups.first(where: {
-                $0.title == currentCategory
+                $0.title == tab
             })
         {
             return group.filters + filters
@@ -258,28 +284,18 @@ extension LibraryViewModel {
             normalizeCurrentCategory()
         }
 
-        // handle filter groups
-        let filters = effectiveFilters
-        let currentCategory = (isInUncategorizedCategory || isInRealCategory) ? self.currentCategory : nil
+        // Which per-entry database questions the snapshot has to answer is decided across every
+        // filter any tab can apply, not just the current one: a filter group tab carries its own
+        // filters, so the tab being switched to may ask something the current one does not.
+        let allFilters = filters + filterGroups.flatMap(\.filters)
+        let needsTrack = allFilters.contains { $0.type == .tracking }
+        let needsHistory = allFilters.contains { $0.type == .started }
 
         // The refresh filter asks a question about the library as a whole, so it is answered once
         // here rather than per entry. Computed only when the filter is on, because it runs the
         // whole selection rule. Deliberately not scoped to the current category: the filter means
         // "a refresh would fetch this", and the category tab already narrows what is on screen.
-        // A title's content rating comes from the source that provides it.
-        //
-        // Aidoku rates each manga and stores it on the row; Android's schema has no such column,
-        // because a Tachiyomi extension declares NSFW for the whole source rather than per title.
-        // So `nsfw` on a row here is always 0 -- which meant the filter sheet offered a content
-        // rating filter that matched everything under "Safe" and nothing under either NSFW option,
-        // emptying the library. Answered from the source's own rating instead, which is the
-        // granularity the data actually has.
-        let ratingsBySource = Dictionary(
-            SourceManager.shared.sources.map { ($0.key, Int16($0.contentRating.rawValue)) },
-            uniquingKeysWith: { first, _ in first }
-        )
-
-        let refreshEligible: Set<MangaIdentifier>? = filters.contains { $0.type == .willRefresh }
+        let refreshEligible: Set<MangaIdentifier>? = allFilters.contains { $0.type == .willRefresh }
             ? Set(
                 MangaManager.shared.library?
                     .refreshTargets(settings: AppEnvironment.shared.settings)
@@ -287,41 +303,22 @@ extension LibraryViewModel {
             )
             : nil
 
-        let (
-            success,
-            actuallyEmpty,
-            pinnedManga,
-            manga,
-            sourceKeys,
-            unappliedFilters
-        ) = await DatabaseContainer.shared.performBackgroundTask { @Sendable [sortMethod, sortAscending, pinType, refreshEligible] context in
-            var pinnedManga: [MangaInfo] = []
-            var manga: [MangaInfo] = []
-            var sourceKeys: Set<String> = []
-            var unappliedFilters: [LibraryFilter] = []
+        let entries = await DatabaseContainer.shared.performBackgroundTask {
+            @Sendable [sortMethod, sortAscending, needsTrack, needsHistory] context in
+            var entries: [LibraryEntry] = []
 
-            // Rewritten from a raw fetch. `getLibraryManga(category:)` runs the shared query;
-            // "uncategorised" is not a category there, so it is filtered here instead. Sorting
-            // stays below, where the view model already sorts what it has built.
-            // An empty category name is the library screen's "Uncategorized" tab. Both branches
-            // are now a filter over rows the library query already returned; the uncategorised one
-            // used to run a category lookup per library entry.
-            let libraryObjects: [LibraryMangaObject] = if let currentCategory {
-                if currentCategory.isEmpty {
-                    SharedDataStore.shared.getUncategorizedLibraryManga()
-                } else {
-                    SharedDataStore.shared.getLibraryManga(category: currentCategory)
-                }
-            } else {
-                SharedDataStore.shared.getLibraryManga()
-            }
-
-            let actuallyEmpty = libraryObjects.isEmpty
+            // The whole library, every category. Narrowing to a tab is a memory pass in
+            // `applyLibrarySnapshot`, so switching tab runs no query at all. The uncategorised tab
+            // used `getUncategorizedLibraryManga()`; an entry with no names in the category map is
+            // the same set, and that map is fetched here anyway.
+            let libraryObjects = SharedDataStore.shared.getLibraryManga()
 
             // Upstream sorts with an NSSortDescriptor on the fetch request. The fetch is gone --
             // this reads the shared query instead -- and the sort went with it, which is why every
             // option except title and unread count appeared to do nothing. Same keys, same
             // inversion for alphabetical, applied to the rows before they become view models.
+            // Sorting the library as a whole is what lets a tab be a filter over it: dropping rows
+            // from a sorted list leaves the rest in order.
             let sortedObjects = LibrarySort.sorted(
                 libraryObjects,
                 by: sortMethod,
@@ -334,7 +331,7 @@ extension LibraryViewModel {
             // inside the loop below -- the single biggest cost of loading the library screen.
             let categoriesByManga = SharedDataStore.shared.libraryCategoryNames()
 
-            main: for libraryObject in sortedObjects {
+            for libraryObject in sortedObjects {
                 guard
                     let mangaObject = libraryObject.manga,
                     // ensure the manga hasn't already been accounted for
@@ -357,109 +354,265 @@ extension LibraryViewModel {
                     url: mangaObject.url.flatMap { URL(string: $0) }
                 )
 
-                sourceKeys.insert(mangaObject.sourceId)
-
-                // process filters
-                var filteredSourceKeys: Set<String> = []
-                var filteredContentRatings: Set<Int16> = []
-                var filteredCategories: Set<String> = []
-                for filter in filters {
-                    let condition: Bool
-                    switch filter.type {
-                        case .downloaded:
-                            unappliedFilters.append(filter)
-                            continue
-                        case .tracking:
-                            condition = SharedDataStore.shared.hasTrack(
-                                sourceId: info.sourceId,
-                                mangaId: info.mangaId,
-                                context: context
-                            )
-                        case .hasUnread:
-                            unappliedFilters.append(filter)
-                            continue
-                        case .started:
-                            condition = SharedDataStore.shared.hasHistory(
-                                sourceId: info.sourceId,
-                                mangaId: info.mangaId,
-                                context: context
-                            )
-                        case .completed:
-                            condition = mangaObject.status == ExtensionRunner.PublishingStatus.completed.rawValue
-                        case .willRefresh:
-                            condition = refreshEligible?.contains(info.identifier) ?? false
-                        case .source:
-                            guard let sourceId = filter.value else { continue }
-                            if filter.exclude {
-                                condition = info.sourceId == sourceId
-                            } else {
-                                // handle included source filters as OR
-                                filteredSourceKeys.insert(sourceId)
-                                continue
-                            }
-                        case .contentRating:
-                            guard let contentRating = filter.value.flatMap(MangaContentRating.init) else { continue }
-                            if filter.exclude {
-                                condition = (ratingsBySource[info.sourceId] ?? 0) == contentRating.rawValue
-                            } else {
-                                // handle included content rating filters as OR
-                                filteredContentRatings.insert(Int16(contentRating.rawValue))
-                                continue
-                            }
-                        case .category:
-                            guard let category = filter.value else { continue }
-                            if filter.exclude {
-                                condition = categories.contains(category)
-                            } else {
-                                // handle included category filters as OR
-                                filteredCategories.insert(category)
-                                continue
-                            }
-
-                    }
-                    let shouldSkip = filter.exclude ? condition : !condition
-                    if shouldSkip {
-                        continue main
-                    }
-                }
-                if !filteredSourceKeys.isEmpty && !filteredSourceKeys.contains(info.sourceId) {
-                    continue main
-                }
-                if !filteredContentRatings.isEmpty && !filteredContentRatings.contains(ratingsBySource[info.sourceId] ?? 0) {
-                    continue main
-                }
-                if !filteredCategories.isEmpty && !filteredCategories.contains(where: { categories.contains($0) }) {
-                    continue main
-                }
-
-                switch pinType {
-                    case .none:
-                        manga.append(info)
-                    case .unread:
-                        // don't have unread info to sort yet
-                        manga.append(info)
-                    case .updatedChapters:
-                        if (libraryObject.lastUpdatedChapters ?? .distantPast) > (libraryObject.lastOpened ?? .distantPast) {
-                            pinnedManga.append(info)
-                        } else {
-                            manga.append(info)
-                        }
-                }
+                // The two questions only the database can answer are asked here, once per entry
+                // for the whole library, so the filters themselves become a memory pass. Skipped
+                // entirely when no tab's filters ask them.
+                entries.append(LibraryEntry(
+                    info: info,
+                    categories: Set(categories),
+                    status: mangaObject.status,
+                    isUpdated: (libraryObject.lastUpdatedChapters ?? .distantPast)
+                        > (libraryObject.lastOpened ?? .distantPast),
+                    hasTrack: needsTrack
+                        ? SharedDataStore.shared.hasTrack(
+                            sourceId: info.sourceId,
+                            mangaId: info.mangaId,
+                            context: context
+                        )
+                        : false,
+                    hasHistory: needsHistory
+                        ? SharedDataStore.shared.hasHistory(
+                            sourceId: info.sourceId,
+                            mangaId: info.mangaId,
+                            context: context
+                        )
+                        : false
+                ))
             }
 
-            return (true, actuallyEmpty, pinnedManga, manga, sourceKeys, unappliedFilters)
+            return entries
         }
 
-        guard success else {
-            return previouslyHadUncategorizedManga != hasUncategorizedManga
+        librarySnapshot = entries
+        refreshEligibleSnapshot = refreshEligible
+
+        await applyLibrarySnapshot(refreshBadges: refreshBadges, previousInfo: previousInfo)
+
+        return previouslyHadUncategorizedManga != hasUncategorizedManga
+    }
+
+    /// Switches category tab.
+    ///
+    /// No database work at all -- the tab is a narrowing of the snapshot the last load built,
+    /// which is what makes switching immediate.
+    /// What a tab would show, without selecting it.
+    ///
+    /// Used to fill the incoming page while a paging drag is in progress, so the neighbouring
+    /// category is visible under the finger rather than appearing once the drag ends. Badges come
+    /// from the same caches the live list uses; the deferred download and unread filters are
+    /// applied here too, so what the drag shows is what the commit lands on.
+    func previewItems(for tab: String?) -> (pinned: [MangaInfo], manga: [MangaInfo]) {
+        var narrowed = narrowed(to: tab)
+
+        for index in narrowed.manga.indices {
+            let identifier = narrowed.manga[index].identifier
+            narrowed.manga[index].unread = unreadBadgeCache[identifier] ?? 0
+            narrowed.manga[index].downloads = downloadBadgeCache[identifier] ?? 0
+        }
+        for index in narrowed.pinned.indices {
+            let identifier = narrowed.pinned[index].identifier
+            narrowed.pinned[index].unread = unreadBadgeCache[identifier] ?? 0
+            narrowed.pinned[index].downloads = downloadBadgeCache[identifier] ?? 0
         }
 
-        self.pinnedManga = pinnedManga
-        self.manga = manga
+        let deferred = effectiveFilters(for: tab)
+            .filter { $0.type == .downloaded || $0.type == .hasUnread }
+        var pinned = narrowed.pinned
+        var manga = narrowed.manga
+
+        if !deferred.isEmpty {
+            let matches: (MangaInfo) -> Bool = { info in
+                for filter in deferred {
+                    let condition: Bool
+                    switch filter.type {
+                        case .downloaded: condition = info.downloads > 0
+                        case .hasUnread: condition = info.unread > 0
+                        default: continue
+                    }
+                    guard !(filter.exclude ? condition : !condition) else { return false }
+                }
+                return true
+            }
+            pinned = pinned.filter(matches)
+            manga = manga.filter(matches)
+        }
+
+        if pinType == .unread {
+            let all = manga + pinned
+            pinned = all.filter { $0.unread > 0 }
+            manga = all.filter { $0.unread <= 0 }
+        }
+
+        return (pinned, manga)
+    }
+
+    /// Whether a paging drag can preview other tabs without going to the database.
+    var canPageBetweenCategories: Bool {
+        librarySnapshot != nil && searchQuery.isEmpty
+    }
+
+    func selectCategory(_ category: String?) async {
+        currentCategory = category
+        if librarySnapshot == nil {
+            await loadLibrary(refreshBadges: false, refreshCategoryAvailability: false)
+        } else {
+            await applyLibrarySnapshot(refreshBadges: false, previousInfo: nil)
+        }
+    }
+
+    /// Everything a tab shows, worked out without touching any state.
+    ///
+    /// Separate from [applyLibrarySnapshot] so the paging gesture can render the category either
+    /// side of the current one while the drag is still in progress.
+    /// - Parameter tab: the tab's identity, as [currentCategory] holds it -- nil for "All", an
+    ///   empty string for "Uncategorized", otherwise a category or a filter group's title.
+    private func narrowed(to tab: String?) -> (
+        pinned: [MangaInfo],
+        manga: [MangaInfo],
+        sourceKeys: Set<String>,
+        inCategory: Int
+    ) {
+        guard let librarySnapshot else { return ([], [], [], 0) }
+
+        let filters = effectiveFilters(for: tab)
+        // A filter group tab narrows by its filters, not by category membership.
+        let selectedCategory = (tab?.isEmpty == true || categories.contains(where: { $0 == tab })) ? tab : nil
+        let refreshEligible = refreshEligibleSnapshot
+
+        // A title's content rating comes from the source that provides it.
+        //
+        // Aidoku rates each manga and stores it on the row; Android's schema has no such column,
+        // because a Tachiyomi extension declares NSFW for the whole source rather than per title.
+        // So `nsfw` on a row here is always 0 -- which meant the filter sheet offered a content
+        // rating filter that matched everything under "Safe" and nothing under either NSFW option,
+        // emptying the library. Answered from the source's own rating instead, which is the
+        // granularity the data actually has.
+        let ratingsBySource = Dictionary(
+            SourceManager.shared.sources.map { ($0.key, Int16($0.contentRating.rawValue)) },
+            uniquingKeysWith: { first, _ in first }
+        )
+
+        var pinnedManga: [MangaInfo] = []
+        var manga: [MangaInfo] = []
+        var sourceKeys: Set<String> = []
+        var inCategory = 0
+
+        main: for entry in librarySnapshot {
+            // The tab. An empty name is the "Uncategorized" tab; nil is "All".
+            if let selectedCategory {
+                if selectedCategory.isEmpty {
+                    guard entry.categories.isEmpty else { continue }
+                } else {
+                    guard entry.categories.contains(selectedCategory) else { continue }
+                }
+            }
+            inCategory += 1
+
+            let info = entry.info
+            let categories = entry.categories
+            sourceKeys.insert(info.sourceId)
+
+            // process filters
+            var filteredSourceKeys: Set<String> = []
+            var filteredContentRatings: Set<Int16> = []
+            var filteredCategories: Set<String> = []
+            for filter in filters {
+                let condition: Bool
+                switch filter.type {
+                    case .downloaded, .hasUnread:
+                        continue
+                    case .tracking:
+                        condition = entry.hasTrack
+                    case .started:
+                        condition = entry.hasHistory
+                    case .completed:
+                        condition = entry.status == ExtensionRunner.PublishingStatus.completed.rawValue
+                    case .willRefresh:
+                        condition = refreshEligible?.contains(info.identifier) ?? false
+                    case .source:
+                        guard let sourceId = filter.value else { continue }
+                        if filter.exclude {
+                            condition = info.sourceId == sourceId
+                        } else {
+                            // handle included source filters as OR
+                            filteredSourceKeys.insert(sourceId)
+                            continue
+                        }
+                    case .contentRating:
+                        guard let contentRating = filter.value.flatMap(MangaContentRating.init) else { continue }
+                        if filter.exclude {
+                            condition = (ratingsBySource[info.sourceId] ?? 0) == contentRating.rawValue
+                        } else {
+                            // handle included content rating filters as OR
+                            filteredContentRatings.insert(Int16(contentRating.rawValue))
+                            continue
+                        }
+                    case .category:
+                        guard let category = filter.value else { continue }
+                        if filter.exclude {
+                            condition = categories.contains(category)
+                        } else {
+                            // handle included category filters as OR
+                            filteredCategories.insert(category)
+                            continue
+                        }
+                }
+                let shouldSkip = filter.exclude ? condition : !condition
+                if shouldSkip {
+                    continue main
+                }
+            }
+            if !filteredSourceKeys.isEmpty && !filteredSourceKeys.contains(info.sourceId) {
+                continue main
+            }
+            if !filteredContentRatings.isEmpty && !filteredContentRatings.contains(ratingsBySource[info.sourceId] ?? 0) {
+                continue main
+            }
+            if !filteredCategories.isEmpty && !filteredCategories.contains(where: { categories.contains($0) }) {
+                continue main
+            }
+
+            switch pinType {
+                case .none:
+                    manga.append(info)
+                case .unread:
+                    // don't have unread info to sort yet
+                    manga.append(info)
+                case .updatedChapters:
+                    if entry.isUpdated {
+                        pinnedManga.append(info)
+                    } else {
+                        manga.append(info)
+                    }
+            }
+        }
+
+        return (pinnedManga, manga, sourceKeys, inCategory)
+    }
+
+    /// Narrows the whole-library snapshot to the selected tab, then filters, pins and badges it.
+    private func applyLibrarySnapshot(
+        refreshBadges: Bool,
+        previousInfo: [MangaIdentifier: MangaInfo]?
+    ) async {
+        guard librarySnapshot != nil else { return }
+
+        let previousInfo = previousInfo ?? Dictionary(
+            (manga + pinnedManga).map { ($0.identifier, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        let narrowed = narrowed(to: currentCategory)
+
+        // These two need the badge counts, which are filled in below.
+        let unappliedFilters = effectiveFilters
+            .filter { $0.type == .downloaded || $0.type == .hasUnread }
+
+        self.pinnedManga = narrowed.pinned
+        self.manga = narrowed.manga
         self.storedPinnedManga = nil
         self.storedManga = nil
-        self.sourceKeys = sourceKeys.sorted()
-        self.actuallyEmpty = actuallyEmpty
+        self.sourceKeys = narrowed.sourceKeys.sorted()
+        self.actuallyEmpty = narrowed.inCategory == 0
 
         if refreshBadges {
             if needsUnreadData {
@@ -531,8 +684,6 @@ extension LibraryViewModel {
         if !searchQuery.isEmpty {
             await search(query: searchQuery)
         }
-
-        return previouslyHadUncategorizedManga != hasUncategorizedManga
     }
 
     private func normalizeCurrentCategory() {
@@ -827,6 +978,10 @@ extension LibraryViewModel {
             sortMethod = method
             UserDefaults.standard.set(sortMethod.rawValue, forKey: "Library.sortOption")
         }
+        // The snapshot is built in sort order, which is what lets a tab be a filter over it, so a
+        // changed sort makes it stale. `sortLibrary` reorders what is on screen; the next tab
+        // switch rebuilds from the database.
+        librarySnapshot = nil
         await sortLibrary()
     }
 
