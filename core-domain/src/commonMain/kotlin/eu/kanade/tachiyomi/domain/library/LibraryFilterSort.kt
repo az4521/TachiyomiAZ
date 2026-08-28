@@ -110,29 +110,54 @@ object LibraryFilterSort {
      *
      * Drag-and-drop is not a sort: it keeps whatever order the list is already in.
      */
+    /**
+     * The three orderings are passed as providers, not maps.
+     *
+     * Only one of them is ever read, and which one is [mode]. Taking them as values meant the
+     * caller had to build all three before it could call this, and each is an aggregate over the
+     * whole chapters table -- so every sort paid for two orderings it then ignored, and an
+     * alphabetical sort paid for three.
+     */
     fun comparator(
         mode: Int,
         ascending: Boolean,
-        lastReadOrder: Map<Long, Int> = emptyMap(),
-        totalChapterOrder: Map<Long, Int> = emptyMap(),
-        latestChapterOrder: Map<Long, Int> = emptyMap(),
+        lastReadOrder: () -> Map<Long, Int> = { emptyMap() },
+        totalChapterOrder: () -> Map<Long, Int> = { emptyMap() },
+        latestChapterOrder: () -> Map<Long, Int> = { emptyMap() },
         sourceName: (Long) -> String = { "" }
     ): Comparator<LibraryManga> {
+        // Resolved once here rather than inside the comparator, which runs O(n log n) times.
+        val order =
+            when (mode) {
+                LibrarySortMode.LAST_READ -> lastReadOrder()
+                LibrarySortMode.TOTAL -> totalChapterOrder()
+                LibrarySortMode.LATEST_CHAPTER -> latestChapterOrder()
+                else -> emptyMap()
+            }
+
+        // Same reason: resolving a source id hits the extension manager, so a library sorted by
+        // source would look every title's source up again on each of its comparisons.
+        val names = HashMap<Long, String>()
+
         val base =
             Comparator<LibraryManga> { first, second ->
                 when (mode) {
                     LibrarySortMode.ALPHA -> first.title.compareTo(second.title, ignoreCase = true)
                     LibrarySortMode.LAST_READ ->
-                        position(lastReadOrder, first).compareTo(position(lastReadOrder, second))
+                        position(order, first).compareTo(position(order, second))
                     LibrarySortMode.LAST_CHECKED -> second.last_update.compareTo(first.last_update)
                     LibrarySortMode.UNREAD -> first.unread.compareTo(second.unread)
                     LibrarySortMode.TOTAL ->
-                        position(totalChapterOrder, first, missing = 0)
-                            .compareTo(position(totalChapterOrder, second, missing = 0))
+                        position(order, first, missing = 0)
+                            .compareTo(position(order, second, missing = 0))
                     LibrarySortMode.LATEST_CHAPTER ->
-                        position(latestChapterOrder, first).compareTo(position(latestChapterOrder, second))
+                        position(order, first).compareTo(position(order, second))
                     LibrarySortMode.DATE_ADDED -> second.date_added.compareTo(first.date_added)
-                    LibrarySortMode.SOURCE -> sourceName(first.source).compareTo(sourceName(second.source))
+                    LibrarySortMode.SOURCE -> {
+                        val firstName = names.getOrPut(first.source) { sourceName(first.source) }
+                        val secondName = names.getOrPut(second.source) { sourceName(second.source) }
+                        firstName.compareTo(secondName)
+                    }
                     else -> 0
                 }
             }

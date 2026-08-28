@@ -213,34 +213,31 @@ class LibraryPresenter(
     private fun applySort(map: LibraryMap): LibraryMap {
         val sortingMode = preferences.librarySortingMode().get()
 
-        val lastReadManga by lazy {
-            var counter = 0
-            db.getLastReadManga().associate { it.id!! to counter++ }
-        }
-        val totalChapterManga by lazy {
-            var counter = 0
-            db.getTotalChapterManga().associate { it.id!! to counter++ }
-        }
-        val latestChapterManga by lazy {
-            var counter = 0
-            db.getLatestChapterManga().associate { it.id!! to counter++ }
-        }
-
         // The order is LibraryFilterSort's, shared with the iOS app. The three modes the database
         // answers arrive as positions, and resolving a source's name needs the extension manager,
         // so those are passed in.
+        //
+        // Passed as lambdas: only the one matching the sort mode runs. These were `by lazy` for
+        // that reason, but handing a lazy to a parameter evaluates it, so all three ran on every
+        // emission -- and this runs again on each filter, badge and sort change, not just on load.
         val rows =
             LibraryFilterSort.comparator(
                 mode = sortingMode,
                 ascending = preferences.librarySortingAscending().get(),
-                lastReadOrder = lastReadManga,
-                totalChapterOrder = totalChapterManga,
-                latestChapterOrder = latestChapterManga,
+                lastReadOrder = { positionsOf(db.getLastReadMangaIds()) },
+                totalChapterOrder = { positionsOf(db.getTotalChapterMangaIds()) },
+                latestChapterOrder = { positionsOf(db.getLatestChapterMangaIds()) },
                 sourceName = { sourceManager.getOrStub(it).name }
             )
         val comparator = Comparator<LibraryItem> { i1, i2 -> rows.compare(i1.manga, i2.manga) }
 
         return map.mapValues { entry -> entry.value.sortedWith(comparator) }
+    }
+
+    /** Turns an ordered list of ids into each id's place in it. */
+    private fun positionsOf(ids: List<Long>): Map<Long, Int> {
+        var counter = 0
+        return ids.associateWith { counter++ }
     }
 
     private fun sortAlphabetical(

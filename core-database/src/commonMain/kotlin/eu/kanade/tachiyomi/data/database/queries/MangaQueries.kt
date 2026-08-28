@@ -125,6 +125,10 @@ interface MangaQueries : DbProvider {
         manga.id?.let { sqlDatabase.mangasQueries.updateMangaCoverLastModified(manga.cover_last_modified, it) }
     }
 
+    fun updateMangaDateAdded(manga: Manga) {
+        manga.id?.let { sqlDatabase.mangasQueries.updateMangaDateAdded(manga.date_added, it) }
+    }
+
     fun deleteManga(manga: Manga) {
         manga.id?.let { sqlDatabase.mangasQueries.deleteManga(it) }
     }
@@ -158,4 +162,16 @@ interface MangaQueries : DbProvider {
 
     fun getLatestChapterManga(): List<Manga> =
         sqlDatabase.mangasQueries.getLatestChapterManga(::mapManga).executeAsList()
+
+    /** Library titles in last-read order, as ids. See the note in mangas.sq. */
+    fun getLastReadMangaIds(): List<Long> =
+        sqlDatabase.mangasQueries.getLastReadMangaIds().executeAsList()
+
+    /** Library titles in chapter-count order, as ids. */
+    fun getTotalChapterMangaIds(): List<Long> =
+        sqlDatabase.mangasQueries.getTotalChapterMangaIds().executeAsList()
+
+    /** Library titles in latest-chapter order, as ids. */
+    fun getLatestChapterMangaIds(): List<Long> =
+        sqlDatabase.mangasQueries.getLatestChapterMangaIds().executeAsList()
 }

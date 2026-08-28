@@ -78,6 +78,9 @@ UPDATE mangas SET title = ? WHERE _id = ?;
 updateMangaCoverLastModified:
 UPDATE mangas SET cover_last_modified = ? WHERE _id = ?;
 
+updateMangaDateAdded:
+UPDATE mangas SET date_added = ? WHERE _id = ?;
+
 deleteManga:
 DELETE FROM mangas WHERE _id = ?;
 
@@ -104,15 +107,19 @@ FROM (
     SELECT mangas.*, COALESCE(C.unread, 0) AS unread, COALESCE(C.readCount, 0) AS readCount
     FROM mangas
     LEFT JOIN (
-        SELECT manga_id,
-            SUM(CASE WHEN read = 0 THEN 1 ELSE 0 END) AS unread,
-            SUM(CASE WHEN read = 1 THEN 1 ELSE 0 END) AS readCount
+        -- Joined to mangas so the aggregate covers library titles only. Without it this counts
+        -- every chapter row in the database, and chapters outlive the library: anything ever
+        -- opened in the browser leaves its chapter list behind, so the scan grows with what the
+        -- user has browsed rather than with what they keep.
+        SELECT chapters.manga_id,
+            SUM(CASE WHEN chapters.read = 0 THEN 1 ELSE 0 END) AS unread,
+            SUM(CASE WHEN chapters.read = 1 THEN 1 ELSE 0 END) AS readCount
         FROM chapters
-        GROUP BY manga_id
+        JOIN mangas AS library ON library._id = chapters.manga_id AND library.favorite = 1
+        GROUP BY chapters.manga_id
     ) AS C
     ON mangas._id = C.manga_id
     WHERE mangas.favorite = 1
-    GROUP BY mangas._id
     ORDER BY mangas.title
 ) AS M
 LEFT JOIN (
@@ -145,6 +152,34 @@ getLatestChapterManga:
 SELECT mangas.*
 FROM mangas
 JOIN chapters ON mangas._id = chapters.manga_id
+GROUP BY mangas._id
+ORDER BY MAX(chapters.date_upload) DESC;
+
+-- The three above return whole rows because iOS still reads them that way. The library only
+-- needs each title's position in the ordering, so these return ids, and restrict to the library
+-- rather than ordering every title the user has ever opened.
+getLastReadMangaIds:
+SELECT mangas._id
+FROM mangas
+JOIN chapters ON mangas._id = chapters.manga_id
+JOIN history ON chapters._id = history.history_chapter_id
+WHERE mangas.favorite = 1
+GROUP BY mangas._id
+ORDER BY MAX(history.history_last_read) DESC;
+
+getTotalChapterMangaIds:
+SELECT mangas._id
+FROM mangas
+JOIN chapters ON mangas._id = chapters.manga_id
+WHERE mangas.favorite = 1
+GROUP BY mangas._id
+ORDER BY COUNT(*);
+
+getLatestChapterMangaIds:
+SELECT mangas._id
+FROM mangas
+JOIN chapters ON mangas._id = chapters.manga_id
+WHERE mangas.favorite = 1
 GROUP BY mangas._id
 ORDER BY MAX(chapters.date_upload) DESC;
 

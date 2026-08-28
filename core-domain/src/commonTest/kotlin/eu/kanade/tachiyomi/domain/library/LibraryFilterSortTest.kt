@@ -122,7 +122,7 @@ class LibraryFilterSortTest {
         val order = mapOf(1L to 0)
 
         val sorted = listOf(unknown, known).sortedWith(
-            LibraryFilterSort.comparator(LibrarySortMode.LAST_READ, ascending = true, lastReadOrder = order)
+            LibraryFilterSort.comparator(LibrarySortMode.LAST_READ, ascending = true, lastReadOrder = { order })
         )
         assertEquals(listOf("read", "never read"), sorted.map { it.title })
     }
@@ -132,5 +132,66 @@ class LibraryFilterSortTest {
         val list = listOf(entry(id = 1, title = "b"), entry(id = 2, title = "a"))
         val sorted = list.sortedWith(LibraryFilterSort.comparator(LibrarySortMode.DRAG_AND_DROP, ascending = true))
         assertEquals(listOf("b", "a"), sorted.map { it.title })
+    }
+
+    /**
+     * Each ordering is an aggregate over the whole chapters table, so building one the mode does
+     * not read is what made sorting cost as much as loading the library.
+     */
+    @Test
+    fun `only the ordering the mode reads is built`() {
+        var lastRead = 0
+        var total = 0
+        var latest = 0
+
+        LibraryFilterSort.comparator(
+            mode = LibrarySortMode.LAST_READ,
+            ascending = true,
+            lastReadOrder = { lastRead++; emptyMap() },
+            totalChapterOrder = { total++; emptyMap() },
+            latestChapterOrder = { latest++; emptyMap() }
+        )
+
+        assertEquals(1, lastRead)
+        assertEquals(0, total, "chapter counts are not read by a last-read sort")
+        assertEquals(0, latest, "latest chapters are not read by a last-read sort")
+    }
+
+    @Test
+    fun `an alphabetical sort builds no ordering at all`() {
+        var built = 0
+        val count = { built++; emptyMap<Long, Int>() }
+
+        LibraryFilterSort.comparator(
+            mode = LibrarySortMode.ALPHA,
+            ascending = true,
+            lastReadOrder = count,
+            totalChapterOrder = count,
+            latestChapterOrder = count
+        )
+
+        assertEquals(0, built)
+    }
+
+    /** Resolving a source id reaches the extension manager, so it must not run per comparison. */
+    @Test
+    fun `a source name is resolved once per source`() {
+        val lookups = mutableListOf<Long>()
+        val list =
+            listOf(
+                entry(id = 1, title = "a", source = 3),
+                entry(id = 2, title = "b", source = 1),
+                entry(id = 3, title = "c", source = 2)
+            )
+
+        list.sortedWith(
+            LibraryFilterSort.comparator(
+                mode = LibrarySortMode.SOURCE,
+                ascending = true,
+                sourceName = { lookups += it; "source" }
+            )
+        )
+
+        assertEquals(lookups.distinct().size, lookups.size, "each source should be looked up once")
     }
 }

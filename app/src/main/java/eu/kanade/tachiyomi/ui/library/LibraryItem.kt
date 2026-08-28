@@ -30,9 +30,6 @@ import uy.kohesive.injekt.api.get
 
 class LibraryItem(val manga: LibraryManga, private val libraryDisplayMode: Preference<DisplayMode>) :
     AbstractFlexibleItem<LibraryHolder<*>>(), IFilterable<Pair<String, Boolean>> {
-    private val sourceManager: SourceManager = Injekt.get()
-    private val trackManager: TrackManager = Injekt.get()
-    private val db: DatabaseHelper = Injekt.get()
     private val source by lazy {
         sourceManager.get(manga.source)
     }
@@ -120,7 +117,7 @@ class LibraryItem(val manga: LibraryManga, private val libraryDisplayMode: Prefe
             (manga.author?.contains(constraint.first, true) ?: false) ||
             (manga.artist?.contains(constraint.first, true) ?: false) ||
             (source?.name?.contains(constraint.first, true) ?: false) ||
-            (Injekt.get<TrackManager>().hasLoggedServices() && filterTracks(constraint.first, db.getTracks(manga))) ||
+            (trackManager.hasLoggedServices() && filterTracks(constraint.first, db.getTracks(manga))) ||
             constraint.second && ehContainsGenre(constraint.first)
     }
 
@@ -170,5 +167,13 @@ class LibraryItem(val manga: LibraryManga, private val libraryDisplayMode: Prefe
 
     override fun hashCode(): Int {
         return manga.id!!.hashCode()
+    }
+
+    // Resolved once for the class rather than in each item's constructor. A library emission
+    // builds one of these per title, and each lookup builds a reified type token by reflection.
+    private companion object {
+        val sourceManager: SourceManager = Injekt.get()
+        val trackManager: TrackManager = Injekt.get()
+        val db: DatabaseHelper = Injekt.get()
     }
 }
