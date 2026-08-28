@@ -1789,6 +1789,12 @@ actor TachiyomiXSourceRunner: ExtensionRunner.Runner {
                 updated = manga.copy(
                     from: result.manga.intoAidoku(sourceKey: sourceKey)
                 )
+            } else if let memo = result.manga.memo {
+                // Memo is extension-owned state, not a detail. An extension writes it while
+                // producing the chapter list -- that is how one records what it already fetched so
+                // the next refresh can stop early -- and dropping it here because details were not
+                // asked for left every later refresh looking like the first.
+                updated.memo = memo
             }
             if needsChapters {
                 updated.chapters = result.chapters.map(\.intoAidoku)
