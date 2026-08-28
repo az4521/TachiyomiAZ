@@ -240,10 +240,14 @@ extension LibraryViewModel {
     }
 
     func isCategoryLocked() -> Bool {
+        isCategoryLocked(currentCategory)
+    }
+
+    func isCategoryLocked(_ category: String?) -> Bool {
         guard UserDefaults.standard.bool(forKey: "Library.lockLibrary") else { return false }
-        if let currentCategory, !currentCategory.isEmpty {
+        if let category, !category.isEmpty {
             let lockedCategories = UserDefaults.standard.stringArray(forKey: "Library.lockedCategories") ?? []
-            return lockedCategories.contains(currentCategory)
+            return lockedCategories.contains(category)
         }
         return true
     }
@@ -401,7 +405,11 @@ extension LibraryViewModel {
     /// category is visible under the finger rather than appearing once the drag ends. Badges come
     /// from the same caches the live list uses; the deferred download and unread filters are
     /// applied here too, so what the drag shows is what the commit lands on.
-    func previewItems(for tab: String?) -> (pinned: [MangaInfo], manga: [MangaInfo]) {
+    func previewItems(for tab: String?) -> (
+        pinned: [MangaInfo],
+        manga: [MangaInfo],
+        actuallyEmpty: Bool
+    ) {
         var narrowed = narrowed(to: tab)
 
         for index in narrowed.manga.indices {
@@ -443,7 +451,7 @@ extension LibraryViewModel {
             manga = all.filter { $0.unread <= 0 }
         }
 
-        return (pinned, manga)
+        return (pinned, manga, narrowed.inCategory == 0)
     }
 
     /// Whether a paging drag can preview other tabs without going to the database.

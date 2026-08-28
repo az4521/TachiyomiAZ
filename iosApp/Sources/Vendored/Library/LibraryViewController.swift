@@ -18,6 +18,7 @@ class LibraryViewController: OldMangaCollectionViewController {
     /// Guards against overlapping diffable applies; see `updateDataSource`.
     private var isApplyingSnapshot = false
     private var needsAnotherApply = false
+    private var snapshotApplyCompletions: [() -> Void] = []
 
     private let filterDrawerTransitioningDelegate = FilterDrawerTransitioningDelegate()
     private weak var presentedFilterDrawer: UIViewController?
@@ -56,6 +57,8 @@ class LibraryViewController: OldMangaCollectionViewController {
     private lazy var refreshControl = UIRefreshControl()
     private lazy var emptyStackView = EmptyPageStackView()
     private lazy var lockedStackView = LockedPageStackView()
+    private lazy var pagingEmptyStackView = EmptyPageStackView()
+    private lazy var pagingLockedStackView = LockedPageStackView()
 
     static let categoryHeaderHeight: CGFloat = 48
 
@@ -78,7 +81,7 @@ class LibraryViewController: OldMangaCollectionViewController {
         let view = UICollectionView(frame: .zero, collectionViewLayout: makeCollectionViewLayout())
         view.register(MangaGridCell.self, forCellWithReuseIdentifier: "MangaGridCell")
         view.register(MangaListCell.self, forCellWithReuseIdentifier: "MangaListCell")
-        view.backgroundColor = .clear
+        view.backgroundColor = .systemBackground
         view.isUserInteractionEnabled = false
         view.isHidden = true
         return view
@@ -164,6 +167,11 @@ class LibraryViewController: OldMangaCollectionViewController {
     override func configure() {
         super.configure()
 
+        // Both pages move during category paging. Keep the surface behind them opaque so the
+        // controller's default backing layer never flashes through between their edges.
+        view.backgroundColor = .systemBackground
+        collectionView.backgroundColor = .systemBackground
+
         title = NSLocalizedString("LIBRARY")
 
         navigationController?.navigationBar.prefersLargeTitles = true
@@ -243,6 +251,10 @@ class LibraryViewController: OldMangaCollectionViewController {
 
         // header view
         view.addSubview(pagingCollectionView)
+        pagingEmptyStackView.isHidden = true
+        view.addSubview(pagingEmptyStackView)
+        pagingLockedStackView.isHidden = true
+        view.addSubview(pagingLockedStackView)
         view.addSubview(categoryHeader)
         updateHeaderCategories()
         updateHeaderLockIcons()
@@ -295,6 +307,8 @@ class LibraryViewController: OldMangaCollectionViewController {
 
         emptyStackView.translatesAutoresizingMaskIntoConstraints = false
         lockedStackView.translatesAutoresizingMaskIntoConstraints = false
+        pagingEmptyStackView.translatesAutoresizingMaskIntoConstraints = false
+        pagingLockedStackView.translatesAutoresizingMaskIntoConstraints = false
         categoryHeader.translatesAutoresizingMaskIntoConstraints = false
         pagingCollectionView.translatesAutoresizingMaskIntoConstraints = false
 
@@ -303,6 +317,10 @@ class LibraryViewController: OldMangaCollectionViewController {
             emptyStackView.centerYAnchor.constraint(equalTo: view.centerYAnchor),
             lockedStackView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             lockedStackView.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+            pagingEmptyStackView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            pagingEmptyStackView.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+            pagingLockedStackView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            pagingLockedStackView.centerYAnchor.constraint(equalTo: view.centerYAnchor),
 
             categoryHeader.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             categoryHeader.leadingAnchor.constraint(equalTo: view.leadingAnchor),
@@ -890,7 +908,13 @@ extension LibraryViewController {
     /// So an apply that arrives during one is remembered rather than started. The coalesced apply
     /// runs unanimated: it is catching up to state the user has already seen change, and animating
     /// a diff that may now span many items is both wrong-looking and the expensive case.
-    func updateDataSource(animatingDifferences: Bool = true) {
+    func updateDataSource(
+        animatingDifferences: Bool = true,
+        completion: (() -> Void)? = nil
+    ) {
+        if let completion {
+            snapshotApplyCompletions.append(completion)
+        }
         // Cheap, idempotent, and independent of the apply -- so it runs even on a call that
         // coalesces into an in-flight one and builds no snapshot. Mirrors what the snapshot would
         // have contained: nothing when locked, otherwise the two arrays.
@@ -929,6 +953,10 @@ extension LibraryViewController {
             if self.needsAnotherApply {
                 self.needsAnotherApply = false
                 self.updateDataSource(animatingDifferences: false)
+            } else {
+                let completions = self.snapshotApplyCompletions
+                self.snapshotApplyCompletions.removeAll()
+                completions.forEach { $0() }
             }
         }
 
@@ -1181,28 +1209,85 @@ extension LibraryViewController {
     /// Fills the incoming page. Costs no database work, which is what makes it possible to do this
     /// mid-gesture at all.
     private func preparePagingPage(for indexPath: IndexPath) {
-        let items = viewModel.previewItems(for: category(at: indexPath))
+        let destination = category(at: indexPath)
+        let items = viewModel.previewItems(for: destination)
+        let destinationLocked = viewModel.isCategoryLocked(destination)
 
         pagingCollectionView.collectionViewLayout = makeCollectionViewLayout()
-        pagingCollectionView.contentInset.top = collectionView.contentInset.top
+        pagingCollectionView.contentInset = collectionView.contentInset
 
         var snapshot = NSDiffableDataSourceSnapshot<Section, MangaInfo>()
-        snapshot.appendSections([.pinned, .regular])
-        snapshot.appendItems(items.pinned, toSection: .pinned)
-        snapshot.appendItems(items.manga, toSection: .regular)
+        // Match the live data source exactly. An empty pinned section still contributes the
+        // compositional layout's inter-section spacing and used to push the preview grid down.
+        if destinationLocked {
+            snapshot.appendSections([.regular])
+        } else if items.pinned.isEmpty {
+            snapshot.appendSections([.regular])
+            snapshot.appendItems(items.manga, toSection: .regular)
+        } else {
+            snapshot.appendSections(Section.allCases)
+            snapshot.appendItems(items.pinned, toSection: .pinned)
+            snapshot.appendItems(items.manga, toSection: .regular)
+        }
         pagingDataSource.apply(snapshot, animatingDifferences: false)
 
+        let destinationEmpty = !destinationLocked && items.pinned.isEmpty && items.manga.isEmpty
+        pagingEmptyStackView.imageSystemName = "books.vertical.fill"
+        pagingEmptyStackView.title = destination == nil
+            ? NSLocalizedString("LIBRARY_EMPTY")
+            : NSLocalizedString("CATEGORY_EMPTY")
+        pagingEmptyStackView.text = items.actuallyEmpty
+            ? NSLocalizedString("LIBRARY_ADD_CONTENT")
+            : NSLocalizedString("LIBRARY_ADJUST_FILTERS")
+        pagingEmptyStackView.isHidden = !destinationEmpty
+
+        pagingLockedStackView.text = destination == nil
+            ? NSLocalizedString("LIBRARY_LOCKED")
+            : NSLocalizedString("CATEGORY_LOCKED")
+        pagingLockedStackView.buttonText = nil
+        pagingLockedStackView.isHidden = !destinationLocked
+
+        pagingCollectionView.layoutIfNeeded()
+        let minimumY = -pagingCollectionView.adjustedContentInset.top
+        let maximumY = max(
+            minimumY,
+            pagingCollectionView.contentSize.height
+                - pagingCollectionView.bounds.height
+                + pagingCollectionView.adjustedContentInset.bottom
+        )
+        let matchingY = min(max(collectionView.contentOffset.y, minimumY), maximumY)
         pagingCollectionView.setContentOffset(
-            CGPoint(x: 0, y: -pagingCollectionView.contentInset.top),
+            CGPoint(x: collectionView.contentOffset.x, y: matchingY),
             animated: false
         )
         pagingCollectionView.isHidden = false
     }
 
-    private func endPaging() {
+    private func endPaging(adoptPreviewOffset: Bool = false) {
+        if adoptPreviewOffset {
+            collectionView.layoutIfNeeded()
+            let minimumY = -collectionView.adjustedContentInset.top
+            let maximumY = max(
+                minimumY,
+                collectionView.contentSize.height
+                    - collectionView.bounds.height
+                    + collectionView.adjustedContentInset.bottom
+            )
+            let matchingY = min(max(pagingCollectionView.contentOffset.y, minimumY), maximumY)
+            collectionView.setContentOffset(
+                CGPoint(x: pagingCollectionView.contentOffset.x, y: matchingY),
+                animated: false
+            )
+        }
         collectionView.transform = .identity
+        emptyStackView.transform = .identity
+        lockedStackView.transform = .identity
         pagingCollectionView.transform = .identity
+        pagingEmptyStackView.transform = .identity
+        pagingLockedStackView.transform = .identity
         pagingCollectionView.isHidden = true
+        pagingEmptyStackView.isHidden = true
+        pagingLockedStackView.isHidden = true
         pagingDestination = nil
     }
 
@@ -1232,11 +1317,17 @@ extension LibraryViewController {
                 // Rubber-band a drag pulling away from the destination rather than letting the
                 // page it came from slide back in.
                 let bounded = forward ? min(translation, 0) : max(translation, 0)
-                collectionView.transform = CGAffineTransform(translationX: bounded, y: 0)
-                pagingCollectionView.transform = CGAffineTransform(
+                let currentTransform = CGAffineTransform(translationX: bounded, y: 0)
+                let incomingTransform = CGAffineTransform(
                     translationX: bounded + (forward ? width : -width),
                     y: 0
                 )
+                collectionView.transform = currentTransform
+                emptyStackView.transform = currentTransform
+                lockedStackView.transform = currentTransform
+                pagingCollectionView.transform = incomingTransform
+                pagingEmptyStackView.transform = incomingTransform
+                pagingLockedStackView.transform = incomingTransform
 
             case .ended:
                 guard let destination = pagingDestination else {
@@ -1256,18 +1347,29 @@ extension LibraryViewController {
                     delay: 0,
                     options: [.curveEaseOut, .allowUserInteraction],
                     animations: { [self] in
-                        collectionView.transform = CGAffineTransform(translationX: target, y: 0)
-                        pagingCollectionView.transform = CGAffineTransform(
+                        let currentTransform = CGAffineTransform(translationX: target, y: 0)
+                        let incomingTransform = CGAffineTransform(
                             translationX: target + (forward ? width : -width),
                             y: 0
                         )
+                        collectionView.transform = currentTransform
+                        emptyStackView.transform = currentTransform
+                        lockedStackView.transform = currentTransform
+                        pagingCollectionView.transform = incomingTransform
+                        pagingEmptyStackView.transform = incomingTransform
+                        pagingLockedStackView.transform = incomingTransform
                     },
                     completion: { [self] _ in
-                        endPaging()
                         if commit {
                             categoryHeader.setSelectedOption(destination, animated: true)
-                            optionSelected(destination)
                             UISelectionFeedbackGenerator().selectionChanged()
+                            Task { @MainActor in
+                                await selectCategory(destination) {
+                                    self.endPaging(adoptPreviewOffset: true)
+                                }
+                            }
+                        } else {
+                            endPaging()
                         }
                     }
                 )
@@ -1463,18 +1565,24 @@ extension LibraryViewController {
 extension LibraryViewController: LibraryCategorySelectionHeaderDelegate {
     nonisolated func optionSelected(_ indexPath: IndexPath) {
         Task { @MainActor in
-            // Narrows the library already in memory rather than reloading it, so the tab changes
-            // in the same run loop the tap did.
-            await viewModel.selectCategory(category(at: indexPath))
-
-            locked = viewModel.isCategoryLocked()
-            updateLockState(updateCollection: false)
-            deselectAllItems()
-            updateToolbar()
-            updateNavbarItems()
-            updateEmptyStack()
-            updateDataSource(animatingDifferences: false)
+            await selectCategory(indexPath)
         }
+    }
+
+    private func selectCategory(_ indexPath: IndexPath, completion: (() -> Void)? = nil) async {
+        // Narrows the library already in memory rather than reloading it, so the tab changes
+        // in the same run loop the tap did.
+        await viewModel.selectCategory(category(at: indexPath))
+
+        locked = viewModel.isCategoryLocked()
+        updateLockState(updateCollection: false)
+        for selectedIndexPath in collectionView.indexPathsForSelectedItems ?? [] {
+            collectionView.deselectItem(at: selectedIndexPath, animated: false)
+        }
+        updateToolbar()
+        updateNavbarItems()
+        updateEmptyStack()
+        updateDataSource(animatingDifferences: false, completion: completion)
     }
 }
 
