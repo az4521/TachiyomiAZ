@@ -89,25 +89,6 @@ interface Source {
         chapters: List<SChapter>,
         fetchDetails: Boolean,
         fetchChapters: Boolean
-    ): SMangaUpdate = fetchMangaUpdate(manga, chapters, fetchDetails, fetchChapters)
-
-    /**
-     * The overridable half of [getMangaUpdate].
-     *
-     * Extensions override this one, not [getMangaUpdate] -- that is the shape extensions-lib 1.6
-     * has, and a source that implements an incremental refresh implements it here. It was missing,
-     * so such a source was never asked: [getMangaUpdate] went straight to [getChapterList], which
-     * is the full listing the incremental path exists to avoid. Nothing failed, the extension's own
-     * setting for it simply did nothing, and every refresh cost what the first one did.
-     *
-     * @since tachiyomix 1.6
-     * @param chapters the previously stored chapters, in the order the source listed them.
-     */
-    suspend fun fetchMangaUpdate(
-        manga: SManga,
-        chapters: List<SChapter>,
-        fetchDetails: Boolean,
-        fetchChapters: Boolean
     ): SMangaUpdate {
         val updatedManga = if (fetchDetails) getMangaDetails(manga) else manga
         val updatedChapters = if (fetchChapters) getChapterList(manga) else chapters
