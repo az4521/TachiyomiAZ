@@ -128,6 +128,7 @@ open class BrowseSourceController(bundle: Bundle) :
      */
     private var pendingScrollPosition: Int? = null
     private var pendingScrollOffset = 0
+    private val revealRecyclerRunnable = Runnable { revealRecycler() }
 
     /**
      * Subscription for the number of manga per row.
@@ -181,6 +182,7 @@ open class BrowseSourceController(bundle: Bundle) :
 
     override fun onDestroyView(view: View) {
         saveScrollPosition()
+        recycler?.removeCallbacks(revealRecyclerRunnable)
         numColumnsJob?.cancel()
         adapter = null
         snack = null
@@ -358,6 +360,7 @@ open class BrowseSourceController(bundle: Bundle) :
             recycler.layoutManager?.scrollToPosition(oldPosition)
         }
         this.recycler = recycler
+        hideRecyclerUntilRestored()
     }
 
     override fun onCreateOptionsMenu(
@@ -509,6 +512,7 @@ open class BrowseSourceController(bundle: Bundle) :
             XLog.w("> Recommendations")
         }
 
+        revealRecycler()
         val adapter = adapter ?: return
         adapter.onLoadMoreComplete(null)
         hideProgressBar()
@@ -663,6 +667,7 @@ open class BrowseSourceController(bundle: Bundle) :
         // meaningful. View recreation does not go through this method and keeps the anchor.
         pendingScrollPosition = null
         pendingScrollOffset = 0
+        revealRecycler()
         binding.emptyView.hide()
         binding.progress.visible()
         snack?.dismiss()
@@ -682,7 +687,11 @@ open class BrowseSourceController(bundle: Bundle) :
         pendingScrollPosition = position
         pendingScrollOffset =
             layoutManager.findViewByPosition(position)?.let {
-                layoutManager.getDecoratedTop(it) - recycler.paddingTop
+                // The item view's own top, not its decorated top. scrollToPositionWithOffset
+                // measures to the view, so saving the decorated edge restored every position
+                // short by the decoration inset -- a divider in list mode, the grid's spacing
+                // otherwise.
+                it.top - recycler.paddingTop
             } ?: 0
     }
 
@@ -694,6 +703,32 @@ open class BrowseSourceController(bundle: Bundle) :
         layoutManager.scrollToPositionWithOffset(position, pendingScrollOffset)
         pendingScrollPosition = null
         pendingScrollOffset = 0
+        revealRecycler()
+    }
+
+    /**
+     * Hides the list until the anchor is back on screen.
+     *
+     * The anchor's page does not exist in the new adapter yet: cached pages are replayed one
+     * emission at a time, so the list renders from the top through every append before the
+     * restore can run. That is the scroll the user sees. Nothing is drawn until the position is
+     * back, so returning looks like the screen was never left.
+     */
+    private fun hideRecyclerUntilRestored() {
+        val recycler = recycler ?: return
+        if (pendingScrollPosition == null) return
+
+        recycler.visibility = View.INVISIBLE
+        recycler.removeCallbacks(revealRecyclerRunnable)
+        // A backstop, in case the anchor is past the end of what the cache can replay: the
+        // restore would then never run, and an invisible list is worse than a misplaced one.
+        recycler.postDelayed(revealRecyclerRunnable, SCROLL_RESTORE_TIMEOUT_MS)
+    }
+
+    private fun revealRecycler() {
+        val recycler = recycler ?: return
+        recycler.removeCallbacks(revealRecyclerRunnable)
+        recycler.visibility = View.VISIBLE
     }
 
     /**
@@ -851,5 +886,8 @@ open class BrowseSourceController(bundle: Bundle) :
         const val SMART_SEARCH_CONFIG_KEY = "smartSearchConfig"
 
         const val RECOMMENDS_CONFIG = "RECOMMENDS_CONFIG"
+
+        /** How long the list stays hidden waiting for its anchor to be replayed. */
+        private const val SCROLL_RESTORE_TIMEOUT_MS = 2000L
     }
 }
