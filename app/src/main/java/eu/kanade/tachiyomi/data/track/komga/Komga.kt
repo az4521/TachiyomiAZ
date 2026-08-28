@@ -13,7 +13,12 @@ import eu.kanade.tachiyomi.source.Source
 class Komga(private val context: Context, id: Int) : TrackService(id), EnhancedTrackService {
     override val name = "Komga"
 
-    private val interceptorClient: okhttp3.OkHttpClient = networkService.client.newBuilder().dns(okhttp3.Dns.SYSTEM).build()
+    // Lazy like every other tracker's client. Built eagerly it ran for all eleven services the
+    // moment TrackManager was constructed, which also forced NetworkHelper's whole client graph
+    // -- cache included -- for a tracker most users never sign in to.
+    private val interceptorClient: okhttp3.OkHttpClient by lazy {
+        networkService.client.newBuilder().dns(okhttp3.Dns.SYSTEM).build()
+    }
 
     val api by lazy { KomgaApi(id, interceptorClient) }
 
