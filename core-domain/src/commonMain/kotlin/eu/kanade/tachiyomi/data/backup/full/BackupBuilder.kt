@@ -25,7 +25,8 @@ object BackupOptions {
     const val CHAPTER = 0x2
     const val HISTORY = 0x4
     const val TRACK = 0x8
-    const val ALL = 0xF
+    const val PREFERENCES = 0x10
+    const val ALL = 0x1F
 
     fun hasCategories(flags: Int): Boolean = flags and CATEGORY != 0
 
@@ -34,6 +35,8 @@ object BackupOptions {
     fun hasHistory(flags: Int): Boolean = flags and HISTORY != 0
 
     fun hasTracks(flags: Int): Boolean = flags and TRACK != 0
+
+    fun hasPreferences(flags: Int): Boolean = flags and PREFERENCES != 0
 }
 
 /**

@@ -65,6 +65,12 @@ class FullBackupManager(context: Context) : AbstractBackupManager(context) {
                 )
         }
 
+        if (BackupOptions.hasPreferences(flags)) {
+            val (sharedPrefs, ownPrefs) = PreferenceBackup.dump(context)
+            backup?.backupPreferences = sharedPrefs
+            backup?.backupAzPreferences = ownPrefs
+        }
+
         try {
             val file: UniFile =
                 (

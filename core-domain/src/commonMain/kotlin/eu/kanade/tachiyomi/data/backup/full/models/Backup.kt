@@ -15,8 +15,19 @@ data class Backup(
     // Bump by 100 to specify this is a 0.x value
     @ProtoNumber(100) var backupBrokenSources: List<BrokenBackupSource> = emptyList(),
     @ProtoNumber(101) var backupSources: List<BackupSource> = emptyList(),
+    /**
+     * App settings, in the field Mihon and TachiyomiSY use for them, holding only the keys all
+     * three read the same way. See [BackupPreferencePolicy].
+     */
+    @ProtoNumber(104) var backupPreferences: List<BackupPreference> = emptyList(),
     // SY specific values
     @ProtoNumber(600) var backupSavedSearches: List<BackupSavedSearch> = emptyList(),
+    /**
+     * Settings only this app has, and settings whose key another fork also uses but reads
+     * differently. Kept clear of 104-106 (Mihon), 501 (below) and 600 (SY) so no fork mistakes
+     * one app's value for another's.
+     */
+    @ProtoNumber(900) var backupAzPreferences: List<BackupPreference> = emptyList(),
     /**
      * State the iOS app keeps that has no field in this format -- reading sessions, per-title
      * settings, source lists -- serialized as JSON.

@@ -31,7 +31,9 @@ class BackupCreateService : Service() {
         internal const val BACKUP_HISTORY_MASK = 0x4
         internal const val BACKUP_TRACK = 0x8
         internal const val BACKUP_TRACK_MASK = 0x8
-        internal const val BACKUP_ALL = 0xF
+        internal const val BACKUP_PREFS = 0x10
+        internal const val BACKUP_PREFS_MASK = 0x10
+        internal const val BACKUP_ALL = 0x1F
 
         /**
          * Returns the status of the service.

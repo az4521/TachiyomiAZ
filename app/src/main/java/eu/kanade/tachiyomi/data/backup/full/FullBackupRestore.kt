@@ -50,6 +50,10 @@ class FullBackupRestore(
         }
         // SY <--
 
+        // Before the manga loop: the restore reads preferences as it goes (download-new
+        // categories, the update skip rules), so it should read the ones being restored.
+        PreferenceBackup.restore(context, backup.backupPreferences, backup.backupAzPreferences)
+
         // Store source mapping for error messages
         val backupMaps = backup.backupSources + backup.backupBrokenSources.map { it.toBackupSource() }
         sourceMapping = backupMaps.associate { it.sourceId to it.name }
@@ -175,10 +179,21 @@ class FullBackupRestore(
         online: Boolean
     ) {
         try {
-            val fetchedManga = backupManager.restoreMangaFetch(source, manga, online)
+            // A source that cannot supply details -- a deleted gallery, an unreachable host --
+            // must not cost the user the library entry, so fall back to the offline path.
+            var fetched = online && source != null
+            val fetchedManga =
+                try {
+                    backupManager.restoreMangaFetch(source, manga, fetched)
+                } catch (e: Exception) {
+                    if (!fetched) throw e
+                    errors.add(Date() to "${manga.title} - ${e.message}")
+                    fetched = false
+                    backupManager.restoreMangaFetch(source, manga, false)
+                }
             fetchedManga.id ?: return
 
-            if (!online || source == null) {
+            if (!fetched) {
                 backupManager.restoreChaptersForMangaOffline(fetchedManga, chapters)
             }
 

@@ -156,4 +156,78 @@ class BackupFormatTest {
         assertEquals(12, decoded.lastPageRead)
         assertContentEquals(bytes, proto.encodeToByteArray(BackupChapter.serializer(), decoded))
     }
+
+    /**
+     * The discriminator kotlinx writes for a polymorphic value is the subclass's serial name, and
+     * these are pinned to Mihon's class names on purpose. Moving them to this package would leave
+     * every field number matching and still produce preferences neither app could read.
+     */
+    @Test
+    fun `preference values keep Mihon's serial names`() {
+        val prefix = "eu.kanade.tachiyomi.data.backup.models."
+
+        assertEquals(prefix + "IntPreferenceValue", IntPreferenceValue.serializer().descriptor.serialName)
+        assertEquals(prefix + "LongPreferenceValue", LongPreferenceValue.serializer().descriptor.serialName)
+        assertEquals(prefix + "FloatPreferenceValue", FloatPreferenceValue.serializer().descriptor.serialName)
+        assertEquals(prefix + "StringPreferenceValue", StringPreferenceValue.serializer().descriptor.serialName)
+        assertEquals(prefix + "BooleanPreferenceValue", BooleanPreferenceValue.serializer().descriptor.serialName)
+        assertEquals(prefix + "StringSetPreferenceValue", StringSetPreferenceValue.serializer().descriptor.serialName)
+    }
+
+    @Test
+    fun `preferences round trip in both fields`() {
+        val backup =
+            Backup(
+                backupManga = emptyList(),
+                backupPreferences = listOf(BackupPreference("crop_borders", BooleanPreferenceValue(true))),
+                backupAzPreferences = listOf(BackupPreference("eh_use_auto_webtoon", BooleanPreferenceValue(true)))
+            )
+        val bytes = proto.encodeToByteArray(Backup.serializer(), backup)
+        val decoded = proto.decodeFromByteArray(Backup.serializer(), bytes)
+
+        assertEquals(backup.backupPreferences, decoded.backupPreferences)
+        assertEquals(backup.backupAzPreferences, decoded.backupAzPreferences)
+    }
+
+    @Test
+    fun `every value type round trips`() {
+        val values =
+            listOf(
+                IntPreferenceValue(7),
+                LongPreferenceValue(7L),
+                FloatPreferenceValue(0.5f),
+                StringPreferenceValue("x"),
+                BooleanPreferenceValue(true),
+                StringSetPreferenceValue(setOf("a", "b"))
+            )
+
+        values.forEach { value ->
+            val pref = BackupPreference("k", value)
+            val bytes = proto.encodeToByteArray(BackupPreference.serializer(), pref)
+            assertEquals(pref, proto.decodeFromByteArray(BackupPreference.serializer(), bytes))
+        }
+    }
+
+    /** A key another fork writes into 104 that this app reads differently must not be taken. */
+    @Test
+    fun `the shared set excludes keys the forks disagree on`() {
+        assertTrue("crop_borders" in BackupPreferencePolicy.SHARED)
+        assertTrue("library_sorting_mode" !in BackupPreferencePolicy.SHARED, "Int here, enum name in Mihon")
+        assertTrue("pref_theme_mode_key" !in BackupPreferencePolicy.SHARED, "lowercase enum names here")
+        assertTrue("pref_display_mode_library" !in BackupPreferencePolicy.SHARED, "different enum vocabularies")
+    }
+
+    @Test
+    fun `credentials never reach a backup`() {
+        listOf(
+            "lock_hash",
+            "eh_sessionCookie",
+            "eh_ipb_pass_hash",
+            "track_token_3",
+            "pref_mangasync_password_1"
+        ).forEach {
+            assertTrue(BackupPreferencePolicy.isSecret(it), "$it should be a secret")
+            assertTrue(!BackupPreferencePolicy.isBackedUp(it), "$it should not be backed up")
+        }
+    }
 }

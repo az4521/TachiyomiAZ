@@ -306,7 +306,8 @@ class SettingsBackupController : SettingsController() {
                     R.string.categories,
                     R.string.chapters,
                     R.string.track,
-                    R.string.history
+                    R.string.history,
+                    R.string.label_settings
                 )
                     .map { activity.getString(it) }
 
@@ -316,7 +317,7 @@ class SettingsBackupController : SettingsController() {
                 .listItemsMultiChoice(
                     items = options,
                     disabledIndices = intArrayOf(0),
-                    initialSelection = intArrayOf(0, 1, 2, 3, 4)
+                    initialSelection = intArrayOf(0, 1, 2, 3, 4, 5)
                 ) { _, positions, _ ->
                     var flags = 0
                     for (i in 1 until positions.size) {
@@ -325,6 +326,7 @@ class SettingsBackupController : SettingsController() {
                             2 -> flags = flags or BackupCreateService.BACKUP_CHAPTER
                             3 -> flags = flags or BackupCreateService.BACKUP_TRACK
                             4 -> flags = flags or BackupCreateService.BACKUP_HISTORY
+                            5 -> flags = flags or BackupCreateService.BACKUP_PREFS
                         }
                     }
 
