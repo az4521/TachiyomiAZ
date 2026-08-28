@@ -248,6 +248,7 @@ final class LibraryStore: ObservableObject {
         )
 
         for (index, entry) in targets.enumerated() {
+            guard !Task.isCancelled else { break }
             refreshProgress = (index, targets.count)
             onProgress?(index, targets.count)
             guard let source = sourcesById[entry.source] else {

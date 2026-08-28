@@ -281,6 +281,20 @@ struct TrackerView: View {
                     do {
                         try await tracker.update(trackId: item.id, update: update)
 
+                        // The remote tracker is not the database. The editor used to send the
+                        // request successfully but never copy the accepted values into the
+                        // shared `manga_sync` row, so reopening the title (or restoring it on
+                        // Android) showed the old state. Persist only after the remote update
+                        // succeeds, matching the tracker as the source of truth.
+                        if let state {
+                            SharedDataStore.shared.setTrackState(
+                                trackerId: item.trackerId,
+                                sourceId: manga.sourceKey,
+                                mangaId: manga.key,
+                                state: state
+                            )
+                        }
+
                         // refresh page read history in case the tracker updated it
                         if let tracker = tracker as? PageTracker {
                             await TrackerManager.shared.syncPageTrackerHistory(

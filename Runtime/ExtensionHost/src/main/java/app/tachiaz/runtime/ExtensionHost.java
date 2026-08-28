@@ -1085,7 +1085,11 @@ public final class ExtensionHost {
         );
         return MiniJson.response(
             true,
-            serializeMangaUpdate(update, require(request, "mangaURL")),
+            serializeMangaUpdate(
+                update,
+                require(request, "mangaURL"),
+                String.valueOf(getter(manga, "getTitle"))
+            ),
             null,
             null
         );
@@ -1105,14 +1109,14 @@ public final class ExtensionHost {
             setter(chapter, "setName", String.class, defaultValue(stored.get("name"), ""));
             setter(
                 chapter,
-                "setChapterNumber",
+                "setChapter_number",
                 float.class,
                 Float.parseFloat(defaultValue(stored.get("chapterNumber"), "-1"))
             );
             setter(chapter, "setScanlator", String.class, stored.get("scanlator"));
             setter(
                 chapter,
-                "setDateUpload",
+                "setDate_upload",
                 long.class,
                 Long.parseLong(defaultValue(stored.get("dateUpload"), "0"))
             );
@@ -1150,14 +1154,14 @@ public final class ExtensionHost {
         );
         setter(
             chapter,
-            "setChapterNumber",
+            "setChapter_number",
             float.class,
             Float.parseFloat(defaultValue(request.get("chapterNumber"), "-1"))
         );
         setter(chapter, "setScanlator", String.class, request.get("chapterScanlator"));
         setter(
             chapter,
-            "setDateUpload",
+            "setDate_upload",
             long.class,
             Long.parseLong(defaultValue(request.get("chapterDateUpload"), "0"))
         );
@@ -1382,14 +1386,14 @@ public final class ExtensionHost {
         );
         setter(
             chapter,
-            "setChapterNumber",
+            "setChapter_number",
             float.class,
             Float.parseFloat(defaultValue(request.get("chapterNumber"), "-1"))
         );
         setter(chapter, "setScanlator", String.class, request.get("chapterScanlator"));
         setter(
             chapter,
-            "setDateUpload",
+            "setDate_upload",
             long.class,
             Long.parseLong(defaultValue(request.get("chapterDateUpload"), "0"))
         );
@@ -1766,6 +1770,14 @@ public final class ExtensionHost {
         Object httpUrl = httpUrlType
             .getMethod("parse", String.class)
             .invoke(null, baseURL);
+        if (httpUrl == null) {
+            return MiniJson.response(
+                true,
+                "No cookies stored",
+                null,
+                null
+            );
+        }
         List<Object> cookies = (List<Object>) cookieJar.getClass()
             .getMethod("loadForRequest", httpUrlType)
             .invoke(cookieJar, httpUrl);
@@ -2369,15 +2381,23 @@ public final class ExtensionHost {
 
     private static String serializeMangaUpdate(
         Object update,
-        String fallbackMangaURL
+        String fallbackMangaURL,
+        String fallbackMangaTitle
     ) throws Exception {
         Object manga = getter(update, "getManga");
         @SuppressWarnings("unchecked")
         List<Object> chapters =
             (List<Object>) getter(update, "getChapters");
-        String mangaTitle = String.valueOf(getter(manga, "getTitle"));
+        String mangaTitle = String.valueOf(
+            getterOrFallback(manga, "getTitle", fallbackMangaTitle)
+        );
         StringBuilder output = new StringBuilder("{\"manga\":");
-        appendManga(output, manga, fallbackMangaURL);
+        appendManga(
+            output,
+            manga,
+            fallbackMangaURL,
+            fallbackMangaTitle
+        );
         output.append(",\"chapters\":[");
         for (int index = 0; index < chapters.size(); index++) {
             if (index > 0) {
@@ -2433,13 +2453,14 @@ public final class ExtensionHost {
 
     private static void appendManga(StringBuilder output, Object manga)
         throws Exception {
-        appendManga(output, manga, null);
+        appendManga(output, manga, null, null);
     }
 
     private static void appendManga(
         StringBuilder output,
         Object manga,
-        String fallbackURL
+        String fallbackURL,
+        String fallbackTitle
     ) throws Exception {
         output.append('{');
         appendJsonField(
@@ -2448,7 +2469,12 @@ public final class ExtensionHost {
             getterOrFallback(manga, "getUrl", fallbackURL),
             false
         );
-        appendJsonField(output, "title", getter(manga, "getTitle"), true);
+        appendJsonField(
+            output,
+            "title",
+            getterOrFallback(manga, "getTitle", fallbackTitle),
+            true
+        );
         appendJsonField(
             output,
             "thumbnailURL",
@@ -2606,7 +2632,7 @@ public final class ExtensionHost {
 
     private static Object getter(Object instance, String name)
         throws Exception {
-        return instance.getClass().getMethod(name).invoke(instance);
+        return beanMethod(instance.getClass(), name).invoke(instance);
     }
 
     private static Object getterOrFallback(
@@ -2641,8 +2667,74 @@ public final class ExtensionHost {
         Class<?> parameterType,
         Object value
     ) throws Exception {
-        instance.getClass().getMethod(name, parameterType)
+        beanMethod(instance.getClass(), name, parameterType)
             .invoke(instance, value);
+    }
+
+    /**
+     * TachiyomiX historically used snake-case Kotlin properties, while some
+     * implementations expose normalized JavaBean accessors. Accept both ABIs.
+     */
+    private static Method beanMethod(
+        Class<?> type,
+        String name,
+        Class<?>... parameterTypes
+    ) throws NoSuchMethodException {
+        try {
+            return type.getMethod(name, parameterTypes);
+        } catch (NoSuchMethodException original) {
+            String alternative = alternateBeanMethodName(name);
+            if (alternative.equals(name)) {
+                throw original;
+            }
+            try {
+                return type.getMethod(alternative, parameterTypes);
+            } catch (NoSuchMethodException ignored) {
+                throw original;
+            }
+        }
+    }
+
+    private static String alternateBeanMethodName(String name) {
+        int prefixLength = name.startsWith("is") ? 2 : 3;
+        if (
+            name.length() <= prefixLength ||
+            !(name.startsWith("get") ||
+                name.startsWith("set") ||
+                name.startsWith("is"))
+        ) {
+            return name;
+        }
+
+        String property = name.substring(prefixLength);
+        StringBuilder alternative = new StringBuilder(
+            name.substring(0, prefixLength)
+        );
+        if (property.indexOf('_') >= 0) {
+            boolean uppercaseNext = false;
+            for (int index = 0; index < property.length(); index++) {
+                char character = property.charAt(index);
+                if (character == '_') {
+                    uppercaseNext = true;
+                } else if (uppercaseNext) {
+                    alternative.append(Character.toUpperCase(character));
+                    uppercaseNext = false;
+                } else {
+                    alternative.append(character);
+                }
+            }
+        } else {
+            for (int index = 0; index < property.length(); index++) {
+                char character = property.charAt(index);
+                if (index > 0 && Character.isUpperCase(character)) {
+                    alternative.append('_')
+                        .append(Character.toLowerCase(character));
+                } else {
+                    alternative.append(character);
+                }
+            }
+        }
+        return alternative.toString();
     }
 
     private static String defaultValue(String value, String fallback) {

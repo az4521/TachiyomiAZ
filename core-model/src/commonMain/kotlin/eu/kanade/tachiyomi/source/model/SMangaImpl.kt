@@ -34,4 +34,17 @@ class SMangaImpl : SManga {
     override var initialized: Boolean = false
 
     override var memo: JsonObject = JsonObject(emptyMap())
+
+    /** JavaBean ABI aliases for TachiyomiX's legacy snake-case properties. */
+    fun setThumbnailUrl(value: String?) {
+        thumbnail_url = value
+    }
+
+    fun getThumbnailUrl(): String? = thumbnail_url
+
+    fun setUpdateStrategy(value: UpdateStrategy) {
+        update_strategy = value
+    }
+
+    fun getUpdateStrategy(): UpdateStrategy = update_strategy
 }

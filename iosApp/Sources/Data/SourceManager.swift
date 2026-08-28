@@ -41,6 +41,7 @@ final class SourceManager {
         Self.sourceLock.lock()
         defer { Self.sourceLock.unlock() }
         return Self.loadedSources.first { $0.key == key }
+            ?? (key == MergedSourceSupport.sourceKey ? MergedSourceSupport.source : nil)
     }
 
     /// The descriptors behind the loaded sources, which carry the extension each came from.
@@ -81,8 +82,8 @@ final class SourceManager {
 
     /// Sources the user has pinned to the top of Browse.
     nonisolated func getPinned() -> [ExtensionRunner.Source] {
-        let pinned = Set(UserDefaults.standard.stringArray(forKey: "Browse.pinnedSources") ?? [])
-        return sources.filter { pinned.contains($0.key) }
+        let sourcesByKey = Dictionary(uniqueKeysWithValues: sources.map { ($0.key, $0) })
+        return pinnedSourceKeys().compactMap { sourcesByKey[$0] }
     }
 
     private nonisolated static let sourceLock = NSLock()
@@ -115,7 +116,7 @@ final class SourceManager {
     nonisolated func name(for key: String) -> String? {
         Self.nameLock.lock()
         defer { Self.nameLock.unlock() }
-        return Self.names[key]
+        return Self.names[key] ?? (key == MergedSourceSupport.sourceKey ? MergedSourceSupport.source.name : nil)
     }
 
     nonisolated func updateNames(_ names: [String: String]) {
@@ -139,17 +140,35 @@ final class SourceManager {
 
     // MARK: - Pinning
 
-    private static let pinnedKey = "Browse.pinnedSources"
+    /// Browse has always persisted both its pins and their drag-reorder order under this key.
+    /// Keeping a second key here made context-menu pinning appear to do nothing.
+    private static let pinnedKey = "Browse.pinnedList"
+    private static let legacyPinnedKey = "Browse.pinnedSources"
+
+    /// Reads the one canonical list, migrating pins written by builds that used the old key.
+    /// The array, rather than a Set, is intentional: its order is the order shown in Browse.
+    /// The canonical ordered pin list. Reads made by Browse also pass through here so old
+    /// `Browse.pinnedSources` values are migrated before the UI decides which section to show.
+    nonisolated func pinnedSourceKeys() -> [String] {
+        let defaults = UserDefaults.standard
+        var current = defaults.stringArray(forKey: Self.pinnedKey) ?? []
+        if let legacy = defaults.stringArray(forKey: Self.legacyPinnedKey) {
+            current.append(contentsOf: legacy.filter { !current.contains($0) })
+            defaults.set(current, forKey: Self.pinnedKey)
+            defaults.removeObject(forKey: Self.legacyPinnedKey)
+        }
+        return current
+    }
 
     nonisolated func pin(source: ExtensionRunner.Source) {
-        var pinned = UserDefaults.standard.stringArray(forKey: Self.pinnedKey) ?? []
+        var pinned = pinnedSourceKeys()
         guard !pinned.contains(source.key) else { return }
         pinned.append(source.key)
         UserDefaults.standard.set(pinned, forKey: Self.pinnedKey)
     }
 
     nonisolated func unpin(source: ExtensionRunner.Source) {
-        var pinned = UserDefaults.standard.stringArray(forKey: Self.pinnedKey) ?? []
+        var pinned = pinnedSourceKeys()
         pinned.removeAll { $0 == source.key }
         UserDefaults.standard.set(pinned, forKey: Self.pinnedKey)
     }

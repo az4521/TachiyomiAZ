@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct BackupCreateView: View {
-    @State private var name = ""
+    @State private var name = BackupManager.defaultBackupName()
     @State private var libraryEntries = true
     @State private var chapters = true
     @State private var tracking = true

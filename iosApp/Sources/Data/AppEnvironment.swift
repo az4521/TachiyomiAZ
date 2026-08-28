@@ -41,6 +41,8 @@ final class AppEnvironment {
         await catalog.migrateToRuntimeLayout()
         await runtime.reload()
 
+        MangaManager.shared.environmentDidStart()
+
         // The library renders each entry against its source, so entries loaded before the sources
         // existed showed as unavailable until something else triggered a reload -- which is why
         // browsing one source appeared to fix the whole library.

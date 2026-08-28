@@ -1,4 +1,4 @@
-import BackgroundTasks
+@preconcurrency import BackgroundTasks
 import UIKit
 import ExtensionRunner
 import Foundation
@@ -21,6 +21,13 @@ final class MangaManager {
     weak var library: LibraryStore?
     weak var runtime: SourceRuntime?
 
+    private var foregroundRefreshTimer: Timer?
+    private var refreshInProgress = false
+    private var environmentReady = false
+    private var continuedRefreshRegistered = false
+    private var continuedRefreshRequestPending = false
+    private var pendingContinuedRefresh: (category: String?, skipReachabilityCheck: Bool)?
+
     private init() {}
 
     func addToLibrary(
@@ -39,11 +46,13 @@ final class MangaManager {
 
     func removeFromLibrary(sourceId: String, mangaId: String) async {
         guard let library, let source = SourceIdentity.numericId(sourceId) else { return }
+        let manga = ExtensionRunner.Manga(sourceKey: sourceId, key: mangaId, title: "")
+        // Source and detail screens are often presented over a live library controller. Let it
+        // discard the row before the shared write/reload completes, then reconcile from the
+        // database below.
+        NotificationCenter.default.post(name: .removeFromLibrary, object: manga)
         await library.remove(url: mangaId, sourceId: source)
-        NotificationCenter.default.post(
-            name: .removeFromLibrary,
-            object: ExtensionRunner.Manga(sourceKey: sourceId, key: mangaId, title: "")
-        )
+        NotificationCenter.default.post(name: .updateLibrary, object: nil)
     }
 
     /// Re-fetches details purely to refresh a broken cover URL.
@@ -307,11 +316,41 @@ final class MangaManager {
     /// system, which misses the common case: starting a refresh by hand and then switching away.
     /// Nothing is worth notifying about while the user is watching the library update in front of
     /// them; everything is, the moment they are not.
+    @discardableResult
     func backgroundRefreshLibrary(
         category: String? = nil,
-        skipReachabilityCheck: Bool = false
-    ) async {
-        guard let library, let runtime else { return }
+        skipReachabilityCheck: Bool = false,
+        userInitiated: Bool = false,
+        systemProgress: ProgressReporting? = nil
+    ) async -> Bool {
+        // iOS 26 continued-processing tasks must be submitted from the foreground in direct
+        // response to a person's action. Manual refreshes qualify; timer and scheduler refreshes
+        // deliberately do not. If the system cannot start one immediately, fall through to the
+        // normal refresh and its beginBackgroundTask fallback instead of making the UI wait.
+        if userInitiated,
+           !refreshInProgress,
+           await submitContinuedRefreshIfAvailable(
+               category: category,
+               skipReachabilityCheck: skipReachabilityCheck
+           )
+        {
+            return true
+        }
+
+        guard let library, let runtime else { return false }
+        guard !refreshInProgress else {
+            LogManager.logger.log("Library refresh: skipped because another refresh is running")
+            return false
+        }
+        if !skipReachabilityCheck,
+           AppEnvironment.shared.settings.updateOnlyOnWifi,
+           Reachability.getConnectionType() != .wifi
+        {
+            LogManager.logger.log("Library refresh: waiting for Wi-Fi")
+            return false
+        }
+        refreshInProgress = true
+        defer { refreshInProgress = false }
         let categoryId = category.flatMap { title in
             SharedDataStore.shared.getCategory(title: title)?.id?.int32Value
         }
@@ -355,6 +394,16 @@ final class MangaManager {
             runtime: runtime,
             settings: AppEnvironment.shared.settings
         ) { completed, total in
+            systemProgress?.progress.totalUnitCount = Int64(total)
+            systemProgress?.progress.completedUnitCount = Int64(completed)
+            if #available(iOS 26.0, *),
+               let continuedTask = systemProgress as? BGContinuedProcessingTask
+            {
+                continuedTask.updateTitle(
+                    NSLocalizedString("REFRESHING_LIBRARY"),
+                    subtitle: String(format: "%i / %i", completed, total)
+                )
+            }
             tabBarController?.setLibraryRefreshProgress(
                 LibraryRefreshProgress(completed: completed, total: total)
             )
@@ -370,6 +419,25 @@ final class MangaManager {
         }
 
         tabBarController?.hideAccessoryView()
+
+        if Task.isCancelled {
+            await NotificationManager.shared.finishProgress(
+                .libraryUpdate,
+                success: false,
+                summary: nil
+            )
+            scheduleLibraryRefresh()
+            return false
+        }
+
+        // The per-title callback fires before each title, so explicitly close the system progress
+        // at 100%. Empty libraries use one synthetic unit and finish immediately.
+        if let systemProgress {
+            if systemProgress.progress.totalUnitCount == 0 {
+                systemProgress.progress.totalUnitCount = 1
+            }
+            systemProgress.progress.completedUnitCount = systemProgress.progress.totalUnitCount
+        }
         NotificationCenter.default.post(name: Notification.Name("updateLibrary"), object: nil)
 
         let summary = library.lastSummary
@@ -400,6 +468,12 @@ final class MangaManager {
                 message: summary.description
             )
         }
+        UserDefaults.standard.set(
+            Date().timeIntervalSince1970,
+            forKey: Self.lastRefreshKey
+        )
+        scheduleLibraryRefresh()
+        return !Task.isCancelled
     }
 
     /// Drops library membership for a set of titles, returning what was dropped so the caller can
@@ -497,27 +571,233 @@ final class MangaManager {
     // MARK: - Scheduled refresh
 
     static let refreshTaskIdentifier = "app.tachiyomiaz.library-refresh"
+    static let processingTaskIdentifier = "app.tachiyomiaz.library-processing"
+    static let continuedTaskIdentifier =
+        (Bundle.main.bundleIdentifier ?? "eu.kanade.tachiyomi.az.ios")
+            + ".library.continued.refresh"
+    private static let lastRefreshKey = "Library.lastUpdated"
+    private static let lastAttemptKey = "Library.lastAutomaticRefreshAttempt"
+    private static let retryInterval: TimeInterval = 15 * 60
+
+    private static let refreshIntervals: [String: TimeInterval] = [
+        "12hours": 12 * 60 * 60,
+        "daily": 24 * 60 * 60,
+        "2days": 2 * 24 * 60 * 60,
+        "weekly": 7 * 24 * 60 * 60
+    ]
+
+    private static func configuredRefreshInterval() -> TimeInterval? {
+        let defaults = UserDefaults.standard
+        if let value = defaults.string(forKey: "Library.updateInterval") {
+            if value == "never" { return nil }
+            if let interval = refreshIntervals[value] { return interval }
+        }
+        // Accept numeric values written by older builds.
+        let legacyInterval = defaults.double(forKey: "Library.updateInterval")
+        return legacyInterval > 0 ? legacyInterval : nil
+    }
+
+    /// Called after the database and extension runtime have both finished starting. Scheduling at
+    /// process launch alone can otherwise run an overdue timer against an empty source list and
+    /// incorrectly postpone the next real refresh for a full interval.
+    func environmentDidStart() {
+        environmentReady = true
+        scheduleLibraryRefresh()
+    }
+
+    func applicationDidBecomeActive() {
+        scheduleLibraryRefresh()
+    }
+
+    func applicationDidEnterBackground() {
+        foregroundRefreshTimer?.invalidate()
+        foregroundRefreshTimer = nil
+        scheduleLibraryRefresh()
+    }
 
     /// Registers the background task the automatic library update setting drives.
     func register() {
-        BGTaskScheduler.shared.register(
+        let handler: @Sendable (BGTask) -> Void = { [weak self] task in
+            guard let self else {
+                task.setTaskCompleted(success: false)
+                return
+            }
+
+            let completion = BackgroundTaskCompletionGate()
+            let worker = Task { @MainActor in
+                let success = await self.performAutomaticRefresh()
+                completion.complete(task, success: success)
+            }
+            task.expirationHandler = {
+                worker.cancel()
+                completion.complete(task, success: false)
+            }
+        }
+
+        let refreshRegistered = BGTaskScheduler.shared.register(
             forTaskWithIdentifier: Self.refreshTaskIdentifier,
-            using: nil
-        ) { task in
-            Task { @MainActor in
-                await self.backgroundRefreshLibrary()
-                self.scheduleLibraryRefresh()
-                task.setTaskCompleted(success: true)
+            using: nil,
+            launchHandler: handler
+        )
+        let processingRegistered = BGTaskScheduler.shared.register(
+            forTaskWithIdentifier: Self.processingTaskIdentifier,
+            using: nil,
+            launchHandler: handler
+        )
+        if !refreshRegistered || !processingRegistered {
+            LogManager.logger.error(
+                "Unable to register library background refresh tasks " +
+                    "(refresh: \(refreshRegistered), processing: \(processingRegistered))"
+            )
+        }
+
+        if #available(iOS 26.0, *) {
+            continuedRefreshRegistered = BGTaskScheduler.shared.register(
+                forTaskWithIdentifier: Self.continuedTaskIdentifier,
+                using: nil
+            ) { [weak self] task in
+                guard let self, let task = task as? BGContinuedProcessingTask else {
+                    task.setTaskCompleted(success: false)
+                    return
+                }
+
+                let completion = BackgroundTaskCompletionGate()
+                let worker = Task { @MainActor in
+                    let request = self.pendingContinuedRefresh
+                    self.pendingContinuedRefresh = nil
+                    self.continuedRefreshRequestPending = false
+                    let success = await self.backgroundRefreshLibrary(
+                        category: request?.category,
+                        skipReachabilityCheck: request?.skipReachabilityCheck ?? false,
+                        systemProgress: task
+                    )
+                    completion.complete(task, success: success)
+                }
+                task.expirationHandler = {
+                    worker.cancel()
+                    completion.complete(task, success: false)
+                }
+            }
+            if !continuedRefreshRegistered {
+                LogManager.logger.error(
+                    "Unable to register the continued library refresh task"
+                )
             }
         }
     }
 
-    /// Asks the system to run a library refresh no sooner than the configured interval.
+    private func submitContinuedRefreshIfAvailable(
+        category: String?,
+        skipReachabilityCheck: Bool
+    ) async -> Bool {
+        guard #available(iOS 26.0, *),
+              continuedRefreshRegistered,
+              !continuedRefreshRequestPending,
+              UIApplication.shared.applicationState == .active
+        else { return false }
+
+        let request = BGContinuedProcessingTaskRequest(
+            identifier: Self.continuedTaskIdentifier,
+            title: NSLocalizedString("REFRESHING_LIBRARY"),
+            subtitle: NSLocalizedString("CALCULATING_LIBRARY_REFRESH")
+        )
+        request.strategy = .fail
+        pendingContinuedRefresh = (category, skipReachabilityCheck)
+        continuedRefreshRequestPending = true
+        do {
+            try BGTaskScheduler.shared.submit(request)
+            return true
+        } catch {
+            pendingContinuedRefresh = nil
+            continuedRefreshRequestPending = false
+            LogManager.logger.error(
+                "Unable to start continued library refresh: \(error.localizedDescription)"
+            )
+            return false
+        }
+    }
+
+    private func nextAutomaticRefreshDate(interval: TimeInterval) -> Date {
+        let defaults = UserDefaults.standard
+        let lastRefresh = Date(
+            timeIntervalSince1970: defaults.double(forKey: Self.lastRefreshKey)
+        )
+        let lastAttempt = Date(
+            timeIntervalSince1970: defaults.double(forKey: Self.lastAttemptKey)
+        )
+        return max(
+            lastRefresh.addingTimeInterval(interval),
+            lastAttempt.addingTimeInterval(Self.retryInterval)
+        )
+    }
+
+    private func scheduleForegroundRefresh(at date: Date) {
+        foregroundRefreshTimer?.invalidate()
+        foregroundRefreshTimer = nil
+        guard environmentReady, UIApplication.shared.applicationState == .active else { return }
+
+        let fireDate = max(date, Date().addingTimeInterval(1))
+        let timer = Timer(fire: fireDate, interval: 0, repeats: false) { _ in
+            Task { @MainActor in
+                _ = await MangaManager.shared.performAutomaticRefresh()
+            }
+        }
+        foregroundRefreshTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    private func performAutomaticRefresh() async -> Bool {
+        guard Self.configuredRefreshInterval() != nil else { return true }
+
+        // A background launch can deliver the scheduler task while the asynchronous database/JVM
+        // startup is still underway. Give it a chance to finish instead of treating an empty
+        // source list as a successful refresh.
+        while !environmentReady && !Task.isCancelled {
+            try? await Task.sleep(nanoseconds: 250_000_000)
+        }
+        guard !Task.isCancelled else { return false }
+
+        UserDefaults.standard.set(
+            Date().timeIntervalSince1970,
+            forKey: Self.lastAttemptKey
+        )
+        // Resubmit before starting, as recommended by BGTaskScheduler. If iOS expires this run,
+        // another request is already pending; the foreground timer also retries in 15 minutes.
+        scheduleLibraryRefresh()
+        return await backgroundRefreshLibrary()
+    }
+
+    /// Schedules both an exact foreground timer and system-controlled background opportunities.
+    /// `earliestBeginDate` is a lower bound; iOS chooses the actual background launch time.
     func scheduleLibraryRefresh() {
-        let interval = UserDefaults.standard.double(forKey: "Library.updateInterval")
-        guard interval > 0 else { return }
-        let request = BGAppRefreshTaskRequest(identifier: Self.refreshTaskIdentifier)
-        request.earliestBeginDate = Date(timeIntervalSinceNow: interval)
-        try? BGTaskScheduler.shared.submit(request)
+        BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: Self.refreshTaskIdentifier)
+        BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: Self.processingTaskIdentifier)
+        foregroundRefreshTimer?.invalidate()
+        foregroundRefreshTimer = nil
+
+        guard let interval = Self.configuredRefreshInterval() else { return }
+        let nextDate = nextAutomaticRefreshDate(interval: interval)
+        scheduleForegroundRefresh(at: nextDate)
+
+        guard UserDefaults.standard.bool(forKey: "Library.backgroundRefresh") else { return }
+        do {
+            let refreshRequest = BGAppRefreshTaskRequest(
+                identifier: Self.refreshTaskIdentifier
+            )
+            refreshRequest.earliestBeginDate = nextDate
+            try BGTaskScheduler.shared.submit(refreshRequest)
+
+            let processingRequest = BGProcessingTaskRequest(
+                identifier: Self.processingTaskIdentifier
+            )
+            processingRequest.earliestBeginDate = nextDate
+            processingRequest.requiresNetworkConnectivity = true
+            processingRequest.requiresExternalPower = false
+            try BGTaskScheduler.shared.submit(processingRequest)
+        } catch {
+            LogManager.logger.error(
+                "Unable to schedule library background refresh: \(error.localizedDescription)"
+            )
+        }
     }
 }

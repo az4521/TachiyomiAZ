@@ -42,6 +42,25 @@ public final class AndroidCompatibilitySurfaceTest {
         Class<?> pdfRenderer = Class.forName("android.graphics.pdf.PdfRenderer");
         Class<?> pdfPage = Class.forName("android.graphics.pdf.PdfRenderer$Page");
         Class<?> matrix = Class.forName("android.graphics.Matrix");
+        Class<?> networkSecurityPolicy = Class.forName(
+            "android.security.NetworkSecurityPolicy"
+        );
+
+        Object transportPolicy = networkSecurityPolicy
+            .getMethod("getInstance")
+            .invoke(null);
+        if (
+            !(Boolean) networkSecurityPolicy
+                .getMethod("isCleartextTrafficPermitted")
+                .invoke(transportPolicy) ||
+            !(Boolean) networkSecurityPolicy
+                .getMethod("isCleartextTrafficPermitted", String.class)
+                .invoke(transportPolicy, "100.64.0.1")
+        ) {
+            throw new AssertionError(
+                "User-configured HTTP extension servers must be permitted on iOS"
+            );
+        }
 
         bitmap.getMethod("createBitmap", int.class, int.class, bitmapConfig);
         bitmap.getMethod(

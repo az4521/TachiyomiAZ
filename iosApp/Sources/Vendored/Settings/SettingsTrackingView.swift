@@ -22,6 +22,10 @@ struct SettingsTrackingView: View {
     @State private var loadingTrackerId: String?
     @State private var logoutTrackerName: String?
     @State private var showLogoutAlert = false
+    @State private var credentialTrackerId: String?
+    @State private var credentialUsername = ""
+    @State private var credentialPassword = ""
+    @State private var credentialError: String?
 
     private let iconSize: CGFloat = 42
     private let iconCornerRadius: CGFloat = 42 * 0.225
@@ -112,8 +116,25 @@ struct SettingsTrackingView: View {
                 }
             }
 
-            // Enhanced trackers (Komga, Kavita, Suwayomi) are not built -- see
-            // Vendored/_excluded/Tracking -- so there is no section to show.
+            if !komgaSources.isEmpty || !kavitaSources.isEmpty || !suwayomiSources.isEmpty {
+                Section(NSLocalizedString("ENHANCED_TRACKERS")) {
+                    if !komgaSources.isEmpty {
+                        NavigationLink("Komga") {
+                            enhancedTrackerPage(name: "Komga", sources: komgaSources)
+                        }
+                    }
+                    if !kavitaSources.isEmpty {
+                        NavigationLink("Kavita") {
+                            enhancedTrackerPage(name: "Kavita", sources: kavitaSources)
+                        }
+                    }
+                    if !suwayomiSources.isEmpty {
+                        NavigationLink("Suwayomi") {
+                            enhancedTrackerPage(name: "Suwayomi", sources: suwayomiSources)
+                        }
+                    }
+                }
+            }
 
         }
         .navigationTitle(NSLocalizedString("TRACKING"))
@@ -143,6 +164,43 @@ struct SettingsTrackingView: View {
         } message: {
             Text(NSLocalizedString("TRACKER_LOGOUT_INFO"))
         }
+        .sheet(
+            isPresented: Binding(
+                get: { credentialTrackerId != nil },
+                set: { if !$0 { credentialTrackerId = nil } }
+            )
+        ) {
+            NavigationView {
+                Form {
+                    TextField(NSLocalizedString("USERNAME"), text: $credentialUsername)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                    SecureField(NSLocalizedString("PASSWORD"), text: $credentialPassword)
+                    if let credentialError {
+                        Text(credentialError).foregroundStyle(.red)
+                    }
+                }
+                .navigationTitle(
+                    trackers.first(where: { $0.id == credentialTrackerId })?.name
+                        ?? NSLocalizedString("TRACKERS")
+                )
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button(NSLocalizedString("CANCEL")) { credentialTrackerId = nil }
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button(NSLocalizedString("LOGIN")) {
+                            Task { await loginWithCredentials() }
+                        }
+                        .disabled(
+                            credentialUsername.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                || credentialPassword.isEmpty
+                                || loadingTrackerId != nil
+                        )
+                    }
+                }
+            }
+        }
         .onReceive(NotificationCenter.default.publisher(for: .updateSourceList)) { _ in
             loadEnhancedTrackerSources()
         }
@@ -150,7 +208,7 @@ struct SettingsTrackingView: View {
             guard !loadedData else { return }
 
             for tracker in trackers {
-                guard let oauthTracker = tracker as? OAuthTracker else { return }
+                guard let oauthTracker = tracker as? OAuthTracker else { continue }
                 let needsRelogin = await oauthTracker.oauthClient.tokens?.askedForRefresh == true
                 if needsRelogin {
                     trackersNeedingRelogin.insert(tracker.id)
@@ -176,7 +234,7 @@ struct SettingsTrackingView: View {
 
                         Spacer()
 
-                        Toggle(isOn: stateBinding(sourceKey: source.id)) {
+                        Toggle(isOn: stateBinding(sourceKey: source.key)) {
                             EmptyView()
                         }
                     }
@@ -190,7 +248,18 @@ struct SettingsTrackingView: View {
 }
 
 extension SettingsTrackingView {
-    func loadEnhancedTrackerSources() {}
+    func loadEnhancedTrackerSources() {
+        let sources = SourceManager.shared.sources
+        komgaSources = EnhancedSourceBridge.sources(for: "komga", in: sources)
+        kavitaSources = EnhancedSourceBridge.sources(for: "kavita", in: sources)
+        suwayomiSources = EnhancedSourceBridge.sources(for: "suwayomi", in: sources)
+
+        for source in komgaSources + kavitaSources + suwayomiSources {
+            enhancedTrackingStates[source.key] = !UserDefaults.standard.bool(
+                forKey: "\(source.key).disableTracking"
+            )
+        }
+    }
 
 
     func handleEnhancedTrackingStateChange(sourceKey: String, enabled: Bool) {
@@ -229,7 +298,53 @@ extension SettingsTrackingView {
             }
             session.presentationContextProvider = Self.loginShimController
             session.start()
+        } else if tracker is KitsuTracker || tracker is MangaUpdatesTracker {
+            credentialUsername = ""
+            credentialPassword = ""
+            credentialError = nil
+            credentialTrackerId = tracker.id
+        } else if let tracker = tracker as? HikkaTracker,
+                  let url = tracker.authenticationUrl {
+            loadingTrackerId = tracker.id
+            await UIApplication.shared.open(url)
+            Task {
+                // Approval happens in Safari. The app is normally suspended until the user comes
+                // back; retry briefly on resume because the server may take a moment to publish
+                // the granted token.
+                defer { loadingTrackerId = nil }
+                for _ in 0..<30 {
+                    if (try? await tracker.claimToken()) != nil || tracker.isLoggedIn {
+                        NotificationCenter.default.post(name: .updateTrackers, object: nil)
+                        return
+                    }
+                    try? await Task.sleep(nanoseconds: 2_000_000_000)
+                }
+            }
         }
+    }
+
+    private func loginWithCredentials() async {
+        guard let id = credentialTrackerId,
+              let tracker = trackers.first(where: { $0.id == id }) else { return }
+        loadingTrackerId = id
+        credentialError = nil
+        do {
+            if let tracker = tracker as? KitsuTracker {
+                try await tracker.logIn(username: credentialUsername, password: credentialPassword)
+            } else if let tracker = tracker as? MangaUpdatesTracker {
+                try await tracker.logIn(username: credentialUsername, password: credentialPassword)
+            } else {
+                return
+            }
+            credentialTrackerId = nil
+            if let index = trackers.firstIndex(where: { $0.id == id }) {
+                trackers[index] = tracker
+            }
+            NotificationCenter.default.post(name: .updateTrackers, object: nil)
+        } catch {
+            credentialError = error.localizedDescription
+        }
+        loadingTrackerId = nil
     }
 }
 

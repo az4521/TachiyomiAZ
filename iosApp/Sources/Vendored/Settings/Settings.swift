@@ -220,6 +220,16 @@ extension Settings {
                     title: NSLocalizedString("SHOW_ALL_CATEGORY"),
                     notification: "updateCategories",
                     value: .toggle(.init())
+                ),
+                .init(
+                    key: "Library.showCategoryMangaCounts",
+                    title: NSLocalizedString(
+                        "SHOW_CATEGORY_MANGA_COUNTS",
+                        value: "Show category manga counts",
+                        comment: ""
+                    ),
+                    notification: "updateCategoryCountDisplay",
+                    value: .toggle(.init())
                 )
             ]))
         )

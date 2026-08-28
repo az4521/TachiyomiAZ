@@ -14,6 +14,9 @@ import eu.kanade.tachiyomi.domain.backup.mergeBackupCategories
 import eu.kanade.tachiyomi.domain.backup.mergeBackupChapters
 import eu.kanade.tachiyomi.domain.backup.mergeBackupManga
 import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
 import kotlin.math.max
 
 /**
@@ -71,7 +74,11 @@ object BackupRestorer {
         db.inTransaction {
             restoreCategories(db, backup.backupCategories)
 
-            for (entry in backup.backupManga) {
+            // A merged-source entry's URL describes its child manga. Restore those children first;
+            // otherwise the merged source can be inserted before its references exist and its
+            // first details/chapter load reports every child as missing. Android's full restore
+            // follows this ordering too.
+            for (entry in sortBackupMangaForRestore(backup.backupManga)) {
                 if (!canRestoreSource(entry.source)) {
                     skipped += entry.source
                     completed += 2
@@ -171,14 +178,55 @@ object BackupRestorer {
         db: DatabaseHandler,
         history: List<BackupHistory>
     ) {
+        restoreHistoryForMangaScoped(db, manga = null, history = history)
+    }
+
+    /**
+     * Restores history for a known manga without using the URL-only lookup.
+     *
+     * Chapter URLs are source-local and are not guaranteed to be unique across titles. The
+     * original URL-only lookup could therefore attach a restored timestamp to the first matching
+     * title in the database, leaving the actual title's chapter unread. The full restore already
+     * knows the owning manga, so use its chapter rows and history ids when that context is
+     * available. The two-argument overload above remains for Android's existing restore entry
+     * point and old backup callers.
+     */
+    fun restoreHistoryForManga(
+        db: DatabaseHandler,
+        manga: Manga,
+        history: List<BackupHistory>
+    ) {
+        restoreHistoryForMangaScoped(db, manga = manga, history = history)
+    }
+
+    private fun restoreHistoryForMangaScoped(
+        db: DatabaseHandler,
+        manga: Manga?,
+        history: List<BackupHistory>
+    ) {
+        val chapters = manga?.let { db.getChapters(it) }
+        val historyByChapterId = manga?.id
+            ?.let { db.getHistoryByMangaId(it).associateBy { record -> record.chapter_id } }
+            .orEmpty()
         val updates = mutableListOf<History>()
         for (record in history) {
-            val stored = db.getHistoryByChapterUrl(record.url)
+            val chapter = if (manga != null) {
+                chapters?.firstOrNull { it.url == record.url }
+            } else {
+                db.getChapter(record.url)
+            } ?: continue
+            // Once the owning manga is known, a URL-only fallback can select another title's
+            // history row when two source entries reuse the same chapter URL. The unscoped
+            // overload retains the legacy lookup for callers that do not have manga context.
+            val stored = if (manga != null) {
+                historyByChapterId[chapter.id]
+            } else {
+                db.getHistoryByChapterUrl(record.url)
+            }
             if (stored != null) {
                 stored.last_read = max(record.lastRead, stored.last_read)
                 updates.add(stored)
             } else {
-                val chapter = db.getChapter(record.url) ?: continue
                 updates.add(History.create(chapter).apply { last_read = record.lastRead })
             }
         }
@@ -274,7 +322,18 @@ object BackupRestorer {
     ) {
         restoreChaptersForManga(db, manga, entry.getChaptersImpl())
         restoreCategoriesForManga(db, manga, entry.categories, backupCategories)
-        restoreHistoryForManga(db, entry.history)
+        restoreHistoryForManga(db, manga, entry.history)
         restoreTrackForManga(db, manga, entry.getTrackingImpl(), isLogged)
     }
 }
+
+/** Stable restore ordering: ordinary entries first, merged-source config entries last. */
+@OptIn(ExperimentalSerializationApi::class)
+internal fun sortBackupMangaForRestore(entries: List<BackupManga>): List<BackupManga> =
+    entries.sortedBy { if (it.isMergedSourceEntry()) 1 else 0 }
+
+@OptIn(ExperimentalSerializationApi::class)
+private fun BackupManga.isMergedSourceEntry(): Boolean =
+    runCatching {
+        Json.parseToJsonElement(url).jsonObject["c"]?.jsonArray != null
+    }.getOrDefault(false)

@@ -75,13 +75,43 @@ extension EnhancedServerHelper {
 struct KomgaHelper: EnhancedServerHelper {
     let sourceKey: String
 
+    /// Komga uses `X-API-Key`, unlike the bearer-token services. Its extension's preference is
+    /// named "API key", which the bridge preserves as `apiKey` for this exact distinction.
+    func authorizationHeaders() -> [String: String]? {
+        if let apiKey = UserDefaults.standard.string(forKey: "\(sourceKey).apiKey"), !apiKey.isEmpty {
+            return ["X-API-Key": apiKey]
+        }
+        guard
+            let username = UserDefaults.standard.string(forKey: "\(sourceKey).login.username"),
+            let password = UserDefaults.standard.string(forKey: "\(sourceKey).login.password"),
+            !username.isEmpty
+        else { return nil }
+        let encoded = Data("\(username):\(password)".utf8).base64EncodedString()
+        return ["Authorization": "Basic \(encoded)"]
+    }
+
     /// Komga's endpoints are plain REST paths under the configured server.
     func request<T: Decodable>(
         path: String,
         method: HttpMethod = .GET,
         body: Data? = nil
     ) async throws -> T {
-        try await perform(path: path, method: method.rawValue, body: body)
+        guard let headers = authorizationHeaders() else {
+            throw KomgaTrackerError.notLoggedIn
+        }
+        var request = URLRequest(url: try getServerUrl(path: path))
+        request.httpMethod = method.rawValue
+        headers.forEach { request.setValue($0.value, forHTTPHeaderField: $0.key) }
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        if body != nil {
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        }
+        request.httpBody = body
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let response = response as? HTTPURLResponse, (200..<300).contains(response.statusCode) else {
+            throw SourceError.message("KOMGA_REQUEST_FAILED")
+        }
+        return try JSONDecoder().decode(T.self, from: data)
     }
 }
 

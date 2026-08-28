@@ -39,7 +39,7 @@ class HistoryRepository(private val db: DatabaseHandler) {
     fun readingHistory(mangaUrl: String, sourceId: Long): List<ReadingHistoryEntry> {
         val manga = db.getManga(mangaUrl, sourceId) ?: return emptyList()
         return db.getChapters(manga).mapNotNull { chapter ->
-            val history = db.getHistoryByChapterUrl(chapter.url) ?: return@mapNotNull null
+            val history = chapter.id?.let(db::getHistoryByChapterId) ?: return@mapNotNull null
             ReadingHistoryEntry(
                 chapterUrl = chapter.url,
                 page = if (chapter.read) -1 else chapter.last_page_read,
@@ -58,7 +58,7 @@ class HistoryRepository(private val db: DatabaseHandler) {
     fun detail(mangaUrl: String, sourceId: Long, chapterUrl: String): HistoryDetail? {
         val manga = db.getManga(mangaUrl, sourceId) ?: return null
         val chapter = db.getChapters(manga).firstOrNull { it.url == chapterUrl } ?: return null
-        val history = db.getHistoryByChapterUrl(chapterUrl)
+        val history = chapter.id?.let(db::getHistoryByChapterId)
         if (history == null) return null
         return HistoryDetail(history.last_read.takeIf { it > 0 }, chapter.read)
     }
@@ -127,6 +127,16 @@ class HistoryRepository(private val db: DatabaseHandler) {
         return true
     }
 
+    /** Removes history for a chapter owned by [mangaUrl], avoiding a global URL collision. */
+    fun remove(mangaUrl: String, sourceId: Long, chapterUrl: String): Boolean {
+        val manga = db.getManga(mangaUrl, sourceId) ?: return false
+        val chapter = db.getChapters(manga).firstOrNull { it.url == chapterUrl } ?: return false
+        val history = chapter.id?.let(db::getHistoryByChapterId) ?: return false
+        history.last_read = 0
+        db.updateHistoryLastRead(history)
+        return true
+    }
+
     fun remove(mangaUrl: String, sourceId: Long, chapterUrls: List<String>? = null): Int {
         val manga = db.getManga(mangaUrl, sourceId) ?: return 0
         val wanted = chapterUrls?.toSet()
@@ -134,21 +144,30 @@ class HistoryRepository(private val db: DatabaseHandler) {
         db.inTransaction {
             db.getChapters(manga)
                 .filter { wanted == null || it.url in wanted }
-                .forEach { if (remove(it.url)) removed++ }
+                .forEach {
+                    val history = it.id?.let(db::getHistoryByChapterId) ?: return@forEach
+                    history.last_read = 0
+                    db.updateHistoryLastRead(history)
+                    removed++
+                }
         }
         return removed
     }
 
     fun hasHistory(mangaUrl: String, sourceId: Long, chapterUrl: String? = null): Boolean {
-        if (chapterUrl != null) return db.getHistoryByChapterUrl(chapterUrl) != null
+        if (chapterUrl != null) {
+            val manga = db.getManga(mangaUrl, sourceId) ?: return false
+            val chapter = db.getChapters(manga).firstOrNull { it.url == chapterUrl } ?: return false
+            return chapter.id?.let(db::getHistoryByChapterId) != null
+        }
         val manga = db.getManga(mangaUrl, sourceId) ?: return false
-        return db.getChapters(manga).any { db.getHistoryByChapterUrl(it.url) != null }
+        return db.getChapters(manga).any { it.id?.let(db::getHistoryByChapterId) != null }
     }
 
     fun earliestRead(mangaUrl: String, sourceId: Long): Long? {
         val manga = db.getManga(mangaUrl, sourceId) ?: return null
         return db.getChapters(manga)
-            .mapNotNull { db.getHistoryByChapterUrl(it.url)?.last_read }
+            .mapNotNull { it.id?.let(db::getHistoryByChapterId)?.last_read }
             .filter { it > 0 }
             .minOrNull()
     }
@@ -156,7 +175,7 @@ class HistoryRepository(private val db: DatabaseHandler) {
     fun identifiersForSource(sourceId: Long): List<HistoryIdentifier> =
         db.getMangasBySource(sourceId).flatMap { manga ->
             db.getChapters(manga).mapNotNull { chapter ->
-                db.getHistoryByChapterUrl(chapter.url) ?: return@mapNotNull null
+                chapter.id?.let(db::getHistoryByChapterId) ?: return@mapNotNull null
                 HistoryIdentifier(manga.url, chapter.url)
             }
         }
@@ -172,8 +191,17 @@ class HistoryRepository(private val db: DatabaseHandler) {
         return true
     }
 
+    fun addReadTime(mangaUrl: String, sourceId: Long, chapterUrl: String, amount: Long): Boolean {
+        val manga = db.getManga(mangaUrl, sourceId) ?: return false
+        val chapter = db.getChapters(manga).firstOrNull { it.url == chapterUrl } ?: return false
+        val history = chapter.id?.let(db::getHistoryByChapterId) ?: return false
+        history.time_read += amount
+        db.updateHistoryLastRead(history)
+        return true
+    }
+
     private fun touch(chapter: Chapter, readAt: Long) {
-        val history = db.getHistoryByChapterUrl(chapter.url) ?: History.create(chapter)
+        val history = chapter.id?.let(db::getHistoryByChapterId) ?: History.create(chapter)
         history.last_read = readAt
         db.updateHistoryLastRead(history)
     }

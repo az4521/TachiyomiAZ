@@ -41,6 +41,20 @@ public final class TachiyomiXExtensionLib16RuntimeTest {
                 "\"userAgent\":\"TachiyomiAZ-Configured-UA\"}"
         );
         assertSuccess(webLoginInfo);
+
+        String settings = ExtensionHost.dispatch(
+            "{\"operation\":\"getSettings\"," +
+                "\"extensionId\":\"extlib16\"," +
+                "\"sourceId\":\"" + sourceId.group(1) + "\"}"
+        );
+        assertSuccess(settings);
+
+        String cookieSummary = ExtensionHost.dispatch(
+            "{\"operation\":\"getCookieSummary\"," +
+                "\"extensionId\":\"extlib16\"," +
+                "\"sourceId\":\"" + sourceId.group(1) + "\"}"
+        );
+        assertSuccess(cookieSummary);
         assertContains(webLoginInfo, "TachiyomiAZ-Configured-UA");
 
         String response = ExtensionHost.dispatch(

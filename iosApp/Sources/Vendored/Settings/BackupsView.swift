@@ -12,13 +12,12 @@ struct BackupsView: View {
     @State private var backups: [URL: TachibkBackupCodec.Decoded] = [:]
     @State private var invalidBackups: Set<URL> = []
 
-    @State private var loadedInitialBackupInfo = false
     @State private var targetRestoreBackup: TachibkBackupCodec.Decoded?
-    @State private var targetExportBackup: TachibkBackupCodec.Decoded?
     @State private var showCreateSheet = false
     @State private var showImportSheet = false
     @State private var showAutoBackupsSheet = false
     @State private var showImportFailAlert = false
+    @State private var isImporting = false
 
     @EnvironmentObject private var path: NavigationCoordinator
 
@@ -38,13 +37,13 @@ struct BackupsView: View {
                 ForEach(backupUrls, id: \.self) { url in
                     let backup = backups[url]
 
-                    if let backup {
-                        backupCell(url: url, backup: backup)
-                    } else if invalidBackups.contains(url) {
+                    if invalidBackups.contains(url) {
                         Text(NSLocalizedString("CORRUPTED_BACKUP"))
                     } else {
-                        ProgressView()
-                            .progressViewStyle(.circular)
+                        backupCell(url: url, backup: backup)
+                            .task(id: url) {
+                                await prefetchBackupInfo(for: url)
+                            }
                     }
                 }
                 .onDelete(perform: onDelete)
@@ -69,8 +68,11 @@ struct BackupsView: View {
                     guard let url = urls.first else {
                         return
                     }
+                    showImportSheet = false
                     Task {
+                        isImporting = true
                         let result = await BackupManager.shared.importBackup(from: url)
+                        isImporting = false
                         if !result {
                             showImportFailAlert = true
                         }
@@ -91,14 +93,17 @@ struct BackupsView: View {
         } message: {
             Text(NSLocalizedString("BACKUP_IMPORT_FAIL_TEXT"))
         }
-        .onAppear {
-            guard !loadedInitialBackupInfo else { return }
-            loadedInitialBackupInfo = true
-            loadBackupInfo()
-        }
         .onReceive(NotificationCenter.default.publisher(for: .updateBackupList)) { _ in
             backupUrls = BackupManager.backupUrls
-            loadBackupInfo()
+            backups = backups.filter { backupUrls.contains($0.key) }
+            invalidBackups = invalidBackups.filter { backupUrls.contains($0) }
+        }
+        .overlay {
+            if isImporting {
+                ProgressView(NSLocalizedString("IMPORT_BACKUP"))
+                    .padding()
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+            }
         }
 
         if #available(iOS 26.0, *) {
@@ -162,29 +167,30 @@ struct BackupsView: View {
         }
     }
 
-    func backupCell(url: URL, backup: TachibkBackupCodec.Decoded) -> some View {
+    func backupCell(url: URL, backup: TachibkBackupCodec.Decoded?) -> some View {
         Button {
-            targetRestoreBackup = backup
+            openBackup(url, decoded: backup)
         } label: {
             HStack {
-                let date = DateFormatter.localizedString(from: backup.state.date, dateStyle: .short, timeStyle: .short)
-                if let name = backup.state.name {
+                let date = backup?.state.date ?? backupDate(for: url)
+                let dateText = DateFormatter.localizedString(from: date, dateStyle: .short, timeStyle: .short)
+                if let name = backup?.state.name {
                     VStack(alignment: .leading) {
                         HStack {
                             Text(name)
                                 .lineLimit(1)
-                            if backup.state.automatic ?? false {
+                            if backup?.state.automatic ?? false {
                                 automaticBadge
                             }
                         }
-                        Text(date)
+                        Text(dateText)
                             .foregroundStyle(.secondary)
                     }
                 } else {
                     HStack {
-                        Text(String(format: NSLocalizedString("BACKUP_%@"), date))
+                        Text(String(format: NSLocalizedString("BACKUP_%@"), dateText))
                             .lineLimit(1)
-                        if backup.state.automatic ?? false {
+                        if backup?.state.automatic ?? false {
                             automaticBadge
                         }
                     }
@@ -208,7 +214,7 @@ struct BackupsView: View {
                 Label(NSLocalizedString("DELETE"), systemImage: "trash")
             }
             Button {
-                showRenamePrompt(targetRenameBackupUrl: url, initialName: backup.state.name)
+                showRenamePrompt(targetRenameBackupUrl: url, initialName: backup?.state.name)
             } label: {
                 Label(NSLocalizedString("RENAME"), systemImage: "pencil")
             }
@@ -216,21 +222,11 @@ struct BackupsView: View {
         }
         .contextMenu {
             Button {
-                targetExportBackup = backup
+                export(url: url, sourceRect: .zero)
             } label: {
                 Label(NSLocalizedString("EXPORT"), systemImage: "square.and.arrow.up")
             }
         }
-        .background(
-            GeometryReader { geo in
-                Color.clear
-                    .onChange(of: targetExportBackup) { newValue in
-                        if newValue == backup {
-                            export(url: url, sourceRect: geo.frame(in: .global))
-                        }
-                    }
-            }
-        )
     }
 
     var automaticBadge: some View {
@@ -282,19 +278,30 @@ struct BackupsView: View {
 }
 
 extension BackupsView {
-    func loadBackupInfo() {
-        Task { [backupUrls] in
-            for backupUrl in backupUrls {
-                let backup = await BackupManager.shared.loadBackup(
-                    from: backupUrl
-                )
-                if let backup {
-                    self.backups[backupUrl] = backup
-                } else {
-                    self.invalidBackups.insert(backupUrl)
-                }
+    func prefetchBackupInfo(for url: URL) async {
+        guard backups[url] == nil, !invalidBackups.contains(url) else { return }
+        guard let backup = await BackupManager.shared.loadBackup(from: url) else {
+            invalidBackups.insert(url)
+            return
+        }
+        backups[url] = backup
+    }
+
+    func openBackup(_ url: URL, decoded: TachibkBackupCodec.Decoded?) {
+        Task {
+            if let decoded {
+                targetRestoreBackup = decoded
+            } else if let backup = await BackupManager.shared.loadBackup(from: url) {
+                backups[url] = backup
+                targetRestoreBackup = backup
+            } else {
+                invalidBackups.insert(url)
             }
         }
+    }
+
+    func backupDate(for url: URL) -> Date {
+        (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast
     }
 
     func renameBackup(url: URL, name: String) {

@@ -51,8 +51,9 @@ enum EnhancedSourceBridge {
         "baseurl": "server",
         "username": "login.username",
         "password": "login.password",
-        "apikey": "token",
-        "api_key": "token"
+        "apikey": "apiKey",
+        "api key": "apiKey",
+        "api_key": "apiKey"
     ]
 
     /// Reads each enhanced source's settings out of the VM and writes them where the trackers look.
@@ -60,29 +61,47 @@ enum EnhancedSourceBridge {
     /// Called after sources load and after a source's settings change.
     static func mirrorSettings(for sources: [SourceDescriptor]) async {
         for descriptor in sources {
-            guard service(forExtension: descriptor.extensionId) != nil else { continue }
+            await mirrorSettings(
+                extensionId: descriptor.extensionId,
+                sourceId: descriptor.id,
+                sourceName: descriptor.name
+            )
+        }
+    }
 
-            let settings: [TachiyomiXSettingDescriptor]
-            do {
-                settings = try await JVMSourceRuntime.shared.settings(
-                    extensionId: descriptor.extensionId,
-                    sourceId: descriptor.id
-                )
-            } catch {
-                LogManager.logger.error(
-                    "Could not read settings for \(descriptor.name): \(error.localizedDescription)"
-                )
-                continue
-            }
+    /// Updates the tracker-facing copy immediately after an enhanced source setting changes.
+    /// Waiting for a full source reload made a newly configured Komga server unusable until the
+    /// app restarted.
+    static func mirrorSettings(extensionId: String, sourceId: Int64, sourceName: String) async {
+        guard service(forExtension: extensionId) != nil else { return }
 
-            let sourceKey = SourceIdentity.key(for: descriptor.id)
-            for setting in settings {
-                guard
-                    let mapped = settingKeys[setting.key.lowercased()],
-                    let value = setting.currentValue,
-                    !value.isEmpty
-                else { continue }
-                UserDefaults.standard.set(value, forKey: "\(sourceKey).\(mapped)")
+        let settings: [TachiyomiXSettingDescriptor]
+        do {
+            settings = try await JVMSourceRuntime.shared.settings(
+                extensionId: extensionId,
+                sourceId: sourceId
+            )
+        } catch {
+            LogManager.logger.error(
+                "Could not read settings for \(sourceName): \(error.localizedDescription)"
+            )
+            return
+        }
+
+        let sourceKey = SourceIdentity.key(for: sourceId)
+        for setting in settings {
+            guard let mapped = settingKeys[setting.key.lowercased()] else { continue }
+            // Komga's native helper historically read `apiKey`, while Kavita and
+            // Suwayomi read `token`. Keep both aliases synchronized so mirroring one
+            // enhanced service cannot silently break another one.
+            let mappedKeys = mapped == "apiKey" ? ["apiKey", "token"] : [mapped]
+            for mappedKey in mappedKeys {
+                let key = "\(sourceKey).\(mappedKey)"
+                if let value = setting.currentValue, !value.isEmpty {
+                    UserDefaults.standard.set(value, forKey: key)
+                } else {
+                    UserDefaults.standard.removeObject(forKey: key)
+                }
             }
         }
     }

@@ -84,8 +84,7 @@ class BrowseViewController: BaseTableViewController {
 
         // load data
         Task {
-            await viewModel.loadInstalledSources()
-            await viewModel.loadPinnedSources()
+            await viewModel.loadSourceSections()
             updateNavbar()
             updateDataSource()
         }
@@ -105,8 +104,7 @@ class BrowseViewController: BaseTableViewController {
         addObserver(forName: .updateSourceList) { [weak self] _ in
             guard let self = self else { return }
             Task { @MainActor in
-                await self.viewModel.loadInstalledSources()
-                await self.viewModel.loadPinnedSources()
+                await self.viewModel.loadSourceSections()
                 self.viewModel.loadUpdates()
                 if let query = self.navigationItem.searchController?.searchBar.text, !query.isEmpty {
                     self.viewModel.search(query: query)
@@ -148,8 +146,7 @@ class BrowseViewController: BaseTableViewController {
 
             if sourceList.isEmpty { self.stopEditing() }
             Task { @MainActor in
-                await self.viewModel.loadInstalledSources()
-                await self.viewModel.loadPinnedSources()
+                await self.viewModel.loadSourceSections()
                 self.updateDataSource()
             }
         }
@@ -193,7 +190,7 @@ extension BrowseViewController {
                 SourceManager.shared.remove(source: source)
             }
             Task {
-                await self.viewModel.loadInstalledSources()
+                await self.viewModel.loadSourceSections()
                 self.updateDataSource()
                 self.setEditing(false, animated: true)
             }
@@ -322,7 +319,7 @@ extension BrowseViewController {
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         let sectionId = dataSource.sectionIdentifier(for: indexPath.section)
         guard !isEditing else {
-            if sectionId != .pinned && sectionId != .installed {
+            if sectionId != .pinned && sectionId?.isInstalled != true {
                 tableView.deselectRow(at: indexPath, animated: false)
             } else {
                 updateToolbar()
@@ -330,7 +327,7 @@ extension BrowseViewController {
             return
         }
         if
-            sectionId == .installed || sectionId == .pinned,
+            sectionId?.isInstalled == true || sectionId == .pinned,
             let info = dataSource.itemIdentifier(for: indexPath),
             let source = SourceManager.shared.source(for: info.sourceId)
         {
@@ -362,8 +359,11 @@ extension BrowseViewController {
                 config.title = NSLocalizedString("UPDATES")
             case .pinned:
                 config.title = NSLocalizedString("PINNED")
-            case .installed:
-                config.title = NSLocalizedString("INSTALLED")
+            case let .installed(language):
+                config.title = [
+                    NSLocalizedString("INSTALLED"),
+                    SourceLanguageFilter.displayName(for: language)
+                ].joined(separator: " • ")
             case .external:
                 config.title = NSLocalizedString("EXTERNAL")
         }
@@ -378,8 +378,8 @@ extension BrowseViewController {
     ) -> UIContextMenuConfiguration? {
         guard
             !tableView.isEditing, // do not allow context menu when the sources are being edited
-            case let section = dataSource.sectionIdentifier(for: indexPath.section),
-            section == .installed || section == .pinned,
+            let section = dataSource.sectionIdentifier(for: indexPath.section),
+            section.isInstalled || section == .pinned,
             let info = dataSource.itemIdentifier(for: indexPath),
             let source = SourceManager.shared.source(for: info.sourceId)
         else {
@@ -405,7 +405,7 @@ extension BrowseViewController {
                     SourceManager.shared.pin(source: source)
                 }
                 Task {
-                    await self.viewModel.loadPinnedSources()
+                    await self.viewModel.loadSourceSections()
                     self.updateDataSource()
                 }
             }
@@ -429,11 +429,16 @@ extension BrowseViewController {
 
 // MARK: - Data Source
 extension BrowseViewController {
-    enum Section: Int {
+    enum Section: Hashable {
         case pinned
         case updates
-        case installed
+        case installed(language: String)
         case external
+
+        var isInstalled: Bool {
+            if case .installed = self { return true }
+            return false
+        }
     }
 
     // Ability to edit tableview for a diffable data source.
@@ -476,8 +481,8 @@ extension BrowseViewController {
         }
 
         override func tableView(_ tableView: UITableView, canEditRowAt indexPath: IndexPath) -> Bool {
-            let identifier = sectionIdentifier(for: indexPath.section)
-            return identifier == .pinned || identifier == .installed
+            guard let identifier = sectionIdentifier(for: indexPath.section) else { return false }
+            return identifier == .pinned || identifier.isInstalled
         }
     }
 
@@ -524,9 +529,10 @@ extension BrowseViewController {
             snapshot.appendSections([.pinned])
             snapshot.appendItems(pinnedSources, toSection: .pinned)
         }
-        if !installedSources.isEmpty {
-            snapshot.appendSections([.installed])
-            snapshot.appendItems(installedSources, toSection: .installed)
+        for (language, sources) in languageGroups(installedSources) {
+            let section = Section.installed(language: language)
+            snapshot.appendSections([section])
+            snapshot.appendItems(sources, toSection: section)
         }
 //        if !viewModel.externalSources.isEmpty {
 //            snapshot.appendSections([.external])
@@ -551,35 +557,34 @@ extension BrowseViewController {
         }
     }
 
-    func updateExternalSources() {
-        var snapshot = dataSource.snapshot()
-
-        snapshot.deleteSections([.updates, .external])
-        let updatesSources = languageFiltered(viewModel.updatesSources)
-        if !updatesSources.isEmpty {
-            if snapshot.indexOfSection(.installed) != nil {
-                snapshot.insertSections([.updates], beforeSection: .installed)
-            } else {
-                snapshot.appendSections([.updates])
+    /// Installed sources are navigable and editable within their language section. Pinned and
+    /// update sources stay in their dedicated sections so pin ordering and update affordances do
+    /// not become ambiguous.
+    private func languageGroups(
+        _ sources: [SourceInfo2]
+    ) -> [(language: String, sources: [SourceInfo2])] {
+        let grouped = Dictionary(grouping: sources) {
+            SourceLanguageFilter.groupKey(for: $0.languages)
+        }
+        return grouped.keys.sorted(by: languageComesBefore).map { language in
+            let entries = (grouped[language] ?? []).sorted {
+                $0.name.localizedStandardCompare($1.name) == .orderedAscending
             }
-            snapshot.appendItems(updatesSources, toSection: .updates)
+            return (language, entries)
         }
-//        if !viewModel.externalSources.isEmpty {
-//            snapshot.appendSections([.external])
-//            snapshot.appendItems(viewModel.externalSources, toSection: .external)
-//        }
+    }
 
-        if #available(iOS 15.0, *) {
-            // prevents jumpiness from pull to refresh
-            dataSource.applySnapshotUsingReloadData(snapshot)
-        } else {
-            dataSource.apply(snapshot)
-        }
+    private func languageComesBefore(_ lhs: String, _ rhs: String) -> Bool {
+        let order = SourceManager.languageCodes
+        let lhsIndex = order.firstIndex(of: lhs) ?? Int.max
+        let rhsIndex = order.firstIndex(of: rhs) ?? Int.max
+        if lhsIndex != rhsIndex { return lhsIndex < rhsIndex }
+        return SourceLanguageFilter.displayName(for: lhs)
+            .localizedStandardCompare(SourceLanguageFilter.displayName(for: rhs)) == .orderedAscending
+    }
 
-        Task { @MainActor in
-            emptyStackView.isHidden = !snapshot.itemIdentifiers.isEmpty
-            checkUpdateCount()
-        }
+    func updateExternalSources() {
+        updateDataSource()
     }
 }
 

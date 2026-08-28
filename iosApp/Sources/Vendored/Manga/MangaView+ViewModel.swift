@@ -330,8 +330,6 @@ extension MangaView.ViewModel {
         chapterLangFilter = filters.language
         chapterScanlatorFilter = filters.scanlators ?? []
 
-        await loadBookmarked()
-        await loadHistory()
         await fetchData()
     }
 
@@ -340,27 +338,36 @@ extension MangaView.ViewModel {
         let sourceKey = manga.sourceKey
         let mangaId = manga.key
         let storedState = await DatabaseContainer.shared.performBackgroundTask { @Sendable context in
-            (
+            let chapterList = SharedDataStore.shared.chapterListSnapshot(
+                sourceId: sourceKey,
+                mangaId: mangaId
+            )
+            return (
                 inLibrary: SharedDataStore.shared.hasLibraryManga(
                     sourceId: sourceKey,
                     mangaId: mangaId,
                     context: context
                 ),
-                chapters: SharedDataStore.shared.getChapters(
-                    sourceId: sourceKey,
-                    mangaId: mangaId,
-                    context: context
-                ).map { $0.toNewChapter() }
+                chapters: chapterList.chapters,
+                history: chapterList.history
             )
         }
-        if storedState.inLibrary || !storedState.chapters.isEmpty {
+        if !storedState.chapters.isEmpty {
             var newManga = self.manga
             newManga.chapters = storedState.chapters
             self.manga = newManga
             self.chapters = filteredChapters()
+            readingHistory = storedState.history
+
+            // The chapter list is usable at this point. The remaining work only
+            // enriches it with local download and bookmark state.
+            initialDataLoaded = true
         }
-        if storedState.inLibrary {
-            // Library data is refreshed by the library updater or pull-to-refresh.
+        bookmarked = storedState.inLibrary
+        if storedState.inLibrary && !storedState.chapters.isEmpty {
+            // A populated library entry can render entirely from the shared database.
+            // Empty chapter caches still need one source request; otherwise restored or
+            // newly-added manga can remain stuck at "chapters unavailable" forever.
         } else if let source {
             // load new data from source
             await source.partialMangaPublisher?.sink { @Sendable newManga in
