@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
+import android.os.Build
 import androidx.core.graphics.drawable.toDrawable
 import androidx.core.graphics.get
 import eu.kanade.tachiyomi.R
@@ -52,6 +53,37 @@ object ImageUtil {
         } catch (e: Exception) {
             null
         }
+    }
+
+    /**
+     * Whether the image in [stream] is animated and can be played back. Animated WebP relies on
+     * the platform's ImageDecoder, so it is only reported as animated on Android 9+.
+     */
+    fun isAnimatedAndSupported(stream: InputStream): Boolean {
+        return when (findImageType(stream)) {
+            ImageType.GIF -> true
+            ImageType.WEBP -> Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && isAnimatedWebp(stream)
+            else -> false
+        }
+    }
+
+    // An animated WebP is an extended (VP8X) file with the animation flag set.
+    private fun isAnimatedWebp(stream: InputStream): Boolean {
+        val bytes = ByteArray(21)
+        stream.mark(bytes.size)
+        var length = 0
+        try {
+            while (length < bytes.size) {
+                val read = stream.read(bytes, length, bytes.size - length)
+                if (read == -1) break
+                length += read
+            }
+        } finally {
+            stream.reset()
+        }
+        return length == bytes.size &&
+            bytes.compareWith("VP8X".toByteArray(), 12) &&
+            bytes[20].toInt() and 0x02 != 0
     }
 
     private fun getImageType(stream: InputStream): tachiyomi.decoder.ImageType? {

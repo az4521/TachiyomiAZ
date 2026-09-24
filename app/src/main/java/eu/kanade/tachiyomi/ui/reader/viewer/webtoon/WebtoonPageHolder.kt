@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.ui.reader.viewer.webtoon
 
 import android.annotation.SuppressLint
 import android.content.res.Resources
+import android.graphics.drawable.Drawable
 import android.view.Gravity
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -297,7 +298,7 @@ class WebtoonPageHolder(
                         withIOContext {
                             val stream = streamFn().buffered(16)
                             openStream = stream
-                            ImageUtil.findImageType(stream) == ImageUtil.ImageType.GIF
+                            ImageUtil.isAnimatedAndSupported(stream)
                         }
                     if (!isAnimated) {
                         val subsamplingView = initSubsamplingImageView()
@@ -396,7 +397,7 @@ class WebtoonPageHolder(
     }
 
     /**
-     * Initializes an image view, used for GIFs.
+     * Initializes an image view, used for animated images.
      */
     private fun initImageView(): ImageView {
         if (imageView != null) return imageView!!
@@ -514,17 +515,17 @@ class WebtoonPageHolder(
      */
     private fun ImageView.setImage(stream: InputStream) {
         GlideApp.with(this)
-            .asGif()
+            .asDrawable()
             .load(stream)
             .skipMemoryCache(true)
             .diskCacheStrategy(DiskCacheStrategy.NONE)
             .transition(DrawableTransitionOptions.with(NoTransition.getFactory()))
             .listener(
-                object : RequestListener<GifDrawable> {
+                object : RequestListener<Drawable> {
                     override fun onLoadFailed(
                         e: GlideException?,
                         model: Any?,
-                        target: Target<GifDrawable>,
+                        target: Target<Drawable>,
                         isFirstResource: Boolean
                     ): Boolean {
                         onImageDecodeError()
@@ -532,13 +533,13 @@ class WebtoonPageHolder(
                     }
 
                     override fun onResourceReady(
-                        resource: GifDrawable,
+                        resource: Drawable,
                         model: Any,
-                        target: Target<GifDrawable>?,
+                        target: Target<Drawable>?,
                         dataSource: DataSource,
                         isFirstResource: Boolean
                     ): Boolean {
-                        resource.setLoopCount(GifDrawable.LOOP_INTRINSIC)
+                        (resource as? GifDrawable)?.setLoopCount(GifDrawable.LOOP_INTRINSIC)
                         onImageDecoded()
                         return false
                     }
