@@ -311,8 +311,12 @@ dependencies {
     // UI
     implementation 'com.github.DmitryMalkovich:material-design-dimens:1.4'
     implementation 'com.github.dmytrodanylyk.android-process-button:library:1.0.4'
-    implementation 'com.github.arkon.FlexibleAdapter:flexible-adapter:c8013533'
-    implementation 'com.github.arkon.FlexibleAdapter:flexible-adapter-ui:c8013533'
+    // Upstream on Maven Central; JitPack can no longer build arkon's fork. Same API as c8013533.
+    implementation 'eu.davidea:flexible-adapter:5.1.0'
+    implementation('eu.davidea:flexible-adapter-ui:1.0.0') {
+        // Would pull material up to 1.7.0; the fork this replaces was built against the app's 1.3.0.
+        exclude group: 'com.google.android.material', module: 'material'
+    }
     implementation 'com.nightlynexus.viewstatepageradapter:viewstatepageradapter:1.1.0'
     implementation 'com.github.mthli:Slice:v1.3'
     implementation 'com.github.chrisbanes:PhotoView:2.3.0'
