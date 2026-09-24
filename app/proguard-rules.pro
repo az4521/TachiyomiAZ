@@ -1,4 +1,10 @@
 -dontobfuscate
+# AGP 9 only accepts proguard-android-optimize.txt; this keeps the old proguard-android.txt behavior.
+-dontoptimize
+
+# FingerprintManager is gone from the compileSdk 37 stubs but still exists on devices, where
+# Reprint's Marshmallow module uses it.
+-dontwarn android.hardware.fingerprint.**
 
 # Keep extension's common dependencies
 -keep,allowoptimization class eu.kanade.tachiyomi.** { public protected *; }

@@ -12,7 +12,6 @@ allprojects {
     repositories {
         mavenCentral()
         google()
-        jcenter()
         maven { setUrl("https://www.jitpack.io") }
         maven { setUrl("https://oss.sonatype.org/content/repositories/snapshots/") }
         maven { setUrl("https://dl.bintray.com/ibm-cloud-sdks/ibm-cloud-sdk-repo") }
@@ -45,10 +44,6 @@ subprojects {
 
 buildscript {
     dependencies {
-        // Overrides the R8 8.13 that AGP 8.13 bundles, whose kotlin-metadata-jvm only
-        // parses kotlin.Metadata up to 2.3.0. The Kotlin 2.4.0 deps carry metadata 2.4.0,
-        // which that R8 reports as malformed and leaves unrewritten. R8 9.x reads 2.4.0.
-        classpath("com.android.tools:r8:9.1.31")
         classpath("com.github.ben-manes:gradle-versions-plugin:0.52.0")
         classpath("com.google.gms:google-services:4.4.4")
         classpath("app.cash.sqldelight:gradle-plugin:${BuildPluginsVersion.SQLDELIGHT}")
@@ -164,5 +159,5 @@ if (isMacOs) {
 }
 
 tasks.register("clean", Delete::class) {
-    delete(rootProject.buildDir)
+    delete(rootProject.layout.buildDirectory)
 }

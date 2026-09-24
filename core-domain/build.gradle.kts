@@ -65,7 +65,7 @@ kotlin {
 
 android {
     namespace = "eu.kanade.tachiyomi.core.domain"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         minSdk = 21

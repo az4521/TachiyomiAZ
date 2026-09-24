@@ -32,7 +32,7 @@ ext {
 }
 
 android {
-    compileSdkVersion 36
+    compileSdk 37
     namespace "eu.kanade.tachiyomi"
 
     defaultConfig {
@@ -72,20 +72,20 @@ android {
             minifyEnabled true
             shrinkResources true
             zipAlignEnabled true
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
         releaseTest {
             applicationIdSuffix ".rt"
 //            minifyEnabled true
 //            shrinkResources true
 //            zipAlignEnabled true
-//            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+//            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
         release {
             minifyEnabled true
             shrinkResources true
             zipAlignEnabled true
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             signingConfig signingConfigs.debug
         }
     }
@@ -438,7 +438,6 @@ buildscript {
 
 repositories {
     mavenCentral()
-    jcenter()
 }
 
 // See https://kotlinlang.org/docs/reference/experimental.html#experimental-status-of-experimental-api-markers
