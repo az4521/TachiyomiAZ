@@ -21,7 +21,6 @@ import com.elvishew.xlog.printer.file.FilePrinter
 import com.elvishew.xlog.printer.file.backup.NeverBackupStrategy
 import com.elvishew.xlog.printer.file.clean.FileLastModifiedCleanStrategy
 import com.elvishew.xlog.printer.file.naming.DateFileNameGenerator
-import com.github.ajalt.reprint.core.Reprint
 import com.google.android.gms.common.GooglePlayServicesNotAvailableException
 import com.google.android.gms.common.GooglePlayServicesRepairableException
 import com.google.android.gms.security.ProviderInstaller
@@ -91,7 +90,6 @@ open class App : Application(), LifecycleObserver {
         setupNotificationChannels()
         Realm.init(this)
         GlobalScope.launch { deleteOldMetadataRealm() } // Delete old metadata DB (EH)
-        Reprint.initialize(this) // Setup fingerprint (EH)
         if ((BuildConfig.DEBUG || BuildConfig.BUILD_TYPE == "releaseTest") && DebugToggles.ENABLE_DEBUG_OVERLAY.enabled) {
             setupDebugOverlay()
         }

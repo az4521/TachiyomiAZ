@@ -1,14 +1,13 @@
 package exh.ui.lock
 
-import android.annotation.SuppressLint
 import android.util.TypedValue
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.biometric.BiometricPrompt
+import androidx.fragment.app.FragmentActivity
 import com.afollestad.materialdialogs.MaterialDialog
 import com.andrognito.pinlockview.PinLockListener
-import com.github.ajalt.reprint.core.AuthenticationResult
-import com.github.ajalt.reprint.rxjava.RxReprint
 import com.mattprecious.swirl.SwirlView
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
@@ -19,6 +18,8 @@ import uy.kohesive.injekt.injectLazy
 
 class LockController : NucleusController<ActivityLockBinding, LockPresenter>() {
     val prefs: PreferencesHelper by injectLazy()
+
+    private var biometricPrompt: BiometricPrompt? = null
 
     override fun inflateView(
         inflater: LayoutInflater,
@@ -74,13 +75,12 @@ class LockController : NucleusController<ActivityLockBinding, LockPresenter>() {
         }
     }
 
-    @SuppressLint("NewApi")
     override fun onAttach(view: View) {
         super.onAttach(view)
 
         with(view) {
             // Fingerprint
-            if (presenter.useFingerprint) {
+            if (presenter.useFingerprint(context)) {
                 binding.swirlContainer.visibility = View.VISIBLE
                 binding.swirlContainer.removeAllViews()
                 val icon =
@@ -109,28 +109,37 @@ class LockController : NucleusController<ActivityLockBinding, LockPresenter>() {
                         setState(SwirlView.State.OFF, true)
                     }
                 binding.swirlContainer.addView(icon)
-                icon.setState(SwirlView.State.ON)
-                RxReprint.authenticate()
-                    .subscribeUntilDetach {
-                        when (it.status) {
-                            AuthenticationResult.Status.SUCCESS -> closeLock()
-                            AuthenticationResult.Status.NONFATAL_FAILURE -> icon.setState(SwirlView.State.ERROR)
-                            AuthenticationResult.Status.FATAL_FAILURE, null -> {
-                                MaterialDialog(context)
-                                    .title(text = "Fingerprint error!")
-                                    .message(text = it.errorMessage)
-                                    .cancelable(false)
-                                    .cancelOnTouchOutside(false)
-                                    .positiveButton(android.R.string.ok)
-                                    .show()
-                                icon.setState(SwirlView.State.OFF)
-                            }
-                        }
-                    }
+                // The system prompt covers the PIN pad; dismissing it falls back to the PIN, and
+                // tapping the icon brings the prompt back.
+                icon.setOnClickListener { showBiometricPrompt(icon) }
+                showBiometricPrompt(icon)
             } else {
                 binding.swirlContainer.visibility = View.GONE
             }
         }
+    }
+
+    private fun showBiometricPrompt(icon: SwirlView) {
+        val activity = activity as? FragmentActivity ?: return
+        biometricPrompt?.cancelAuthentication()
+        icon.setState(SwirlView.State.ON)
+        biometricPrompt =
+            BiometricLock.authenticate(
+                activity,
+                title = "Unlock",
+                negativeButtonText = "Use PIN",
+                onSuccess = { closeLock() },
+                onError = { message ->
+                    MaterialDialog(activity)
+                        .title(text = "Fingerprint error!")
+                        .message(text = message)
+                        .cancelable(false)
+                        .cancelOnTouchOutside(false)
+                        .positiveButton(android.R.string.ok)
+                        .show()
+                    icon.setState(SwirlView.State.ERROR)
+                }
+            )
     }
 
     private fun resolvColor(color: Int): Int {
@@ -140,6 +149,8 @@ class LockController : NucleusController<ActivityLockBinding, LockPresenter>() {
     }
 
     override fun onDetach(view: View) {
+        biometricPrompt?.cancelAuthentication()
+        biometricPrompt = null
         super.onDetach(view)
     }
 

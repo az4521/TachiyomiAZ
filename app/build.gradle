@@ -375,9 +375,8 @@ dependencies {
     // Pin lock view (EH)
     implementation 'com.github.jawnnypoo:pinlockview:2.2.0'
 
-    // Reprint (EH)
-    implementation 'com.github.ajalt.reprint:core:3.2.1@aar'
-    implementation 'com.github.ajalt.reprint:rxjava:3.2.1@aar' // optional: the RxJava 1 interface
+    // Fingerprint lock (EH)
+    implementation 'androidx.biometric:biometric:1.1.0'
 
     // Swirl (EH)
     implementation 'com.mattprecious.swirl:swirl:1.2.0'

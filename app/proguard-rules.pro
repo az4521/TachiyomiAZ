@@ -2,8 +2,8 @@
 # AGP 9 only accepts proguard-android-optimize.txt; this keeps the old proguard-android.txt behavior.
 -dontoptimize
 
-# FingerprintManager is gone from the compileSdk 37 stubs but still exists on devices, where
-# Reprint's Marshmallow module uses it.
+# FingerprintManager is gone from the compileSdk 37 stubs. androidx.biometric only falls back to it
+# on Android 6-8, which all have it; newer versions go through BiometricPrompt instead.
 -dontwarn android.hardware.fingerprint.**
 
 # Keep extension's common dependencies
