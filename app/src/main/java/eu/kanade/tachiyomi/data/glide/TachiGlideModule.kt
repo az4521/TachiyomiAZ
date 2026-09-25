@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.data.glide
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.drawable.Drawable
+import android.os.Build
 import com.bumptech.glide.Glide
 import com.bumptech.glide.GlideBuilder
 import com.bumptech.glide.Registry
@@ -11,6 +12,7 @@ import com.bumptech.glide.integration.okhttp3.OkHttpUrlLoader
 import com.bumptech.glide.load.DecodeFormat
 import com.bumptech.glide.load.engine.cache.InternalCacheDiskCacheFactory
 import com.bumptech.glide.load.model.GlideUrl
+import com.bumptech.glide.load.resource.bitmap.ExifInterfaceImageHeaderParser
 import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions
 import com.bumptech.glide.module.AppGlideModule
 import com.bumptech.glide.request.RequestOptions
@@ -42,6 +44,16 @@ class TachiGlideModule : AppGlideModule() {
         glide: Glide,
         registry: Registry
     ) {
+        // The decoders share this list, so the parser has to be swapped in place.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            val parsers = registry.imageHeaderParsers
+            parsers.forEachIndexed { i, parser ->
+                if (parser is ExifInterfaceImageHeaderParser) {
+                    parsers[i] = BoundedImageHeaderParser(parser)
+                }
+            }
+        }
+
         val networkFactory = OkHttpUrlLoader.Factory(Injekt.get<NetworkHelper>().client)
 
         registry.replace(

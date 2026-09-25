@@ -9,6 +9,7 @@ import com.bumptech.glide.load.engine.Resource
 import com.bumptech.glide.load.engine.bitmap_recycle.BitmapPool
 import com.bumptech.glide.load.resource.bitmap.BitmapResource
 import com.bumptech.glide.load.resource.bitmap.Downsampler
+import com.bumptech.glide.util.ByteBufferUtil
 import eu.kanade.tachiyomi.util.system.ImageUtil
 import tachiyomi.decoder.ImageDecoder
 import java.io.ByteArrayInputStream
@@ -59,16 +60,22 @@ class TachiyomiImageDecoderGlideWrapper {
             source: ByteBuffer,
             options: Options
         ): Boolean {
-            val sourceCopy = ByteArray(source.remaining())
-            source.get(sourceCopy)
-            return streamDecoder.handles(ByteArrayInputStream(sourceCopy), options)
+            // The type is sniffed from the header, so only copy that much.
+            val header = ByteArray(minOf(HEADER_SIZE, source.remaining()))
+            source.duplicate().get(header)
+            return streamDecoder.handles(ByteArrayInputStream(header), options)
         }
 
+        // Disk-cached files arrive as memory-mapped buffers, which have no backing array.
         override fun decode(
             source: ByteBuffer,
             width: Int,
             height: Int,
             options: Options
-        ): Resource<Bitmap>? = streamDecoder.decode(ByteArrayInputStream(source.array()), width, height, options)
+        ): Resource<Bitmap>? = streamDecoder.decode(ByteBufferUtil.toStream(source), width, height, options)
+
+        private companion object {
+            const val HEADER_SIZE = 32
+        }
     }
 }
