@@ -37,12 +37,10 @@ class LibraryCategoryAdapter(view: LibraryCategoryView, val controller: LibraryC
     private val searchEngine = SearchEngine()
     private var lastFilterJob: Job? = null
 
-    // Keep compatibility as searchText field was replaced when we upgraded FlexibleAdapter
-    var searchText
-        get() = getFilter(String::class.java) ?: ""
-        set(value) {
-            setFilter(value)
-        }
+    // Held here rather than through setFilter: with a filter set, upstream FlexibleAdapter's
+    // updateDataSet re-filters the list itself, handing LibraryItem.filter this bare String.
+    // performFilter below does all the filtering.
+    var searchText = ""
     // EXH <--
 
     /**
