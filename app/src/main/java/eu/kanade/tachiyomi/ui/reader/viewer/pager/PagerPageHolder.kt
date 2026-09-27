@@ -269,7 +269,9 @@ class PagerPageHolder(
                         withIOContext {
                             val stream = streamFn().buffered(16)
                             openStream = stream
-                            ImageUtil.isAnimatedAndSupported(stream)
+                            ImageUtil.isAnimatedAndSupported(stream).also { animated ->
+                                if (animated) openStream = ImageUtil.clampWebpFrameDurations(stream)
+                            }
                         }
 
                     if (!isAnimated) {

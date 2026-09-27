@@ -86,6 +86,42 @@ object ImageUtil {
             bytes[20].toInt() and 0x02 != 0
     }
 
+    /**
+     * Chrome plays animation frames of 10 ms or less at 100 ms, as does Glide's GIF decoder, so
+     * encoders write 0 and rely on it. The platform decoder behind animated WebP plays them as fast
+     * as it can instead. If [stream] is a WebP it is read to the end, closed and returned from memory
+     * with those frames set to 100 ms; any other stream is returned untouched.
+     */
+    fun clampWebpFrameDurations(stream: InputStream): InputStream {
+        if (findImageType(stream) != ImageType.WEBP) return stream
+        val bytes = stream.use { it.readBytes() }
+        // Chunks follow the 12-byte RIFF header and are padded to an even size.
+        var offset = 12L
+        while (offset + 8 <= bytes.size) {
+            val chunk = offset.toInt()
+            val size = bytes.readLittleEndian(chunk + 4, 4)
+            // The frame duration is 24 bits, 12 bytes into the ANMF payload.
+            val duration = chunk + 20
+            if (bytes.compareWith("ANMF".toByteArray(), chunk) && duration + 3 <= bytes.size &&
+                bytes.readLittleEndian(duration, 3) <= 10L
+            ) {
+                bytes[duration] = 100
+                bytes[duration + 1] = 0
+                bytes[duration + 2] = 0
+            }
+            offset += 8 + size + (size and 1)
+        }
+        return bytes.inputStream()
+    }
+
+    private fun ByteArray.readLittleEndian(offset: Int, length: Int): Long {
+        var value = 0L
+        for (i in length - 1 downTo 0) {
+            value = (value shl 8) or (this[offset + i].toLong() and 0xFF)
+        }
+        return value
+    }
+
     private fun getImageType(stream: InputStream): tachiyomi.decoder.ImageType? {
         val bytes = ByteArray(32)
 
