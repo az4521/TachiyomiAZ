@@ -72,13 +72,18 @@ class TachiGlideModule : AppGlideModule() {
             PassthroughModelLoader.Factory()
         )
 
+        // Prepend into the Bitmap bucket rather than ahead of every bucket. Unbucketed, these put
+        // Bitmap first in line for asDrawable() loads, so the Downsampler decoded a GIF or animated
+        // WebP to a still frame before the animation decoders were ever tried.
         registry.prepend(
+            Registry.BUCKET_BITMAP,
             ByteBuffer::class.java,
             Bitmap::class.java,
             TachiyomiImageDecoderGlideWrapper.ByteBufferDecoder(glide.bitmapPool)
         )
 
         registry.prepend(
+            Registry.BUCKET_BITMAP,
             InputStream::class.java,
             Bitmap::class.java,
             TachiyomiImageDecoderGlideWrapper.InputStreamDecoder(glide.bitmapPool)
