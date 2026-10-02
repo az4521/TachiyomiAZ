@@ -13,6 +13,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -133,7 +134,8 @@ class ChapterCache(private val context: Context) {
 
         // Convert JSON string to list of objects. Throws an exception if snapshot is null
         return diskCache.get(key).use {
-            json.decodeFromString(it.getString(0))
+            json.decodeFromString<List<CachedPage>>(it.getString(0))
+                .map { page -> Page(page.index, page.url, page.imageUrl) }
         }
     }
 
@@ -148,7 +150,7 @@ class ChapterCache(private val context: Context) {
         pages: List<Page>
     ) {
         // Convert list of pages to json string.
-        val cachedValue = json.encodeToString(pages)
+        val cachedValue = json.encodeToString(pages.map { CachedPage(it.index, it.url, it.imageUrl) })
 
         // Initialize the editor (edits the values for an entry).
         var editor: DiskLruCache.Editor? = null
@@ -246,4 +248,17 @@ class ChapterCache(private val context: Context) {
     private fun getKey(chapter: Chapter): String {
         return "${chapter.manga_id}${chapter.url}"
     }
+
+    /**
+     * What a cached page list stores. [Page] has no serializer, so encoding it directly threw and
+     * the list was silently never cached; sources whose image URLs change per request (E-Hentai)
+     * then missed every cached image on reopen. The field names match what Gson wrote, so lists
+     * cached by older builds still load.
+     */
+    @Serializable
+    private class CachedPage(
+        val index: Int,
+        val url: String = "",
+        val imageUrl: String? = null
+    )
 }
