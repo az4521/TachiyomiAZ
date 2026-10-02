@@ -50,8 +50,9 @@ lastInsertRowId:
 SELECT last_insert_rowid();
 
 -- Recently read manga, one row per manga at its most recently read chapter.
--- offset/limit and the search term were interpolated into the raw SQL before; they are bind
--- parameters now, so the query is static and SQLDelight can type it.
+-- offset/limit were interpolated into the raw SQL before; they are bind parameters now, so the
+-- query is static and SQLDelight can type it. Title search is done by the caller: SQLite's
+-- lower() and LIKE only fold ASCII, so non-Latin titles (e.g. Cyrillic) matched case-sensitively.
 getRecentMangas:
 SELECT
     mangas._id AS m_id, mangas.source AS m_source, mangas.url AS mangaUrl,
@@ -76,6 +77,5 @@ JOIN (
 ON chapters.manga_id = max_last_read.manga_id
 WHERE history.history_last_read > :after
 AND max_last_read.history_chapter_id = history.history_chapter_id
-AND lower(mangas.title) LIKE ('%' || :search || '%')
 ORDER BY max_last_read.history_last_read DESC
 LIMIT :limit OFFSET :offset;

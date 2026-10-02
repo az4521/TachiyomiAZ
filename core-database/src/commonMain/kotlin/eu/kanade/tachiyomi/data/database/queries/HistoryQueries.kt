@@ -9,6 +9,7 @@ import eu.kanade.tachiyomi.data.database.models.History
 import eu.kanade.tachiyomi.data.database.models.MangaChapterHistory
 import eu.kanade.tachiyomi.data.database.databaseDispatcher
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 
 interface HistoryQueries : DbProvider {
     /**
@@ -35,19 +36,17 @@ interface HistoryQueries : DbProvider {
         offset: Int = 0,
         search: String = ""
     ): List<MangaChapterHistory> =
-        sqlDatabase.historyQueries
-            .getRecentMangas(date, search.lowercase(), 25, offset.toLong(), ::mapMangaChapterHistory)
-            .executeAsList()
+        recentMangaQuery(date, 25, offset, search).executeAsList().searchPage(25, offset, search)
 
     fun getRecentMangaAsFlow(
         date: Long,
         offset: Int = 0,
         search: String = ""
     ): Flow<List<MangaChapterHistory>> =
-        sqlDatabase.historyQueries
-            .getRecentMangas(date, search.lowercase(), 25, offset.toLong(), ::mapMangaChapterHistory)
+        recentMangaQuery(date, 25, offset, search)
             .asFlow()
             .mapToList(databaseDispatcher)
+            .map { it.searchPage(25, offset, search) }
 
     /**
      * Same query with an explicit row limit rather than a fixed page of 25.
@@ -57,19 +56,43 @@ interface HistoryQueries : DbProvider {
         limit: Int = 0,
         search: String = ""
     ): List<MangaChapterHistory> =
-        sqlDatabase.historyQueries
-            .getRecentMangas(date, search.lowercase(), limit.toLong(), 0, ::mapMangaChapterHistory)
-            .executeAsList()
+        recentMangaQuery(date, limit, 0, search).executeAsList().searchPage(limit, 0, search)
 
     fun getRecentMangaLimitAsFlow(
         date: Long,
         limit: Int = 0,
         search: String = ""
     ): Flow<List<MangaChapterHistory>> =
-        sqlDatabase.historyQueries
-            .getRecentMangas(date, search.lowercase(), limit.toLong(), 0, ::mapMangaChapterHistory)
+        recentMangaQuery(date, limit, 0, search)
             .asFlow()
             .mapToList(databaseDispatcher)
+            .map { it.searchPage(limit, 0, search) }
+
+    /**
+     * SQLite's LIKE only case-folds ASCII, so a search matches titles here instead: it fetches
+     * every row (LIMIT -1) and [searchPage] filters and pages them. Unsearched queries page in SQL.
+     */
+    private fun recentMangaQuery(date: Long, limit: Int, offset: Int, search: String) =
+        if (search.isEmpty()) {
+            sqlDatabase.historyQueries
+                .getRecentMangas(date, limit.toLong(), offset.toLong(), ::mapMangaChapterHistory)
+        } else {
+            sqlDatabase.historyQueries
+                .getRecentMangas(date, -1, 0, ::mapMangaChapterHistory)
+        }
+
+    private fun List<MangaChapterHistory>.searchPage(
+        limit: Int,
+        offset: Int,
+        search: String
+    ): List<MangaChapterHistory> =
+        if (search.isEmpty()) {
+            this
+        } else {
+            filter { it.manga.title.contains(search, ignoreCase = true) }
+                .drop(offset)
+                .take(limit)
+        }
 
     /** Every history row, for whole-library reporting such as the reading statistics. */
     fun getAllHistory(): List<History> =
