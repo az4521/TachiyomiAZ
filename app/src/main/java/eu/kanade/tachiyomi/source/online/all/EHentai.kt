@@ -135,6 +135,9 @@ class EHentai(
                             // TODO Parse genre + uploader + tags
                         }
                     )
+                }.ifEmpty {
+                    selectFirst(".searchwarn")?.let { throw Exception(it.text()) }
+                    emptyList()
                 }.let { // reverse the list if the filter is on, making the pager work
                     if (containsReverseParam) it.reversed() else it
                 }
@@ -144,13 +147,13 @@ class EHentai(
                 if (parsedLocation == null ||
                     !containsReverseParam
                 ) {
-                    select("a[onclick=return false]").last()
-                        ?.let {
-                            it.text() == ">"
-                        } ?: select(".searchnav >div > a")
-                        .find { it.attr("href").contains("next") }
-                        ?.let { true }
-                        ?: false
+                    if (parsedLocation?.pathSegments?.contains("toplist.php") == true) {
+                        // Toplists use numbered pager links instead of cursor links
+                        select("a[onclick=return false]").last()?.text() == ">"
+                    } else {
+                        select(".searchnav >div > a")
+                            .any { it.attr("href").contains("next") }
+                    }
                 } else {
                     select("#uprev").firstOrNull()?.hasAttr("href") ?: false
                 }
