@@ -138,31 +138,31 @@ class FavoritesSyncHelper(val context: Context) {
             EHentaiUpdateWorker.cancelBackground(context)
 
             storage.getRealm().use { realm ->
+                // Do not wrap this in a db transaction: adding a gallery fetches its details on another
+                // thread, which writes metadata and would wait forever on a transaction held here
                 realm.trans {
-                    db.inTransaction {
-                        status.onNext(FavoritesSyncStatus.Processing("Calculating remote changes"))
-                        val remoteChanges = storage.getChangedRemoteEntries(realm, favorites.first)
-                        val localChanges =
-                            if (prefs.eh_readOnlySync().get()) {
-                                null // Do not build local changes if they are not going to be applied
-                            } else {
-                                status.onNext(FavoritesSyncStatus.Processing("Calculating local changes"))
-                                storage.getChangedDbEntries(realm)
-                            }
-
-                        // Apply remote categories
-                        status.onNext(FavoritesSyncStatus.Processing("Updating category names"))
-                        applyRemoteCategories(errorList, favorites.second)
-
-                        // Apply change sets
-                        applyChangeSetToLocal(errorList, remoteChanges)
-                        if (localChanges != null) {
-                            applyChangeSetToRemote(errorList, localChanges)
+                    status.onNext(FavoritesSyncStatus.Processing("Calculating remote changes"))
+                    val remoteChanges = storage.getChangedRemoteEntries(realm, favorites.first)
+                    val localChanges =
+                        if (prefs.eh_readOnlySync().get()) {
+                            null // Do not build local changes if they are not going to be applied
+                        } else {
+                            status.onNext(FavoritesSyncStatus.Processing("Calculating local changes"))
+                            storage.getChangedDbEntries(realm)
                         }
 
-                        status.onNext(FavoritesSyncStatus.Processing("Cleaning up"))
-                        storage.snapshotEntries(realm)
+                    // Apply remote categories
+                    status.onNext(FavoritesSyncStatus.Processing("Updating category names"))
+                    applyRemoteCategories(errorList, favorites.second)
+
+                    // Apply change sets
+                    applyChangeSetToLocal(errorList, remoteChanges)
+                    if (localChanges != null) {
+                        applyChangeSetToRemote(errorList, localChanges)
                     }
+
+                    status.onNext(FavoritesSyncStatus.Processing("Cleaning up"))
+                    storage.snapshotEntries(realm)
                 }
             }
 
