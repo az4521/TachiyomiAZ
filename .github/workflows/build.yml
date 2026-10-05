@@ -56,18 +56,18 @@ jobs:
           arguments: checkSharedPortability
 
       # Builds both API-level variants from the same code:
-      #   standardApi21Release -> Android 5/6 (minSdk 21)
-      #   standardApi24Release -> Android 7+  (minSdk 24)
+      #   standardApi21Release -> Android 5-7 (minSdk 21)
+      #   standardApi26Release -> Android 8+  (minSdk 26)
       - name: Build APKs
         uses: gradle/gradle-command-action@v2
         with:
-          arguments: assembleStandardApi21Release assembleStandardApi24Release
+          arguments: assembleStandardApi21Release assembleStandardApi26Release
 
       - name: Setup Android SDK
         run: |
           ${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager "build-tools;29.0.3"
 
-      - name: Sign Android 5/6 (api21) release
+      - name: Sign Android 5-7 (api21) release
         id: sign_android5
         uses: r0adkll/sign-android-release@v1
         with:
@@ -77,24 +77,24 @@ jobs:
           keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
           keyPassword: ${{ secrets.KEY_PASSWORD }}
 
-      - name: Sign Android 7+ (api24) release
-        id: sign_android7
+      - name: Sign Android 8+ (api26) release
+        id: sign_android8
         uses: r0adkll/sign-android-release@v1
         with:
-          releaseDirectory: app/build/outputs/apk/standardApi24/release
+          releaseDirectory: app/build/outputs/apk/standardApi26/release
           signingKeyBase64: ${{ secrets.SIGNING_KEY }}
           alias: ${{ secrets.ALIAS }}
           keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
           keyPassword: ${{ secrets.KEY_PASSWORD }}
 
-      - name: Upload Android 5/6 APK (minSdk 21)
+      - name: Upload Android 5-7 APK (minSdk 21)
         uses: actions/upload-artifact@v4
         with:
           name: TachiyomiAZ-android5-${{ github.sha }}
           path: ${{ steps.sign_android5.outputs.signedReleaseFile }}
 
-      - name: Upload Android 7+ APK (minSdk 24)
+      - name: Upload Android 8+ APK (minSdk 26)
         uses: actions/upload-artifact@v4
         with:
-          name: TachiyomiAZ-android7-${{ github.sha }}
-          path: ${{ steps.sign_android7.outputs.signedReleaseFile }}
+          name: TachiyomiAZ-android8-${{ github.sha }}
+          path: ${{ steps.sign_android8.outputs.signedReleaseFile }}

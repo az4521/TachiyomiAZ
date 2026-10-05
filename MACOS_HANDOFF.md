@@ -46,7 +46,7 @@ Three KMP modules, 88 files, 62 tests.
 
 ```bash
 ./gradlew checkSharedPortability      # metadata compile + tests, ~7s, no Apple toolchain
-./gradlew assembleStandardApi24Debug  # full APK, R8 included
+./gradlew assembleStandardApi26Debug  # full APK, R8 included
 ```
 
 Both pass on Windows. Worth running both on the Mac early, to confirm nothing

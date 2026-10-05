@@ -22,9 +22,9 @@ class GithubRelease(
     /**
      * Get the download link for the APK matching this build's variant.
      *
-     * A release ships two APKs (android5 = minSdk 21, android7 = minSdk 24). Pick the
+     * A release ships two APKs (android5 = minSdk 21, android8 = minSdk 26). Pick the
      * one whose file name contains this build's [BuildConfig.APK_VARIANT] so an install
-     * of the Android 5/6 build doesn't pull the Android 7+ APK (which it can't install)
+     * of the Android 5-7 build doesn't pull the Android 8+ APK (which it can't install)
      * and vice versa. Falls back to the first asset if no match is found.
      */
     override val downloadLink: String

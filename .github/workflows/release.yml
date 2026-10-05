@@ -1,8 +1,8 @@
 name: Publish Release
 
 # Publishes a GitHub release whenever the versionName in app/build.gradle changes.
-# The release ships two APKs (Android 5/6 + Android 7+); the in-app updater picks
-# the one matching each install via the "android5"/"android7" marker in the file name.
+# The release ships two APKs (Android 5-7 + Android 8+); the in-app updater picks
+# the one matching each install via the "android5"/"android8" marker in the file name.
 on:
   push:
     branches:
@@ -76,13 +76,13 @@ jobs:
       - name: Build APKs
         uses: gradle/gradle-command-action@v2
         with:
-          arguments: assembleStandardApi21Release assembleStandardApi24Release
+          arguments: assembleStandardApi21Release assembleStandardApi26Release
 
       - name: Setup Android SDK
         run: |
           ${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager "build-tools;29.0.3"
 
-      - name: Sign Android 5/6 (api21) release
+      - name: Sign Android 5-7 (api21) release
         id: sign_android5
         uses: r0adkll/sign-android-release@v1
         with:
@@ -92,11 +92,11 @@ jobs:
           keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
           keyPassword: ${{ secrets.KEY_PASSWORD }}
 
-      - name: Sign Android 7+ (api24) release
-        id: sign_android7
+      - name: Sign Android 8+ (api26) release
+        id: sign_android8
         uses: r0adkll/sign-android-release@v1
         with:
-          releaseDirectory: app/build/outputs/apk/standardApi24/release
+          releaseDirectory: app/build/outputs/apk/standardApi26/release
           signingKeyBase64: ${{ secrets.SIGNING_KEY }}
           alias: ${{ secrets.ALIAS }}
           keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
@@ -107,15 +107,17 @@ jobs:
       # API returns assets ordered by NAME (alphabetically), NOT by upload order, so the
       # first asset is simply the alphabetically-first file name.
       #
-      # The old app only auto-updates on Android 7+, so the android7 APK must sort first.
-      # Both names still contain the "android5"/"android7" marker that the new
-      # variant-aware updater (GithubRelease.downloadLink) matches BuildConfig.APK_VARIANT
-      # against. The android5 build is prefixed "legacy-" so it sorts AFTER android7
-      # ("android7" < "legacy-android5"), while remaining clearly labeled.
+      # The old app only auto-updates on Android 7+, so the android8 APK must sort first.
+      # Both names contain the "android5"/"android8" marker that the variant-aware updater
+      # (GithubRelease.downloadLink) matches BuildConfig.APK_VARIANT against. Installs of
+      # the old "android7" build find no match and fall back to assets[0] as well, which
+      # is right on Android 8+; on Android 7 that APK won't install, so those users have
+      # to switch to the legacy build by hand. The android5 build is prefixed "legacy-"
+      # so it sorts AFTER android8 ("android8" < "legacy-android5").
       - name: Collect release assets
         run: |
           mkdir -p release-assets
-          cp "${{ steps.sign_android7.outputs.signedReleaseFile }}" "release-assets/TachiyomiAZ-${VERSION}-android7.apk"
+          cp "${{ steps.sign_android8.outputs.signedReleaseFile }}" "release-assets/TachiyomiAZ-${VERSION}-android8.apk"
           cp "${{ steps.sign_android5.outputs.signedReleaseFile }}" "release-assets/TachiyomiAZ-${VERSION}-legacy-android5.apk"
           ls -l release-assets
 
@@ -128,5 +130,5 @@ jobs:
             --target "$GITHUB_SHA" \
             --title "$VERSION" \
             --generate-notes \
-            release-assets/TachiyomiAZ-${VERSION}-android7.apk \
+            release-assets/TachiyomiAZ-${VERSION}-android8.apk \
             release-assets/TachiyomiAZ-${VERSION}-legacy-android5.apk
