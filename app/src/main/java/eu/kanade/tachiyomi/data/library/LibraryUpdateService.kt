@@ -300,8 +300,10 @@ class LibraryUpdateService(
             val updated =
                 try {
                     updateManga(manga)
-                } catch (e: Exception) {
-                    // If there's any error, record it and continue.
+                } catch (e: Throwable) {
+                    // If there's any error, record it and continue. Throwable, not Exception:
+                    // an extension that links against an API we don't ship throws a
+                    // LinkageError, which would otherwise take the whole app down.
                     failedUpdates.add(Pair(manga, e.message))
                     Pair(emptyList(), emptyList())
                 }
@@ -403,7 +405,7 @@ class LibraryUpdateService(
                 manga.saveMangaUpdate(update.manga, db, coverCache, updateMetadata = true)
                 // Sources may hand back chapters even though they weren't asked for.
                 syncChaptersFromUpdate(db, update, manga, source)
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 // Matches the previous onErrorReturn: keep going through the library.
                 Timber.e(e)
             }
@@ -442,7 +444,7 @@ class LibraryUpdateService(
                 }
                 // Sources may hand back chapters even though they weren't asked for.
                 syncChaptersFromUpdate(db, update, manga, source)
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 // Matches the previous onErrorReturn: keep going through the library.
                 Timber.e(e)
             }
@@ -473,7 +475,7 @@ class LibraryUpdateService(
                     try {
                         val updatedTrack = service.refresh(track)
                         db.insertTrack(updatedTrack)
-                    } catch (e: Exception) {
+                    } catch (e: Throwable) {
                         // Matches the previous onErrorReturn: one tracker failing must not
                         // abort the rest of the library.
                         Timber.e(e)
