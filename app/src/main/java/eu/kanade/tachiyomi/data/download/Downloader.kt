@@ -280,7 +280,7 @@ class Downloader(
         val wasEmpty = queue.isEmpty()
         // Called in background thread, the operation can be slow with SAF.
         val chaptersWithoutDir =
-            async {
+            async(Dispatchers.IO) {
                 chapters
                     // Filter out those already downloaded.
                     .filter { provider.findChapterDir(it, manga, source) == null }

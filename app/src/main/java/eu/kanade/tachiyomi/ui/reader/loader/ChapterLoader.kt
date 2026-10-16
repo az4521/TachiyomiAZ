@@ -37,7 +37,9 @@ class ChapterLoader(
         try {
             Timber.d("Loading pages for ${chapter.chapter.name}")
 
-            val loader = getPageLoader(chapter)
+            // Finding a download lists its source directory, which is slow with SAF and many
+            // galleries, so this has to stay off the main thread.
+            val loader = withIOContext { getPageLoader(chapter) }
             chapter.pageLoader = loader
 
             val pages =
@@ -91,9 +93,9 @@ class ChapterLoader(
      * Returns the page loader to use for this [chapter].
      */
     private fun getPageLoader(chapter: ReaderChapter): PageLoader {
-        val isDownloaded = downloadManager.isChapterDownloaded(chapter.chapter, manga, true)
+        val chapterDir = downloadManager.findChapterDir(chapter.chapter, manga, source)
         return when {
-            isDownloaded -> DownloadPageLoader(chapter, manga, source, downloadManager)
+            chapterDir != null -> DownloadPageLoader(chapterDir, downloadManager)
             source is HttpSource -> HttpPageLoader(chapter, source)
             source is LocalSource ->
                 source.getFormat(chapter.chapter).let { format ->

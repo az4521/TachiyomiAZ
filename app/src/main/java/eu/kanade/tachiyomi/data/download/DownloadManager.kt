@@ -132,19 +132,19 @@ class DownloadManager(private val context: Context) {
     }
 
     /**
-     * Builds the page list of a downloaded chapter.
+     * Returns the directory [chapter] is downloaded to, or null if it isn't downloaded. This checks
+     * the filesystem, not the cache, so it is slow with SAF and must not run on the main thread.
      *
-     * @param source the source of the chapter.
+     * @param chapter the chapter to query.
      * @param manga the manga of the chapter.
-     * @param chapter the downloaded chapter.
-     * @return an observable containing the list of pages from the chapter.
+     * @param source the source of the chapter.
      */
-    fun buildPageList(
-        source: Source,
+    fun findChapterDir(
+        chapter: Chapter,
         manga: Manga,
-        chapter: Chapter
-    ): List<Page> {
-        return buildPageList(provider.findChapterDir(chapter, manga, source))
+        source: Source
+    ): UniFile? {
+        return provider.findChapterDir(chapter, manga, source)
     }
 
     /**
@@ -153,7 +153,7 @@ class DownloadManager(private val context: Context) {
      * @param chapterDir the file where the chapter is downloaded.
      * @return an observable containing the list of pages from the chapter.
      */
-    private fun buildPageList(chapterDir: UniFile?): List<Page> {
+    fun buildPageList(chapterDir: UniFile?): List<Page> {
         val files =
             chapterDir?.listFiles().orEmpty()
                 .filter { "image" in it.type.orEmpty() }

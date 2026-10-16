@@ -68,14 +68,11 @@ class DownloadProvider(private val context: Context) {
      * @param source the source to query.
      */
     fun findSourceDir(source: Source): UniFile? {
-        return getValidSourceDirNames(source).asSequence()
-            .mapNotNull { downloadsDir.findFile(it) }
-            .firstOrNull()
+        return findSourceDirs(source).firstOrNull()
     }
 
-    fun findSourceDirs(source: Source): List<UniFile?> {
-        return getValidSourceDirNames(source).asSequence()
-            .mapNotNull { downloadsDir.findFile(it) }.toList()
+    fun findSourceDirs(source: Source): List<UniFile> {
+        return listOf(downloadsDir).findChildren(getValidSourceDirNames(source))
     }
 
     /**
@@ -88,36 +85,14 @@ class DownloadProvider(private val context: Context) {
         manga: Manga,
         source: Source
     ): UniFile? {
-        val sourceDirs = findSourceDirs(source)
-        val mangaNames = getValidMangaDirNames(manga)
-
-        return mangaNames.asSequence()
-            .flatMap {
-                    manga ->
-                sourceDirs
-                    .mapNotNull {
-                            source ->
-                        source?.findFile(manga)
-                    }
-            }.firstOrNull()
+        return findMangaDirs(manga, source).firstOrNull()
     }
 
     fun findMangaDirs(
         manga: Manga,
         source: Source
-    ): List<UniFile?> {
-        val sourceDirs = findSourceDirs(source)
-        val mangaNames = getValidMangaDirNames(manga)
-
-        return mangaNames.asSequence()
-            .flatMap {
-                    manga ->
-                sourceDirs
-                    .mapNotNull {
-                            source ->
-                        source?.findFile(manga)
-                    }
-            }.toList()
+    ): List<UniFile> {
+        return findSourceDirs(source).findChildren(getValidMangaDirNames(manga))
     }
 
     /**
@@ -132,18 +107,7 @@ class DownloadProvider(private val context: Context) {
         manga: Manga,
         source: Source
     ): UniFile? {
-        val mangaDirs = findMangaDirs(manga, source)
-        val chapterNames = getValidChapterDirNames(chapter)
-
-        return chapterNames.asSequence()
-            .flatMap {
-                    chapter ->
-                mangaDirs
-                    .mapNotNull {
-                            manga ->
-                        manga?.findFile(chapter)
-                    }
-            }.firstOrNull()
+        return findMangaDirs(manga, source).findChildren(getValidChapterDirNames(chapter)).firstOrNull()
     }
 
     /**
@@ -158,9 +122,39 @@ class DownloadProvider(private val context: Context) {
         manga: Manga,
         source: Source
     ): List<UniFile> {
-        return chapters.mapNotNull { chapter ->
-            findChapterDir(chapter, manga, source)
+        val mangaDirs = findMangaDirs(manga, source)
+        if (mangaDirs.isEmpty()) return emptyList()
+
+        val chapterDirs = mutableMapOf<String, UniFile>()
+        mangaDirs.forEach { dir ->
+            dir.listFiles().orEmpty().forEach { file ->
+                file.name?.let { chapterDirs.putIfAbsent(it, file) }
+            }
         }
+        return chapters.mapNotNull { chapter ->
+            getValidChapterDirNames(chapter).firstNotNullOfOrNull { chapterDirs[it] }
+        }
+    }
+
+    /**
+     * Returns the children of these directories named any of [names], ordered by [names].
+     *
+     * Every lookup on a SAF tree lists the whole directory, and a source directory can hold
+     * thousands of galleries, so each directory is listed once and matched against every name,
+     * instead of being listed once per name. Every name is still tried, so a download made under
+     * either filename setting is found whichever setting is on now. Names are deduplicated only
+     * because an all-ASCII title builds the same name both ways.
+     */
+    private fun List<UniFile>.findChildren(names: List<String>): List<UniFile> {
+        val wanted = names.distinct()
+        return flatMap { dir ->
+            if (wanted.size == 1) {
+                listOfNotNull(dir.findFile(wanted.single()))
+            } else {
+                val children = dir.listFiles().orEmpty().associateBy { it.name }
+                wanted.mapNotNull { children[it] }
+            }
+        }.sortedBy { wanted.indexOf(it.name) }
     }
 
     /**
