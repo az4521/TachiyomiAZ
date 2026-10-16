@@ -229,8 +229,8 @@ class DownloadManager(private val context: Context) {
         val chapterDirs = provider.findChapterDirs(chapters, manga, source)
         chapterDirs.forEach { it.delete() }
         cache.removeChapters(chapters, manga)
-        if (cache.getDownloadCount(manga) == 0) { // Delete manga directory if empty
-            chapterDirs.firstOrNull()?.parentFile?.delete()
+        if (cache.getDownloadCount(manga) == 0) { // Delete manga directories if empty
+            chapterDirs.mapNotNull { it.parentFile }.distinctBy { it.uri }.forEach { it.delete() }
         }
     }
 
@@ -245,7 +245,8 @@ class DownloadManager(private val context: Context) {
         source: Source
     ) {
         queue.remove(manga)
-        provider.findMangaDir(manga, source)?.delete()
+        // One folder for each filename setting the manga was downloaded under.
+        provider.findMangaDirs(manga, source).forEach { it.delete() }
         cache.removeManga(manga)
     }
 
@@ -287,21 +288,21 @@ class DownloadManager(private val context: Context) {
         oldChapter: Chapter,
         newChapter: Chapter
     ) {
-        val oldNames = provider.getValidChapterDirNames(oldChapter)
         val newName = provider.getChapterDirName(newChapter)
-        val mangaDir = provider.getMangaDir(manga, source)
 
-        // Assume there's only 1 version of the chapter name formats present
-        val oldFolder =
-            oldNames.asSequence()
-                .mapNotNull { mangaDir.findFile(it) }
-                .firstOrNull()
+        // Assume there's only 1 version of the chapter name formats present. It may be in the
+        // manga folder of either filename setting, so rename it where it is.
+        val oldFolder = provider.findChapterDir(oldChapter, manga, source)
+        val mangaDir = oldFolder?.parentFile
 
-        if (oldFolder?.renameTo(newName) == true) {
+        if (oldFolder != null && mangaDir != null && oldFolder.renameTo(newName)) {
             cache.removeChapter(oldChapter, manga)
             cache.addChapter(newName, mangaDir, manga)
         } else {
-            Timber.e("Could not rename downloaded chapter: %s.", oldNames.joinToString())
+            Timber.e(
+                "Could not rename downloaded chapter: %s.",
+                provider.getValidChapterDirNames(oldChapter).joinToString()
+            )
         }
     }
 }

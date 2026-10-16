@@ -80,16 +80,11 @@ class DownloadCache(
 
         checkRenew()
 
-        val sourceDir = rootDir.files[manga.source]
-        if (sourceDir != null) {
-            val mangaDir = provider.getValidMangaDirNames(manga).firstNotNullOfOrNull {
-                sourceDir.files[it]
-            }
-            if (mangaDir != null) {
-                return provider.getValidChapterDirNames(chapter).any { it in mangaDir.files }
-            }
+        val sourceDir = rootDir.files[manga.source] ?: return false
+        val chapterDirNames = provider.getValidChapterDirNames(chapter)
+        return sourceDir.mangaDirsOf(manga).any { mangaDir ->
+            chapterDirNames.any { it in mangaDir.files }
         }
-        return false
     }
 
     /**
@@ -113,16 +108,10 @@ class DownloadCache(
     fun getDownloadCount(manga: Manga): Int {
         checkRenew()
 
-        val sourceDir = rootDir.files[manga.source]
-        if (sourceDir != null) {
-            val mangaDir = sourceDir.files[provider.getMangaDirName(manga)]
-            if (mangaDir != null) {
-                return mangaDir.files
-                    .filter { !it.endsWith(Downloader.TMP_DIR_SUFFIX) }
-                    .size
-            }
-        }
-        return 0
+        val sourceDir = rootDir.files[manga.source] ?: return 0
+        return sourceDir.mangaDirsOf(manga)
+            .flatMapTo(HashSet()) { it.files }
+            .count { !it.endsWith(Downloader.TMP_DIR_SUFFIX) }
     }
 
     /**
@@ -144,34 +133,42 @@ class DownloadCache(
         val onlineSources = sourceManager.getVisibleOnlineSources()
         // SY <--
 
-        val sourceDirs =
+        // A source has a folder for each filename setting it was downloaded under, so every
+        // valid name maps to it, and its folders are merged into one entry.
+        val sourceIdsByDirName =
+            onlineSources
+                .flatMap { source -> provider.getValidSourceDirNames(source).map { it to source.id } }
+                .toMap()
+
+        rootDir.files =
             rootDir.dir.listFiles()
                 .orEmpty()
-                .associate { it.name to SourceDirectory(it) }
-                .mapNotNullKeys { entry ->
-                    onlineSources.find { provider.getSourceDirName(it) == entry.key }?.id
-                }
+                .groupBy { sourceIdsByDirName[it.name] }
+                .mapNotNullKeys { it.key }
+                .mapValues { (_, dirs) -> SourceDirectory(readMangaDirs(dirs)) }
+    }
 
-        rootDir.files = sourceDirs
-
-        sourceDirs.values.forEach { sourceDir ->
-            val mangaDirs =
-                sourceDir.dir.listFiles()
-                    .orEmpty()
-                    .associateNotNullKeys { it.name to MangaDirectory(it) }
-
-            sourceDir.files = mangaDirs
-
-            mangaDirs.values.forEach { mangaDir ->
-                val chapterDirs =
-                    mangaDir.dir.listFiles()
-                        .orEmpty()
-                        .mapNotNull { it.name }
-                        .toHashSet()
-
-                mangaDir.files = chapterDirs
+    /**
+     * Reads the manga folders under [sourceDirs], merging folders of the same name.
+     */
+    private fun readMangaDirs(sourceDirs: List<UniFile>): Map<String, MangaDirectory> {
+        val mangaDirs = HashMap<String, MangaDirectory>()
+        sourceDirs.forEach { sourceDir ->
+            sourceDir.listFiles().orEmpty().forEach { mangaDir ->
+                val name = mangaDir.name ?: return@forEach
+                val chapterDirs = mangaDir.listFiles().orEmpty().mapNotNullTo(HashSet()) { it.name }
+                val cached = mangaDirs.getOrPut(name) { MangaDirectory() }
+                cached.files += chapterDirs
             }
         }
+        return mangaDirs
+    }
+
+    /**
+     * Returns the cached folders of [manga], one for each filename setting it was downloaded under.
+     */
+    private fun SourceDirectory.mangaDirsOf(manga: Manga): List<MangaDirectory> {
+        return provider.getValidMangaDirNames(manga).distinct().mapNotNull { files[it] }
     }
 
     /**
@@ -190,17 +187,16 @@ class DownloadCache(
         // Retrieve the cached source directory or cache a new one
         var sourceDir = rootDir.files[manga.source]
         if (sourceDir == null) {
-            val source = sourceManager.get(manga.source) ?: return
-            val sourceUniFile = provider.findSourceDir(source) ?: return
-            sourceDir = SourceDirectory(sourceUniFile)
+            sourceDir = SourceDirectory()
             rootDir.files += manga.source to sourceDir
         }
 
-        // Retrieve the cached manga directory or cache a new one
-        val mangaDirName = provider.getMangaDirName(manga)
+        // Retrieve the cached manga directory or cache a new one. Key it by the folder's own
+        // name, which may be the one the other filename setting builds.
+        val mangaDirName = mangaUniFile.name ?: provider.getMangaDirName(manga)
         var mangaDir = sourceDir.files[mangaDirName]
         if (mangaDir == null) {
-            mangaDir = MangaDirectory(mangaUniFile)
+            mangaDir = MangaDirectory()
             sourceDir.files += mangaDirName to mangaDir
         }
 
@@ -219,13 +215,7 @@ class DownloadCache(
         chapter: Chapter,
         manga: Manga
     ) {
-        val sourceDir = rootDir.files[manga.source] ?: return
-        val mangaDir = sourceDir.files[provider.getMangaDirName(manga)] ?: return
-        provider.getValidChapterDirNames(chapter).forEach {
-            if (it in mangaDir.files) {
-                mangaDir.files -= it
-            }
-        }
+        removeChapters(listOf(chapter), manga)
     }
 
     /**
@@ -240,13 +230,9 @@ class DownloadCache(
         manga: Manga
     ) {
         val sourceDir = rootDir.files[manga.source] ?: return
-        val mangaDir = sourceDir.files[provider.getMangaDirName(manga)] ?: return
-        chapters.forEach { chapter ->
-            provider.getValidChapterDirNames(chapter).forEach {
-                if (it in mangaDir.files) {
-                    mangaDir.files -= it
-                }
-            }
+        val chapterDirNames = chapters.flatMap { provider.getValidChapterDirNames(it) }
+        sourceDir.mangaDirsOf(manga).forEach { mangaDir ->
+            mangaDir.files -= chapterDirNames
         }
     }
 
@@ -258,10 +244,7 @@ class DownloadCache(
     @Synchronized
     fun removeManga(manga: Manga) {
         val sourceDir = rootDir.files[manga.source] ?: return
-        val mangaDirName = provider.getMangaDirName(manga)
-        if (mangaDirName in sourceDir.files) {
-            sourceDir.files -= mangaDirName
-        }
+        sourceDir.files -= provider.getValidMangaDirNames(manga)
     }
 
     /**
@@ -276,7 +259,6 @@ class DownloadCache(
      * Class to store the files under a source directory.
      */
     private class SourceDirectory(
-        val dir: UniFile,
         var files: Map<String, MangaDirectory> = hashMapOf()
     )
 
@@ -284,7 +266,6 @@ class DownloadCache(
      * Class to store the files under a manga directory.
      */
     private class MangaDirectory(
-        val dir: UniFile,
         var files: Set<String> = hashSetOf()
     )
 
@@ -294,20 +275,6 @@ class DownloadCache(
     private inline fun <K, V, R> Map<out K, V>.mapNotNullKeys(transform: (Map.Entry<K?, V>) -> R?): Map<R, V> {
         val destination = LinkedHashMap<R, V>()
         forEach { element -> transform(element)?.let { destination[it] = element.value } }
-        return destination
-    }
-
-    /**
-     * Returns a map from a list containing only the key entries of [transform] that are not null.
-     */
-    private inline fun <T, K, V> Array<T>.associateNotNullKeys(transform: (T) -> Pair<K?, V>): Map<K, V> {
-        val destination = LinkedHashMap<K, V>()
-        for (element in this) {
-            val (key, value) = transform(element)
-            if (key != null) {
-                destination[key] = value
-            }
-        }
         return destination
     }
 }
