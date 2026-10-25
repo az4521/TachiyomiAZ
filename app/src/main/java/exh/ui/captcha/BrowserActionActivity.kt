@@ -20,6 +20,7 @@ import eu.kanade.tachiyomi.network.asObservableSuccess
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.source.online.HttpSource
+import eu.kanade.tachiyomi.util.system.toWebViewHeaders
 import exh.source.DelegatedHttpSource
 import exh.util.melt
 import kotlinx.serialization.json.Json
@@ -185,7 +186,7 @@ class BrowserActionActivity : AppCompatActivity() {
                 HeadersInjectingWebViewClient(this, verifyComplete, script, headers)
             }
 
-        binding.webview.loadUrl(url, headers)
+        binding.webview.loadUrl(url, headers.toWebViewHeaders())
 
         setSupportActionBar(binding.toolbar)
 

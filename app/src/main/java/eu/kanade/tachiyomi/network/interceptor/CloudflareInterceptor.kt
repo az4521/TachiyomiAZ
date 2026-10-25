@@ -11,6 +11,7 @@ import androidx.core.content.ContextCompat
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.network.AndroidCookieJar
 import eu.kanade.tachiyomi.util.system.isOutdated
+import eu.kanade.tachiyomi.util.system.toWebViewHeaders
 import eu.kanade.tachiyomi.util.system.toast
 import okhttp3.Cookie
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -81,7 +82,7 @@ class CloudflareInterceptor(
         var isWebViewOutdated = false
 
         val origRequestUrl = originalRequest.url.toString()
-        val headers = parseHeaders(originalRequest.headers)
+        val headers = originalRequest.headers.toWebViewHeaders()
 
         executor.execute {
             val view = createWebView(originalRequest)

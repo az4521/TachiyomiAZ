@@ -22,8 +22,10 @@ import eu.kanade.tachiyomi.util.system.getResourceColor
 import eu.kanade.tachiyomi.util.system.openInBrowser
 import eu.kanade.tachiyomi.util.system.setDefaultSettings
 import eu.kanade.tachiyomi.util.system.setUserAgent
+import eu.kanade.tachiyomi.util.system.toWebViewHeaders
 import eu.kanade.tachiyomi.util.system.toast
 import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import uy.kohesive.injekt.injectLazy
 
 class WebViewActivity : BaseWebViewActivity() {
@@ -36,11 +38,12 @@ class WebViewActivity : BaseWebViewActivity() {
         if (bundle == null) {
             val url = intent.extras!!.getString(URL_KEY) ?: return
 
-            var headers = mutableMapOf<String, String>()
+            var headers = mapOf<String, String>()
             val source = sourceManager.get(intent.extras!!.getLong(SOURCE_KEY)) as? HttpSource
             if (source != null) {
-                headers = source.headers.toMultimap().mapValues { it.value.getOrNull(0) ?: "" }.toMutableMap()
+                headers = source.headers.toWebViewHeaders()
             }
+            val headersHost = url.toHttpUrlOrNull()?.host
 
             binding.webview.setDefaultSettings()
             // Use the same identity (and client-hint metadata) as the network client
@@ -75,6 +78,11 @@ class WebViewActivity : BaseWebViewActivity() {
                         url: String
                     ): Boolean {
                         if (url.startsWith("blob:http")) {
+                            return false
+                        }
+
+                        // Only send source headers to the source itself
+                        if (url.toHttpUrlOrNull()?.host != headersHost) {
                             return false
                         }
 

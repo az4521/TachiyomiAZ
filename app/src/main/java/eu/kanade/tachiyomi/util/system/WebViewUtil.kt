@@ -11,6 +11,8 @@ import android.webkit.WebView
 import androidx.webkit.UserAgentMetadata
 import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewFeature
+import okhttp3.Headers
+import java.util.Locale
 
 object WebViewUtil {
     val WEBVIEW_UA_VERSION_REGEX by lazy {
@@ -175,3 +177,35 @@ private fun getWebViewUA(webview: WebView): String {
 
     return defaultUA
 }
+
+/**
+ * Source headers that are safe to hand to [WebView.loadUrl]. Chromium rejects some request headers
+ * outright, and kills the renderer (taking the app down with it) when an Origin header doesn't
+ * match the page making the request, which sources like keiyoushi's set on every request.
+ */
+fun Headers.toWebViewHeaders(): Map<String, String> {
+    return this
+        .filter { (name, value) -> isRequestHeaderSafe(name, value) }
+        .groupBy(keySelector = { (name, _) -> name }) { (_, value) -> value }
+        .mapValues { it.value.getOrNull(0).orEmpty() }
+}
+
+fun Map<String, String>.toWebViewHeaders(): Map<String, String> {
+    return filter { (name, value) -> isRequestHeaderSafe(name, value) }
+}
+
+// Based on [IsRequestHeaderSafe] in
+// https://source.chromium.org/chromium/chromium/src/+/main:services/network/public/cpp/header_util.cc
+private fun isRequestHeaderSafe(_name: String, _value: String): Boolean {
+    val name = _name.lowercase(Locale.ENGLISH)
+    val value = _value.lowercase(Locale.ENGLISH)
+    if (name in unsafeHeaderNames || name.startsWith("proxy-")) return false
+    if (name == "connection" && value == "upgrade") return false
+    return true
+}
+
+private val unsafeHeaderNames = listOf(
+    "content-length", "host", "trailer", "te", "upgrade", "cookie2", "keep-alive", "transfer-encoding", "set-cookie",
+    // The renderer is killed if it doesn't match the request initiator
+    "origin"
+)
