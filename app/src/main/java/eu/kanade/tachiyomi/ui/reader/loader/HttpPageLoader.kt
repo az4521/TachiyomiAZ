@@ -89,7 +89,7 @@ class HttpPageLoader(
                 while (isActive) {
                     try {
                         val page = queue.take().page
-                        if (page.status == Page.QUEUE) {
+                        if (claimPage(page)) {
                             loadPageSafely(page)
                         }
                     } catch (e: InterruptedException) {
@@ -410,9 +410,25 @@ class HttpPageLoader(
             // Avoid racing the forced request with a stale queued copy of the same page.
             queue.filter { it.page === page }.forEach(queue::remove)
             scope.launch(Dispatchers.IO) {
-                loadPageSafely(page)
+                if (claimPage(page)) {
+                    loadPageSafely(page)
+                }
             }
         }
     }
     // EXH <--
+
+    /**
+     * Moves [page] out of QUEUE so only one caller loads it. A page can sit in the queue more than
+     * once (aggressive loading, getPage, preloading), and two workers that both saw QUEUE used to
+     * download it together; the loser's cache edit then failed and the page showed as an error.
+     * Pages whose image URL is already known (cached page lists, sources like HentaiNexus) never
+     * left QUEUE until the download began, so they hit this most.
+     */
+    private fun claimPage(page: ReaderPage): Boolean =
+        synchronized(page) {
+            if (page.status != Page.QUEUE) return false
+            page.status = Page.LOAD_PAGE
+            true
+        }
 }
