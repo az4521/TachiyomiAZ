@@ -17,12 +17,15 @@ class UncaughtExceptionInterceptor : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         return try {
             chain.proceed(chain.request())
-        } catch (e: Exception) {
-            if (e is IOException) {
-                throw e
-            } else {
-                throw IOException(e)
-            }
+        } catch (e: IOException) {
+            throw e
+        } catch (e: VirtualMachineError) {
+            throw e
+        } catch (e: Throwable) {
+            // Errors too: an extension built against a newer library can throw a LinkageError
+            // here, and OkHttp rethrows anything that isn't an IOException on its dispatcher
+            // thread, which takes the whole app down.
+            throw IOException(e)
         }
     }
 }

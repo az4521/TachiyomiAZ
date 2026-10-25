@@ -34,6 +34,7 @@ import eu.kanade.tachiyomi.util.system.dpToPx
 import eu.kanade.tachiyomi.util.system.withIOContext
 import eu.kanade.tachiyomi.util.view.gone
 import eu.kanade.tachiyomi.util.view.visible
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
@@ -41,6 +42,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import timber.log.Timber
 import java.io.InputStream
 
 /**
@@ -314,6 +316,13 @@ class WebtoonPageHolder(
                     // The views read from the stream lazily, so it must stay open until this
                     // job is cancelled. Observable.never + doOnUnsubscribe did the same.
                     awaitCancellation()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    // This runs on the main scope, so anything thrown here (a cache file evicted
+                    // or never written after a failed download) would otherwise crash the app.
+                    Timber.e(e)
+                    onImageDecodeError()
                 } finally {
                     openStream?.close()
                 }
