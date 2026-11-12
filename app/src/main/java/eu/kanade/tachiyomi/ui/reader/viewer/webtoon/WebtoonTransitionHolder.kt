@@ -42,7 +42,9 @@ class WebtoonTransitionHolder(
         }
 
     init {
-        layout.layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
+        // Horizontally the transition fills the screen height instead of sitting at the top
+        layout.layoutParams =
+            LinearLayout.LayoutParams(MATCH_PARENT, if (viewer.isHorizontal) MATCH_PARENT else WRAP_CONTENT)
         layout.orientation = LinearLayout.VERTICAL
         layout.gravity = Gravity.CENTER
 

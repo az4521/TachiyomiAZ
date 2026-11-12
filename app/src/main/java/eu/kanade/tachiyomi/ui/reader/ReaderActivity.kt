@@ -102,6 +102,11 @@ class ReaderActivity : BaseRxActivity<ReaderActivityBinding, ReaderPresenter>() 
         private set
 
     /**
+     * Whether this viewer reads right to left, so the page slider and chapter buttons flip.
+     */
+    private fun BaseViewer?.isRtl(): Boolean = this is R2LPagerViewer || (this as? WebtoonViewer)?.isReversed == true
+
+    /**
      * Whether the menu is currently visible.
      */
     var menuVisible = false
@@ -381,7 +386,7 @@ class ReaderActivity : BaseRxActivity<ReaderActivityBinding, ReaderPresenter>() 
         )
         binding.leftChapter.setOnClickListener {
             if (viewer != null) {
-                if (viewer is R2LPagerViewer) {
+                if (viewer.isRtl()) {
                     loadNextChapter()
                 } else {
                     loadPreviousChapter()
@@ -390,7 +395,7 @@ class ReaderActivity : BaseRxActivity<ReaderActivityBinding, ReaderPresenter>() 
         }
         binding.rightChapter.setOnClickListener {
             if (viewer != null) {
-                if (viewer is R2LPagerViewer) {
+                if (viewer.isRtl()) {
                     loadPreviousChapter()
                 } else {
                     loadNextChapter()
@@ -675,7 +680,7 @@ class ReaderActivity : BaseRxActivity<ReaderActivityBinding, ReaderPresenter>() 
 
         binding.toolbar.title = manga.title
 
-        binding.pageSeekbar.isRTL = newViewer is R2LPagerViewer
+        binding.pageSeekbar.isRTL = newViewer.isRtl()
 
         binding.pleaseWait.visible()
         binding.pleaseWait.startAnimation(AnimationUtils.loadAnimation(this, R.anim.fade_in_long))
@@ -761,7 +766,7 @@ class ReaderActivity : BaseRxActivity<ReaderActivityBinding, ReaderPresenter>() 
         binding.pageNumber.text = "${page.number}/${pages.size}"
 
         // Set seekbar page number
-        if (viewer !is R2LPagerViewer) {
+        if (!viewer.isRtl()) {
             binding.leftPageText.text = "${page.number}"
             binding.rightPageText.text = "${pages.size}"
         } else {

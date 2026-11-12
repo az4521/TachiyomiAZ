@@ -19,9 +19,12 @@ class WebtoonLayoutManager(
     reverse: Boolean = false
 ) : LinearLayoutManager(activity, orientation, reverse) {
     /**
-     * Extra layout space is set to half the screen height.
+     * Extra layout space is set to half the screen size along the scroll direction.
      */
-    private val extraLayoutSpace = activity.resources.displayMetrics.heightPixels / 2
+    private val extraLayoutSpace =
+        activity.resources.displayMetrics.let {
+            if (orientation == HORIZONTAL) it.widthPixels else it.heightPixels
+        } / 2
 
     init {
         isItemPrefetchEnabled = false
@@ -35,25 +38,25 @@ class WebtoonLayoutManager(
     }
 
     /**
-     * Returns the position of the last item whose end side is visible on screen.
+     * Returns the position of the last item whose end side, in reading order, is visible on screen.
+     * With a reversed layout the reading end of an item is its left (or top) edge.
      */
     fun findLastEndVisibleItemPosition(): Int {
         ensureLayoutState()
-        @ViewBoundsCheck.ViewBounds val preferredBoundsFlag =
-            (ViewBoundsCheck.FLAG_CVE_LT_PVE or ViewBoundsCheck.FLAG_CVE_EQ_PVE)
-
-        val fromIndex = childCount - 1
-        val toIndex = -1
-
-        val child =
-            if (mOrientation == HORIZONTAL) {
-                mHorizontalBoundCheck
-                    .findOneViewWithinBoundFlags(fromIndex, toIndex, preferredBoundsFlag, 0)
-            } else {
-                mVerticalBoundCheck
-                    .findOneViewWithinBoundFlags(fromIndex, toIndex, preferredBoundsFlag, 0)
+        val helper = mOrientationHelper
+        var result = NO_POSITION
+        for (i in 0 until childCount) {
+            val child = getChildAt(i) ?: continue
+            val endVisible =
+                if (reverseLayout) {
+                    helper.getDecoratedStart(child) >= helper.startAfterPadding
+                } else {
+                    helper.getDecoratedEnd(child) <= helper.endAfterPadding
+                }
+            if (endVisible) {
+                result = maxOf(result, getPosition(child))
             }
-
-        return if (child == null) NO_POSITION else getPosition(child)
+        }
+        return result
     }
 }

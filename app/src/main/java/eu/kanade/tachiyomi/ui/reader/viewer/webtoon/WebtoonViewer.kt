@@ -56,7 +56,10 @@ class WebtoonViewer(
     /**
      * Distance to scroll when the user taps on one side of the recycler view.
      */
-    private var scrollDistance = activity.resources.displayMetrics.heightPixels * 3 / 4
+    private var scrollDistance =
+        activity.resources.displayMetrics.let {
+            if (isHorizontal) it.widthPixels else it.heightPixels
+        } * 3 / 4
 
     /**
      * Currently active item. It can be a chapter page or a chapter transition.
@@ -100,7 +103,9 @@ class WebtoonViewer(
                         }
                     }
 
-                    if (dy < 0) {
+                    // Scrolling back towards the previous chapter
+                    val delta = if (isHorizontal) dx else dy
+                    if (if (isReversed) delta > 0 else delta < 0) {
                         val firstIndex = layoutManager.findFirstVisibleItemPosition()
                         val firstItem = adapter.items.getOrNull(firstIndex)
                         if (firstItem is ChapterTransition.Prev && firstItem.to != null) {
@@ -115,14 +120,15 @@ class WebtoonViewer(
             val positionY = event.rawY
             val inverted = config.tappingInverted
             when {
-                positionY < recycler.height * 0.33 && config.tappingEnabled ->
+                positionY < frame.height * 0.33 && config.tappingEnabled ->
                     if (inverted) scrollDown() else scrollUp()
-                positionY > recycler.height * 0.66 && config.tappingEnabled ->
+                positionY > frame.height * 0.66 && config.tappingEnabled ->
                     if (inverted) scrollUp() else scrollDown()
-                positionX < recycler.width * 0.33 && config.tappingEnabled ->
-                    if (inverted) scrollDown() else scrollUp()
-                positionX > recycler.width * 0.66 && config.tappingEnabled ->
-                    if (inverted) scrollUp() else scrollDown()
+                // Reading right to left, the left side of the screen moves forward
+                positionX < frame.width * 0.33 && config.tappingEnabled ->
+                    if (inverted != isReversed) scrollDown() else scrollUp()
+                positionX > frame.width * 0.66 && config.tappingEnabled ->
+                    if (inverted != isReversed) scrollUp() else scrollDown()
                 else -> activity.toggleMenu()
             }
         }
@@ -260,7 +266,7 @@ class WebtoonViewer(
      * Scrolls up by [scrollDistance].
      */
     private fun scrollUp() {
-        recycler.smoothScrollBy(0, -scrollDistance)
+        scrollBy(-scrollDistance)
     }
 
     /**
@@ -268,7 +274,18 @@ class WebtoonViewer(
      */
     // [EXH] private
     fun scrollDown() {
-        recycler.smoothScrollBy(0, scrollDistance)
+        scrollBy(scrollDistance)
+    }
+
+    /**
+     * Scrolls by [distance] along the reading direction; a positive distance moves forward.
+     */
+    private fun scrollBy(distance: Int) {
+        if (isHorizontal) {
+            recycler.smoothScrollBy(if (isReversed) -distance else distance, 0)
+        } else {
+            recycler.smoothScrollBy(0, distance)
+        }
     }
 
     /**
@@ -295,12 +312,20 @@ class WebtoonViewer(
             }
             KeyEvent.KEYCODE_MENU -> if (isUp) activity.toggleMenu()
 
-            KeyEvent.KEYCODE_DPAD_RIGHT,
+            // Left to right horizontal reading moves forward with the right arrow
+            KeyEvent.KEYCODE_DPAD_RIGHT ->
+                if (isUp) {
+                    if (isHorizontal && !isReversed) scrollDown() else scrollUp()
+                }
+            KeyEvent.KEYCODE_DPAD_LEFT ->
+                if (isUp) {
+                    if (isHorizontal && !isReversed) scrollUp() else scrollDown()
+                }
+
             KeyEvent.KEYCODE_DPAD_UP,
             KeyEvent.KEYCODE_PAGE_UP
             -> if (isUp) scrollUp()
 
-            KeyEvent.KEYCODE_DPAD_LEFT,
             KeyEvent.KEYCODE_DPAD_DOWN,
             KeyEvent.KEYCODE_PAGE_DOWN
             -> if (isUp) scrollDown()

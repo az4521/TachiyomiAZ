@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.res.Resources
 import android.graphics.drawable.Drawable
 import android.view.Gravity
+import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
@@ -94,6 +95,36 @@ class WebtoonPageHolder(
         get() = viewer.recycler.height
 
     /**
+     * Getter to retrieve the width of the recycler view.
+     */
+    private val parentWidth
+        get() = viewer.recycler.width
+
+    /**
+     * Adds a [view] that takes a full screen along the scroll direction, so the holder keeps a
+     * screen's worth of size while it has no image.
+     */
+    private fun addScreenSizedView(view: View) {
+        if (viewer.isHorizontal) {
+            frame.addView(view, parentWidth, MATCH_PARENT)
+        } else {
+            frame.addView(view, MATCH_PARENT, parentHeight)
+        }
+    }
+
+    /**
+     * Adds an image [view] sized to the screen across the scroll direction, and to the image's
+     * aspect ratio along it.
+     */
+    private fun addImageView(view: View) {
+        if (viewer.isHorizontal) {
+            frame.addView(view, WRAP_CONTENT, MATCH_PARENT)
+        } else {
+            frame.addView(view, MATCH_PARENT, MATCH_PARENT)
+        }
+    }
+
+    /**
      * Page of a chapter.
      */
     private var page: ReaderPage? = null
@@ -129,14 +160,23 @@ class WebtoonPageHolder(
 
     private fun refreshLayoutParams() {
         frame.layoutParams =
-            FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
-                if (!viewer.isContinuous) {
-                    bottomMargin = 15.dpToPx
+            if (viewer.isHorizontal) {
+                // Pages fill the height and take their width from the image
+                FrameLayout.LayoutParams(WRAP_CONTENT, MATCH_PARENT).apply {
+                    val margin = Resources.getSystem().displayMetrics.heightPixels * (viewer.config.sidePadding / 100f)
+                    topMargin = margin.toInt()
+                    bottomMargin = margin.toInt()
                 }
+            } else {
+                FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
+                    if (!viewer.isContinuous) {
+                        bottomMargin = 15.dpToPx
+                    }
 
-                val margin = Resources.getSystem().displayMetrics.widthPixels * (viewer.config.sidePadding / 100f)
-                marginEnd = margin.toInt()
-                marginStart = margin.toInt()
+                    val margin = Resources.getSystem().displayMetrics.widthPixels * (viewer.config.sidePadding / 100f)
+                    marginEnd = margin.toInt()
+                    marginStart = margin.toInt()
+                }
             }
     }
 
@@ -360,7 +400,7 @@ class WebtoonPageHolder(
     @SuppressLint("PrivateResource")
     private fun createProgressBar(): ReaderProgressBar {
         progressContainer = FrameLayout(context)
-        frame.addView(progressContainer, MATCH_PARENT, parentHeight)
+        addScreenSizedView(progressContainer)
 
         val progress =
             ReaderProgressBar(context).apply {
@@ -387,7 +427,13 @@ class WebtoonPageHolder(
             WebtoonSubsamplingImageView(context).apply {
                 setMaxTileSize(viewer.activity.maxBitmapSize)
                 setPanLimit(SubsamplingScaleImageView.PAN_LIMIT_INSIDE)
-                setMinimumScaleType(SubsamplingScaleImageView.SCALE_TYPE_FIT_WIDTH)
+                setMinimumScaleType(
+                    if (viewer.isHorizontal) {
+                        SubsamplingScaleImageView.SCALE_TYPE_FIT_HEIGHT
+                    } else {
+                        SubsamplingScaleImageView.SCALE_TYPE_FIT_WIDTH
+                    }
+                )
                 setMinimumDpi(90)
                 setMinimumTileDpi(180)
                 setCropBorders(config.imageCropBorders)
@@ -403,7 +449,7 @@ class WebtoonPageHolder(
                     }
                 )
             }
-        frame.addView(subsamplingImageView, MATCH_PARENT, MATCH_PARENT)
+        addImageView(subsamplingImageView!!)
         return subsamplingImageView!!
     }
 
@@ -417,7 +463,7 @@ class WebtoonPageHolder(
             AppCompatImageView(context).apply {
                 adjustViewBounds = true
             }
-        frame.addView(imageView, MATCH_PARENT, MATCH_PARENT)
+        addImageView(imageView!!)
         return imageView!!
     }
 
@@ -428,7 +474,7 @@ class WebtoonPageHolder(
         if (retryContainer != null) return retryContainer!!
 
         retryContainer = FrameLayout(context)
-        frame.addView(retryContainer, MATCH_PARENT, parentHeight)
+        addScreenSizedView(retryContainer!!)
 
         AppCompatButton(context).apply {
             layoutParams =
@@ -457,7 +503,11 @@ class WebtoonPageHolder(
         val decodeLayout =
             LinearLayout(context).apply {
                 layoutParams =
-                    LinearLayout.LayoutParams(MATCH_PARENT, parentHeight).apply {
+                    if (viewer.isHorizontal) {
+                        LinearLayout.LayoutParams(parentWidth, MATCH_PARENT)
+                    } else {
+                        LinearLayout.LayoutParams(MATCH_PARENT, parentHeight)
+                    }.apply {
                         setMargins(0, parentHeight / 6, 0, 0)
                     }
                 gravity = Gravity.CENTER_HORIZONTAL

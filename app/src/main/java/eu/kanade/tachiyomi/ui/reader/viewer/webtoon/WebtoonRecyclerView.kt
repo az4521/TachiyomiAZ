@@ -31,6 +31,8 @@ constructor(
     private var halfHeight = 0
     private var originalHeight = 0
     private var heightSet = false
+    private var originalWidth = 0
+    private var widthSet = false
     private var firstVisibleItemPosition = 0
     private var lastVisibleItemPosition = 0
     private var currentScale = DEFAULT_RATE
@@ -41,6 +43,19 @@ constructor(
     var tapListener: ((MotionEvent) -> Unit)? = null
     var longTapListener: ((MotionEvent) -> Boolean)? = null
 
+    /**
+     * Whether pages scroll sideways. The scroll axis is panned by the recycler itself, so while
+     * zoomed only the other axis is panned by translating this view.
+     */
+    private val isHorizontal: Boolean
+        get() = (layoutManager as? LinearLayoutManager)?.orientation == RecyclerView.HORIZONTAL
+
+    /**
+     * Whether the recycler can't scroll any further, so the scroll axis is panned by translation.
+     */
+    private val atEdge: Boolean
+        get() = atFirstPosition || atLastPosition
+
     override fun onMeasure(
         widthSpec: Int,
         heightSpec: Int
@@ -50,6 +65,10 @@ constructor(
         if (!heightSet) {
             originalHeight = MeasureSpec.getSize(heightSpec)
             heightSet = true
+        }
+        if (!widthSet) {
+            originalWidth = MeasureSpec.getSize(widthSpec)
+            widthSet = true
         }
         super.onMeasure(widthSpec, heightSpec)
     }
@@ -81,7 +100,8 @@ constructor(
 
     private fun getPositionX(positionX: Float): Float {
         if (currentScale < 1) {
-            return 0f
+            // Zoomed out horizontally the view is widened, so keep its left edge on screen
+            return if (isHorizontal) (originalWidth / 2 - halfWidth).toFloat() else 0f
         }
         val maxPositionX = halfWidth * (currentScale - 1)
         return positionX.coerceIn(-maxPositionX, maxPositionX)
@@ -89,7 +109,7 @@ constructor(
 
     private fun getPositionY(positionY: Float): Float {
         if (currentScale < 1) {
-            return (originalHeight / 2 - halfHeight).toFloat()
+            return if (isHorizontal) 0f else (originalHeight / 2 - halfHeight).toFloat()
         }
         val maxPositionY = halfHeight * (currentScale - 1)
         return positionY.coerceIn(-maxPositionY, maxPositionY)
@@ -127,6 +147,9 @@ constructor(
                 override fun onAnimationEnd(animation: Animator) {
                     isZooming = false
                     currentScale = toRate
+                    // The view was resized for a zoom below 1, size it back for the new scale
+                    updateLayoutSize()
+                    requestLayout()
                 }
 
                 override fun onAnimationCancel(animation: Animator) {
@@ -148,11 +171,11 @@ constructor(
         var newX: Float? = null
         var newY: Float? = null
 
-        if (velocityX != 0) {
+        if (velocityX != 0 && (!isHorizontal || atEdge)) {
             val dx = (distanceTimeFactor * velocityX / 2)
             newX = getPositionX(x + dx)
         }
-        if (velocityY != 0 && (atFirstPosition || atLastPosition)) {
+        if (velocityY != 0 && (isHorizontal || atEdge)) {
             val dy = (distanceTimeFactor * velocityY / 2)
             newY = getPositionY(y + dy)
         }
@@ -196,13 +219,7 @@ constructor(
 
         setScaleRate(currentScale)
 
-        layoutParams.height =
-            if (currentScale < 1) {
-                (originalHeight / currentScale).toInt()
-            } else {
-                originalHeight
-            }
-        halfHeight = layoutParams.height / 2
+        updateLayoutSize()
 
         if (currentScale != DEFAULT_RATE) {
             x = getPositionX(x)
@@ -213,6 +230,30 @@ constructor(
         }
 
         requestLayout()
+    }
+
+    /**
+     * Grows the view along the scroll axis while zoomed out, so more pages fill the screen
+     * instead of black borders.
+     */
+    private fun updateLayoutSize() {
+        if (isHorizontal) {
+            layoutParams.width =
+                if (currentScale < 1) {
+                    (originalWidth / currentScale).toInt()
+                } else {
+                    originalWidth
+                }
+            halfWidth = layoutParams.width / 2
+        } else {
+            layoutParams.height =
+                if (currentScale < 1) {
+                    (originalHeight / currentScale).toInt()
+                } else {
+                    originalHeight
+                }
+            halfHeight = layoutParams.height / 2
+        }
     }
 
     fun onScaleBegin() {
@@ -295,8 +336,8 @@ constructor(
 
                     val x = (ev.getX(index) + 0.5f).toInt()
                     val y = (ev.getY(index) + 0.5f).toInt()
-                    var dx = x - downX
-                    var dy = if (atFirstPosition || atLastPosition) y - downY else 0
+                    var dx = if (!isHorizontal || atEdge) x - downX else 0
+                    var dy = if (isHorizontal || atEdge) y - downY else 0
 
                     if (!isZoomDragging && currentScale > 1f) {
                         var startScroll = false
